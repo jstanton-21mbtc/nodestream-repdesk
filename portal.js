@@ -237,26 +237,166 @@
     });
   })();
 
-  // ---- Tasks ----
+  // ---- Tasks (localStorage-backed, full CRUD) ----
+  var NS_TASKS_KEY = 'ns_tasks_v1';
   (function(){
-    var list=$("#taskList"); if(!list||!DATA.tasks) return;
+    var list = $("#taskList"); if(!list) return;
+
+    // Load or seed from portal-data
+    var tasks;
+    try{ tasks = JSON.parse(localStorage.getItem(NS_TASKS_KEY)||'null'); }catch(e){ tasks=null; }
+    if(!tasks){
+      tasks = (DATA.tasks||[]).map(function(t,i){
+        return {id:'seed'+i, text:t.t, meta:t.m||'', done:!!t.done};
+      }).filter(function(t){ return !t.done; }); // only seed open ones
+      localStorage.setItem(NS_TASKS_KEY, JSON.stringify(tasks));
+    }
+
+    function saveTasks(){ localStorage.setItem(NS_TASKS_KEY, JSON.stringify(tasks)); }
+
+    var isAdding = false;
+    var editingId = null;
+
     function render(){
-      list.innerHTML=""; var open=0;
-      DATA.tasks.forEach(function(t,i){
-        if(!t.done) open++;
-        var row=document.createElement("label");
-        row.className="task"+(t.done?" done":"");
-        row.innerHTML='<input type="checkbox" '+(t.done?"checked":"")+' data-i="'+i+'">'+
-          '<span><span class="tt">'+t.t+'</span><span class="tm">'+t.m+'</span></span>';
+      var open = tasks.filter(function(t){ return !t.done; });
+      var done = tasks.filter(function(t){ return  t.done; });
+      var tc = $("#taskCount");
+      if(tc) tc.textContent = open.length ? open.length+' open' : '';
+      list.innerHTML = '';
+
+      // Empty state
+      if(!open.length && !isAdding){
+        var emp = document.createElement('div');
+        emp.style.cssText = 'font-family:var(--mono);font-size:11px;color:var(--muted-2);text-align:center;padding:18px 0';
+        emp.textContent = done.length ? 'All done \u2014 nothing left.' : 'No tasks. Hit + Add to create one.';
+        list.appendChild(emp);
+      }
+
+      // Active tasks
+      open.forEach(function(t){
+        var row = document.createElement('div');
+        row.className = 'task';
+        if(editingId === t.id){
+          row.innerHTML =
+            '<input type="checkbox" disabled style="margin-top:3px;accent-color:var(--green);width:15px;height:15px;flex:none;opacity:.3">'+
+            '<div style="flex:1;display:flex;flex-direction:column;gap:6px">'+
+              '<input type="text" class="form-input ns-te-text" value="'+escHtml(t.text)+'" style="padding:6px 10px;font-size:13px" placeholder="Task description">'+
+              '<input type="text" class="form-input ns-te-meta" value="'+escHtml(t.meta)+'" style="padding:5px 10px;font-size:11px;font-family:var(--mono)" placeholder="Label / due (optional)">'+
+              '<div style="display:flex;gap:8px">'+
+                '<button class="btn-primary ns-te-save" data-id="'+t.id+'" style="padding:5px 13px;font-size:12px">Save</button>'+
+                '<button class="btn-ghost ns-te-cancel" style="padding:5px 13px;font-size:12px">Cancel</button>'+
+              '</div>'+
+            '</div>';
+        } else {
+          row.innerHTML =
+            '<input type="checkbox" class="ns-cb" data-id="'+t.id+'" style="margin-top:3px;accent-color:var(--green);width:15px;height:15px;flex:none;cursor:pointer">'+
+            '<div style="flex:1;min-width:0">'+
+              '<div class="tt">'+escHtml(t.text)+'</div>'+
+              (t.meta?'<div class="tm">'+escHtml(t.meta)+'</div>':'')+
+            '</div>'+
+            '<div style="display:flex;gap:2px;flex:none;align-items:center;opacity:0;transition:opacity .15s" class="ns-ta">'+
+              '<button class="ns-eb" data-id="'+t.id+'" title="Edit" style="background:none;border:none;color:var(--muted-2);cursor:pointer;padding:4px 6px;border-radius:6px;line-height:1;transition:.12s">'+
+                '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>'+
+              '</button>'+
+              '<button class="ns-db" data-id="'+t.id+'" title="Delete" style="background:none;border:none;color:var(--muted-2);cursor:pointer;padding:4px 6px;border-radius:6px;font-size:15px;line-height:1;transition:.12s">&times;</button>'+
+            '</div>';
+          // Show action buttons on row hover
+          row.addEventListener('mouseenter', function(){ var a=row.querySelector('.ns-ta'); if(a) a.style.opacity='1'; });
+          row.addEventListener('mouseleave', function(){ var a=row.querySelector('.ns-ta'); if(a) a.style.opacity='0'; });
+        }
         list.appendChild(row);
       });
-      $("#taskCount").textContent=open+" open";
+
+      // Add form
+      if(isAdding){
+        var addRow = document.createElement('div');
+        addRow.className = 'task';
+        addRow.innerHTML =
+          '<input type="checkbox" disabled style="margin-top:3px;width:15px;height:15px;flex:none;opacity:.3">'+
+          '<div style="flex:1;display:flex;flex-direction:column;gap:6px">'+
+            '<input type="text" class="form-input" id="nsNT" style="padding:6px 10px;font-size:13px" placeholder="What needs to be done?">'+
+            '<input type="text" class="form-input" id="nsNM" style="padding:5px 10px;font-size:11px;font-family:var(--mono)" placeholder="Label / due (optional)">'+
+            '<div style="display:flex;gap:8px">'+
+              '<button class="btn-primary" id="nsAS" style="padding:5px 13px;font-size:12px">Add</button>'+
+              '<button class="btn-ghost" id="nsAC" style="padding:5px 13px;font-size:12px">Cancel</button>'+
+            '</div>'+
+          '</div>';
+        list.appendChild(addRow);
+        setTimeout(function(){ var el=document.getElementById('nsNT'); if(el) el.focus(); }, 30);
+      }
+
+      // Done count + clear link
+      if(done.length){
+        var foot = document.createElement('div');
+        foot.style.cssText = 'display:flex;align-items:center;justify-content:flex-end;gap:8px;padding-top:10px;font-family:var(--mono);font-size:10px;color:var(--muted-2)';
+        foot.innerHTML = done.length+' completed &mdash; <button id="nsCLD" style="background:none;border:none;cursor:pointer;font-family:var(--mono);font-size:10px;color:var(--red);padding:0;text-decoration:underline">clear all</button>';
+        list.appendChild(foot);
+      }
     }
-    render();
-    list.addEventListener("change",function(e){
-      var cb=e.target.closest("input[type=checkbox]"); if(!cb) return;
-      DATA.tasks[+cb.dataset.i].done=cb.checked; render();
+
+    // Checkbox → mark done (hidden)
+    list.addEventListener('change', function(e){
+      var cb = e.target.closest('.ns-cb'); if(!cb) return;
+      var t = tasks.find(function(x){ return x.id===cb.dataset.id; });
+      if(t){ t.done=true; saveTasks(); render(); }
     });
+
+    list.addEventListener('click', function(e){
+      // Edit button
+      var eb = e.target.closest('.ns-eb');
+      if(eb){ editingId=eb.dataset.id; isAdding=false; render(); return; }
+
+      // Save edit
+      var se = e.target.closest('.ns-te-save');
+      if(se){
+        var row = se.closest('.task');
+        var txt = (row&&row.querySelector('.ns-te-text')||{}).value||'';
+        var met = (row&&row.querySelector('.ns-te-meta')||{}).value||'';
+        txt = txt.trim(); if(!txt) return;
+        var t = tasks.find(function(x){ return x.id===se.dataset.id; });
+        if(t){ t.text=txt; t.meta=met.trim(); saveTasks(); }
+        editingId=null; render(); return;
+      }
+
+      // Cancel edit
+      if(e.target.closest('.ns-te-cancel')){ editingId=null; render(); return; }
+
+      // Delete
+      var db = e.target.closest('.ns-db');
+      if(db){ tasks=tasks.filter(function(x){ return x.id!==db.dataset.id; }); saveTasks(); render(); return; }
+
+      // Save new task
+      if(e.target.id==='nsAS'){
+        var textEl=document.getElementById('nsNT'), metEl=document.getElementById('nsNM');
+        var txt2=(textEl&&textEl.value||'').trim(); if(!txt2) return;
+        tasks.unshift({id:'t'+Date.now(), text:txt2, meta:(metEl&&metEl.value||'').trim(), done:false});
+        saveTasks(); isAdding=false; render(); return;
+      }
+
+      // Cancel new
+      if(e.target.id==='nsAC'){ isAdding=false; render(); return; }
+
+      // Clear done
+      if(e.target.id==='nsCLD'){ tasks=tasks.filter(function(x){ return !x.done; }); saveTasks(); render(); return; }
+    });
+
+    // Enter key shortcuts
+    list.addEventListener('keydown', function(e){
+      if(e.key!=='Enter') return;
+      var nt=document.getElementById('nsNT'), nm=document.getElementById('nsNM');
+      var as=document.getElementById('nsAS');
+      if((e.target===nt||e.target===nm) && as){ e.preventDefault(); as.click(); return; }
+      var teText=list.querySelector('.ns-te-text'), teMeta=list.querySelector('.ns-te-meta');
+      var teSave=list.querySelector('.ns-te-save');
+      if((e.target===teText||e.target===teMeta) && teSave){ e.preventDefault(); teSave.click(); }
+    });
+
+    // Wire "+ Add" button in panel header
+    document.getElementById('addTaskBtn').addEventListener('click', function(){
+      isAdding=true; editingId=null; render();
+    });
+
+    render();
   })();
 
   // ============================================================
