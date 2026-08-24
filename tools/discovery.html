@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nodestream · GPUaaS Discovery & Scorecard</title>
+<style>
+  :root{
+    --ink:#0E1311;--panel:#141A17;--panel-2:#1B2420;--line:#2A352F;
+    --green:#3CA028;--green-bright:#4FD135;--green-dim:#2E7A1F;
+    --amber:#E0A73C;--text:#E8EFEA;--muted:#8A9A90;--muted-2:#5F6F66;--red:#D9584A;
+    --mono:"JetBrains Mono","SF Mono",ui-monospace,"Cascadia Code",Menlo,monospace;
+    --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    background:radial-gradient(1200px 600px at 80% -10%, rgba(60,160,40,.06), transparent 60%),var(--ink);
+    color:var(--text);font-family:var(--sans);line-height:1.5;
+    padding:clamp(16px,3vw,40px);min-height:100vh;
+  }
+  .wrap{max-width:1180px;margin:0 auto}
+  .masthead{display:flex;align-items:baseline;justify-content:space-between;gap:20px;flex-wrap:wrap;
+    border-bottom:1px solid var(--line);padding-bottom:18px;margin-bottom:26px}
+  .wordmark{font-weight:800;font-size:22px;letter-spacing:-.5px}
+  .wordmark .n{color:var(--green)} .wordmark .s{color:var(--text)}
+  .masthead .tag{font-family:var(--mono);font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)}
+  .masthead h1{font-size:13px;font-weight:500;color:var(--muted);font-family:var(--mono);letter-spacing:1px;text-transform:uppercase}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px;margin-bottom:20px}
+  .card h2{font-family:var(--mono);font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--green);
+    font-weight:600;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+  .card h2::before{content:"";width:6px;height:6px;background:var(--green);border-radius:50%;box-shadow:0 0 8px var(--green)}
+  .card .sub{font-size:12px;color:var(--muted-2);margin-bottom:18px;max-width:70ch}
+
+  /* ---- Router ---- */
+  .router{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:6px}
+  @media(max-width:760px){.router{grid-template-columns:1fr}}
+  .route{background:var(--panel-2);border:1px solid var(--line);border-radius:11px;padding:15px;cursor:pointer;transition:.15s;text-align:left}
+  .route:hover{border-color:var(--green-dim)}
+  .route.active{border-color:var(--green);box-shadow:0 0 0 2px rgba(60,160,40,.18)}
+  .route .said{font-size:12px;color:var(--muted);font-style:italic;margin-bottom:9px;line-height:1.4}
+  .route .who{font-family:var(--mono);font-size:14px;color:var(--green-bright);font-weight:600}
+  .route .sell{font-size:11px;color:var(--muted-2);margin-top:5px;line-height:1.4}
+
+  /* ---- Persona detail ---- */
+  .persona{display:none}
+  .persona.show{display:block;animation:fade .25s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  .persona-head{border-left:3px solid var(--green);background:rgba(60,160,40,.06);
+    padding:12px 16px;border-radius:0 8px 8px 0;margin-bottom:16px}
+  .persona-head .nm{font-size:18px;font-weight:700;color:var(--text)}
+  .persona-head .meta{font-size:12px;color:var(--muted);margin-top:4px}
+  .persona-head .q{font-size:13px;color:var(--green-bright);font-style:italic;margin-top:8px}
+  .col3{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+  @media(max-width:760px){.col3{grid-template-columns:1fr}}
+  .subhead{font-family:var(--mono);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;
+    margin:2px 0 10px;font-weight:600}
+  .subhead.disc{color:var(--muted)} .subhead.good{color:var(--green-bright)} .subhead.obj{color:var(--amber)}
+  ul.clean{list-style:none} ul.clean li{font-size:13px;color:var(--text);padding:6px 0 6px 16px;position:relative;line-height:1.45}
+  ul.clean li::before{content:"–";position:absolute;left:0;color:var(--green)}
+  .objbox{background:var(--panel-2);border:1px solid var(--line);border-radius:9px;padding:13px;margin-top:6px}
+  .objbox .o{font-size:13px;color:var(--amber);font-style:italic;margin-bottom:7px}
+  .objbox .a{font-size:13px;color:var(--text);line-height:1.5}
+  .objbox .a b{color:var(--green-bright)}
+
+  /* ---- Scorecard ---- */
+  .dim{display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;
+    padding:13px 0;border-bottom:1px solid var(--line)}
+  .dim:last-of-type{border-bottom:none}
+  .dim .label{font-weight:600;font-size:14px}
+  .dim .desc{font-size:12px;color:var(--muted-2);margin-top:3px;line-height:1.4}
+  .scale{display:flex;gap:6px}
+  .scale button{
+    width:38px;height:38px;border-radius:9px;border:1px solid var(--line);background:var(--panel-2);
+    color:var(--muted);font-family:var(--mono);font-size:15px;font-weight:600;cursor:pointer;transition:.12s;
+  }
+  .scale button:hover{border-color:var(--green-dim);color:var(--text)}
+  .scale button.sel{background:var(--green);border-color:var(--green);color:#08110A;box-shadow:0 0 12px rgba(79,209,53,.3)}
+  .scale button[data-v="0"].sel{background:var(--red);border-color:var(--red);color:#fff;box-shadow:none}
+
+  /* ---- Verdict ---- */
+  .verdict{position:sticky;bottom:14px;margin-top:22px;
+    background:linear-gradient(180deg,var(--panel-2),var(--panel));
+    border:1px solid var(--green-dim);border-radius:14px;padding:18px 22px;
+    display:grid;grid-template-columns:auto 1fr auto;gap:22px;align-items:center;
+    box-shadow:0 8px 30px rgba(0,0,0,.4)}
+  @media(max-width:640px){.verdict{grid-template-columns:1fr;text-align:center;position:static}}
+  .verdict .score{font-family:var(--mono);font-weight:700;font-size:46px;line-height:1;color:var(--green-bright);letter-spacing:-1px}
+  .verdict .score .max{font-size:18px;color:var(--muted-2)}
+  .verdict .call .k{font-family:var(--mono);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted-2);margin-bottom:4px}
+  .verdict .call .v{font-size:22px;font-weight:700}
+  .verdict .call .move{font-size:12px;color:var(--muted);margin-top:4px;max-width:52ch}
+  .verdict .prog{width:120px;height:8px;background:var(--panel-2);border-radius:4px;overflow:hidden}
+  .verdict .prog > span{display:block;height:100%;background:linear-gradient(90deg,var(--green-dim),var(--green-bright));transition:width .3s}
+  .badgewrap{display:flex;flex-direction:column;gap:8px;align-items:flex-end}
+  @media(max-width:640px){.badgewrap{align-items:center}}
+
+  .notes label{display:block;font-family:var(--mono);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted-2);margin:18px 0 8px}
+  textarea{width:100%;min-height:80px;background:var(--panel-2);border:1px solid var(--line);border-radius:9px;
+    color:var(--text);font-family:var(--sans);font-size:13px;padding:12px;resize:vertical}
+  textarea:focus{outline:none;border-color:var(--green-dim);box-shadow:0 0 0 3px rgba(60,160,40,.12)}
+
+  .foot{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;
+    margin-top:24px;padding-top:18px;border-top:1px solid var(--line);
+    font-family:var(--mono);font-size:11px;color:var(--muted-2)}
+  .btn{font-family:var(--mono);font-size:12px;letter-spacing:.5px;background:var(--green);color:#08110A;
+    font-weight:600;border:none;padding:11px 18px;border-radius:9px;cursor:pointer;transition:.15s}
+  .btn:hover{background:var(--green-bright)}
+  .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--muted)}
+  .btn.ghost:hover{border-color:var(--green-dim);color:var(--text)}
+  @media print{body{background:#fff;color:#111}.card,.verdict{border-color:#ccc}.btn,.scale button{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="masthead">
+    <div>
+      <div class="wordmark"><span class="n">NODE</span><span class="s">STREAM</span></div>
+      <div class="tag">Verified AI Compute Marketplace</div>
+    </div>
+    <h1>GPUaaS Discovery &amp; Qualification · Internal AE Tool</h1>
+  </div>
+
+  <!-- ROUTER -->
+  <div class="card">
+    <h2>Route the buyer</h2>
+    <p class="sub">One question routes the whole call: <em style="color:var(--green-bright)">“What are you trying to buy — capacity for your own models, capacity to resell, or a dedicated, compliant enclave?”</em> Tap their answer to load the right discovery play.</p>
+    <div class="router" id="router"></div>
+  </div>
+
+  <!-- PERSONA DETAIL -->
+  <div class="card" id="personaCard" style="display:none">
+    <h2>Discovery play</h2>
+    <div id="personaBody"></div>
+  </div>
+
+  <!-- SCORECARD -->
+  <div class="card">
+    <h2>Qualification scorecard</h2>
+    <p class="sub">Compute deals die late on things knowable early — power that isn't firm, a counterparty that can't fund the take-or-pay, export-control exposure. Score each dimension as you learn it. <b style="color:var(--muted)">0</b> = unknown / red flag · <b style="color:var(--muted)">1</b> = weak · <b style="color:var(--muted)">2</b> = solid · <b style="color:var(--muted)">3</b> = strong, verified.</p>
+    <div id="dims"></div>
+
+    <div class="notes">
+      <label>Deal notes / open items to close</label>
+      <textarea id="notes" placeholder="What's still unknown? Usually power firmness, counterparty credit, or export/compliance…"></textarea>
+    </div>
+
+    <div class="verdict">
+      <div class="score"><span id="scoreVal">0</span><span class="max">/30</span></div>
+      <div class="call">
+        <div class="k">Verdict · <span id="answered">0</span>/10 scored</div>
+        <div class="v" id="callVal" style="color:var(--muted)">Score the deal</div>
+        <div class="move" id="moveVal">Work through each dimension as you learn it on the call.</div>
+      </div>
+      <div class="badgewrap">
+        <div class="prog"><span id="prog" style="width:0%"></span></div>
+        <button class="btn ghost" id="resetBtn">Reset</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <span>Nodestream · Blockware Solutions HPC · internal AE field kit · confirm illustrative figures before external use</span>
+    <div style="display:flex;gap:10px">
+      <button class="btn ghost" onclick="window.print()">Print / PDF</button>
+      <button class="btn" id="copyBtn">Copy summary</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var $=function(s,el){return (el||document).querySelector(s);};
+  var personas = [
+    {
+      key:"lab",
+      said:"“Capacity for our own training / inference roadmap”",
+      who:"The Frontier Lab",
+      sell:"Sell on: fabric coherence (NVL72), newest silicon, speed-to-power",
+      meta:"Head of Compute / VP Infra · Series C+ ($100M+ raised) AI co. · Takes 1 building → full campus (4,608–23,040 GPUs)",
+      q:"“How many GB300s can I get inside one contiguous NVLink + InfiniBand fabric — and when?”",
+      disc:[
+        "What does your model roadmap look like over the next 12–36 months — does it justify a reserved, multi-year commitment?",
+        "Do you need a contiguous NVLink / InfiniBand fabric, or is capacity spread across sites acceptable?",
+        "What's driving your timeline — a training run, a funding milestone, a product launch?",
+        "What are you running on today, and where does it fall short — capacity, fabric, or availability?"
+      ],
+      good:[
+        "Large sustained training / RL runs that need an NVL72 domain to behave as one accelerator.",
+        "A funded roadmap and investor pressure to lock capacity — speed-to-power is urgent.",
+        "Frustration with burst cloud pricing or shared, non-isolated capacity."
+      ],
+      obj:"“Why an emerging site over an established hub, and how firm is the fuel-cell power?”",
+      objA:"Acknowledge single-site concentration head-on; <b>lead with the NVL72 fabric</b>, the 99.95% liquid-cooling SLA, and pre-committed Phase-1 power that satisfies their own investors."
+    },
+    {
+      key:"neo",
+      said:"“Wholesale capacity we resell to our customers”",
+      who:"The Neocloud Aggregator",
+      sell:"Sell on: all-in $/GPU-hr margin math, phased capex, BTM power",
+      meta:"CEO / CRO of a GPUaaS neocloud (IO.NET archetype) · Takes multiple buildings → full campus · Resells GPU-hours at a margin",
+      q:"“What's my all-in $/GPU-hr, and can I scale capacity to match my sales pipeline?”",
+      disc:[
+        "What's your resale book look like — committed customers, or pipeline you're still building?",
+        "How do you think about all-in $/GPU-hr today, and what's your target resale spread?",
+        "Do you have investment-grade offtake behind this, or will you need GPU-backed financing to bridge?",
+        "How fast does your capacity need to scale against bookings — and what happens if they slip?"
+      ],
+      good:[
+        "A real downstream book with named, creditworthy customers behind the resale commitment.",
+        "Sophistication on unit economics — they already speak in blended $/kWh and uptime.",
+        "Appetite to phase capex in standardized blocks rather than strand capital."
+      ],
+      obj:"“What's my exposure if my resale book falls through on a take-or-pay term?”",
+      objA:"The LOI requires investment-grade end-users behind the resale commitment, with KYC and export-control review — this protects both sides before the term locks in. <b>Pair with USD.AI financing</b> to de-risk capex. Point them to the ROI/TCO calculator for the spread."
+    },
+    {
+      key:"ent",
+      said:"“Isolated, compliant, auditable capacity we control”",
+      who:"Enterprise & Sovereign",
+      sell:"Sell on: isolation, compliance, on-shore footprint, firm SLA",
+      meta:"Chief AI Officer / Head of HPC · regulated enterprise or sovereign initiative · Takes a dedicated 10 MW enclave (4,608 GPUs, expandable)",
+      q:"“Give me isolated, compliant, on-shore capacity with a firm SLA I can audit.”",
+      disc:[
+        "What compliance or data-residency requirements govern where and how this capacity runs?",
+        "Do you need a dedicated, non-multi-tenant footprint, or is logical isolation sufficient?",
+        "What uptime and redundancy do you need in the SLA — and does it need to be auditable?",
+        "Is a multi-year commitment a hurdle, or a feature for your procurement and budgeting?"
+      ],
+      good:[
+        "Hard compliance / sovereignty drivers — isolation valued over raw scale.",
+        "A multi-year term treated as a feature, not friction.",
+        "Procurement that expects to audit the SLA, security posture, and data residency."
+      ],
+      obj:"“Is this Tier III or Tier IV, and is it auditable?”",
+      objA:"Confirm the specific site's redundancy (dual independent feeds, containment) up front — <b>don't assume Tier IV</b>. Lead with isolation, on-shore / export-control-clean footprint, and a firm, auditable SLA."
+    }
+  ];
+
+  var dims = [
+    ["Fit / roadmap","Does a multi-year reserved commitment match a real, funded workload roadmap?"],
+    ["Persona clarity","Is it clear which persona this is — and are you selling the right way for it?"],
+    ["Power & site","Is the required power firm and the site's redundancy confirmed (not assumed)?"],
+    ["Fabric / spec fit","Does the deployment (NVL72 domain, cooling, interconnect) match what they need?"],
+    ["Counterparty / credit","Investment-grade offtake or end-users behind the commitment? Proof-of-funds?"],
+    ["Financing path","Can they fund capex, or is USD.AI GPU-backed financing in play and viable?"],
+    ["Compliance / export","KYC/KYB, export-control, data-residency cleared for this counterparty & geography?"],
+    ["Timeline / speed-to-power","Is their timeline real and matched to a Phase we can actually deliver?"],
+    ["Economics","At the quoted rate, does the deal clear margin (neocloud) or budget (lab/enterprise)?"],
+    ["Champion / authority","Do you have a champion with authority over the compute + budget decision?"]
+  ];
+
+  var scores = {}; // index -> value
+
+  // ---- Router ----
+  var router = $("#router");
+  personas.forEach(function(p){
+    var d=document.createElement("button");
+    d.className="route"; d.dataset.key=p.key;
+    d.innerHTML='<div class="said">'+p.said+'</div><div class="who">'+p.who+'</div><div class="sell">'+p.sell+'</div>';
+    d.addEventListener("click",function(){selectPersona(p.key);});
+    router.appendChild(d);
+  });
+
+  function selectPersona(key){
+    document.querySelectorAll(".route").forEach(function(r){r.classList.toggle("active",r.dataset.key===key);});
+    var p=personas.find(function(x){return x.key===key;});
+    if(!p) return;
+    var html=''+
+      '<div class="persona-head">'+
+        '<div class="nm">'+p.who+'</div>'+
+        '<div class="meta">'+p.meta+'</div>'+
+        '<div class="q">'+p.q+'</div>'+
+      '</div>'+
+      '<div class="col3">'+
+        '<div>'+
+          '<div class="subhead disc">Discovery questions</div>'+
+          '<ul class="clean">'+p.disc.map(function(x){return '<li>'+x+'</li>';}).join('')+'</ul>'+
+        '</div>'+
+        '<div>'+
+          '<div class="subhead good">Listen for — good signal</div>'+
+          '<ul class="clean">'+p.good.map(function(x){return '<li>'+x+'</li>';}).join('')+'</ul>'+
+          '<div class="subhead obj" style="margin-top:16px">Pre-empt — the objection they\'ll raise</div>'+
+          '<div class="objbox"><div class="o">'+p.obj+'</div><div class="a">→ '+p.objA+'</div></div>'+
+        '</div>'+
+      '</div>';
+    $("#personaBody").innerHTML=html;
+    $("#personaCard").style.display="block";
+    // auto-credit persona clarity
+    setScore(1,3,true);
+  }
+
+  // ---- Scorecard ----
+  var dimsEl=$("#dims");
+  dims.forEach(function(d,i){
+    var row=document.createElement("div");
+    row.className="dim";
+    var scale='<div class="scale">';
+    for(var v=0;v<=3;v++) scale+='<button data-i="'+i+'" data-v="'+v+'">'+v+'</button>';
+    scale+='</div>';
+    row.innerHTML='<div><div class="label">'+d[0]+'</div><div class="desc">'+d[1]+'</div></div>'+scale;
+    dimsEl.appendChild(row);
+  });
+
+  dimsEl.addEventListener("click",function(e){
+    var b=e.target.closest("button"); if(!b) return;
+    setScore(+b.dataset.i, +b.dataset.v);
+  });
+
+  function setScore(i,v,silent){
+    scores[i]=v;
+    var row=dimsEl.children[i];
+    row.querySelectorAll(".scale button").forEach(function(btn){
+      btn.classList.toggle("sel", +btn.dataset.v===v);
+    });
+    update();
+  }
+
+  function update(){
+    var total=0, answered=0;
+    for(var k in scores){ total+=scores[k]; answered++; }
+    $("#scoreVal").textContent=total;
+    $("#answered").textContent=answered;
+    $("#prog").style.width=(total/30*100)+"%";
+
+    var call=$("#callVal"), move=$("#moveVal");
+    if(answered<10){
+      call.textContent="In progress"; call.style.color="var(--muted)";
+      move.textContent="Score all 10 dimensions for a verdict. "+(10-answered)+" left.";
+    } else if(total>=24){
+      call.textContent="Advance"; call.style.color="var(--green-bright)";
+      move.textContent="Firm opportunity — move to quote (use the ROI/TCO calculator) and deal structuring. Verify any dimension still at 0.";
+    } else if(total>=15){
+      call.textContent="Develop"; call.style.color="var(--amber)";
+      move.textContent="Real but unproven — close the open gaps (usually power, credit, or compliance) before investing more cycle.";
+    } else {
+      call.textContent="Hold / disqualify"; call.style.color="var(--red)";
+      move.textContent="Too many unknowns or red flags. Requalify or park it — don't let it consume pipeline time.";
+    }
+
+    // summary for copy
+    var lines=["NODESTREAM GPUaaS — QUALIFICATION SCORECARD"];
+    var active=document.querySelector(".route.active");
+    if(active) lines.push("Persona: "+$(".who",active).textContent);
+    lines.push("Score: "+total+"/30 ("+answered+"/10 scored) — "+call.textContent);
+    lines.push("");
+    dims.forEach(function(d,i){ lines.push("  ["+(scores[i]!==undefined?scores[i]:"-")+"] "+d[0]); });
+    var notes=$("#notes").value.trim();
+    if(notes){ lines.push(""); lines.push("Open items: "+notes); }
+    window.__summary=lines.join("\n");
+  }
+
+  $("#resetBtn").addEventListener("click",function(){
+    scores={}; $("#notes").value="";
+    dimsEl.querySelectorAll(".scale button").forEach(function(b){b.classList.remove("sel");});
+    update();
+  });
+  $("#notes").addEventListener("input",update);
+  $("#copyBtn").addEventListener("click",function(){
+    navigator.clipboard.writeText(window.__summary||"").then(function(){
+      $("#copyBtn").textContent="Copied ✓";
+      setTimeout(function(){$("#copyBtn").textContent="Copy summary";},1400);
+    });
+  });
+
+  update();
+})();
+</script>
+</body>
+</html>
