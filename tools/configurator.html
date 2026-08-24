@@ -302,18 +302,18 @@
   function num(id){var v=parseFloat($(id).value);return isFinite(v)?v:0;}
   function row(k,v){return '<div class="drow"><span>'+k+'</span><span>'+v+'</span></div>';}
 
-  // Change one tier's rate and ripple ±10% to immediate neighbors only
+  // Change one tier's rate and cascade ±10% through all tiers in both directions
   function setTierRate(key, newRate){
     newRate = Math.max(0, newRate);
     tierRates[key] = newRate;
     var idx = TIER_KEYS.indexOf(key);
-    if(idx > 0){
-      // Tier above = shorter commitment = more expensive → ×1.10
-      tierRates[TIER_KEYS[idx-1]] = parseFloat((newRate * 1.10).toFixed(2));
+    // Cascade upward: each tier above gets the one below it × 1.10
+    for(var i = idx - 1; i >= 0; i--){
+      tierRates[TIER_KEYS[i]] = parseFloat((tierRates[TIER_KEYS[i+1]] * 1.10).toFixed(2));
     }
-    if(idx < TIER_KEYS.length - 1){
-      // Tier below = longer commitment = cheaper → ×0.90
-      tierRates[TIER_KEYS[idx+1]] = parseFloat((newRate * 0.90).toFixed(2));
+    // Cascade downward: each tier below gets the one above it × 0.90
+    for(var i = idx + 1; i < TIER_KEYS.length; i++){
+      tierRates[TIER_KEYS[i]] = parseFloat((tierRates[TIER_KEYS[i-1]] * 0.90).toFixed(2));
     }
   }
 
