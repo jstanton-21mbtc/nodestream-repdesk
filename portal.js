@@ -181,7 +181,7 @@
     if(view==="ornn")         loadFrame("ornn");
     if(view==="quote"    && !mounted.quote)    { mountQuote();    mounted.quote=true; }
     if(view==="playbook" && !mounted.playbook) { mountPlaybook(); mounted.playbook=true; }
-    if(view==="pipeline") renderPipeline();
+    if(view==="pipeline") renderKanban();
     if(view==="settings") mountSettings();
     window.scrollTo(0,0);
   }
@@ -291,43 +291,120 @@
     return deals;
   }
 
-  function renderPipeline(){
+  var STAGE_CFG = {
+    disc:  {accent:'var(--muted)',       accentBg:'var(--panel-2)'},
+    qual:  {accent:'var(--amber)',        accentBg:'rgba(224,167,60,.07)'},
+    quote: {accent:'var(--green-bright)', accentBg:'rgba(46,122,31,.08)'},
+    nego:  {accent:'var(--green-bright)', accentBg:'rgba(79,209,53,.09)'},
+    won:   {accent:'var(--green-bright)', accentBg:'rgba(79,209,53,.09)'},
+    lost:  {accent:'var(--red)',          accentBg:'rgba(217,88,74,.07)'}
+  };
+
+  function parseAmt(s){
+    if(!s) return 0;
+    var str=String(s).replace(/[$,\s]/g,'');
+    var mult=1;
+    if(/[Mm]$/.test(str)){ mult=1e6; str=str.slice(0,-1); }
+    else if(/[Kk]$/.test(str)){ mult=1e3; str=str.slice(0,-1); }
+    var n=parseFloat(str); return isNaN(n)?0:n*mult;
+  }
+  function fmtTotal(arr){
+    var t=arr.reduce(function(s,d){ return s+parseAmt(d.amt); },0);
+    if(!t) return '';
+    if(t>=1e6) return '$'+(t/1e6).toFixed(1)+'M';
+    if(t>=1e3) return '$'+(t/1e3).toFixed(1)+'K';
+    return '$'+Math.round(t);
+  }
+
+  var _dragId = null;
+
+  function renderKanban(){
+    var board=document.getElementById('kanbanBoard'); if(!board) return;
     var deals=ensureDeals();
-    var filtered=_pipeFilter==='all'?deals:deals.filter(function(d){ return d.stage===_pipeFilter; });
+    board.innerHTML='';
 
-    var tabs=$("#stageTabs");
-    if(tabs){
-      var counts={all:deals.length};
-      Object.keys(STAGES).forEach(function(k){ counts[k]=deals.filter(function(d){ return d.stage===k; }).length; });
-      tabs.innerHTML='';
-      [['all','All']].concat(Object.keys(STAGES).map(function(k){ return [k,STAGES[k]]; })).forEach(function(entry){
-        var k=entry[0], label=entry[1];
-        var btn=document.createElement('button');
-        btn.className='stage-tab'+(_pipeFilter===k?' active':'');
-        btn.dataset.stageFilter=k;
-        btn.textContent=label+' ('+(counts[k]||0)+')';
-        tabs.appendChild(btn);
+    Object.keys(STAGES).forEach(function(sk){
+      var cfg=STAGE_CFG[sk]||STAGE_CFG.disc;
+      var stageDeals=deals.filter(function(d){ return d.stage===sk; });
+      var total=fmtTotal(stageDeals);
+
+      // Column wrapper
+      var col=document.createElement('div');
+      col.className='kancol';
+
+      // Header
+      var head=document.createElement('div');
+      head.className='kancol-head';
+      head.style.cssText='border-color:'+cfg.accent+';background:'+cfg.accentBg+';border-left:3px solid '+cfg.accent;
+      head.innerHTML=
+        '<div>'+
+          '<div style="font-family:var(--mono);font-size:9.5px;letter-spacing:1.5px;text-transform:uppercase;color:'+cfg.accent+';font-weight:700">'+esc(STAGES[sk])+'</div>'+
+          (total?'<div style="font-family:var(--mono);font-size:9px;color:var(--muted-2);margin-top:3px">'+total+'</div>':'')+
+        '</div>'+
+        '<span style="font-family:var(--mono);font-size:11px;background:var(--panel-3);border:1px solid var(--line);border-radius:5px;padding:2px 8px;color:var(--muted-2);flex:none">'+stageDeals.length+'</span>';
+      col.appendChild(head);
+
+      // Body (drop zone)
+      var body=document.createElement('div');
+      body.className='kancol-body';
+
+      body.addEventListener('dragover',function(e){
+        e.preventDefault(); e.dataTransfer.dropEffect='move';
+        body.classList.add('drag-over');
       });
-    }
+      body.addEventListener('dragleave',function(e){
+        if(!body.contains(e.relatedTarget)) body.classList.remove('drag-over');
+      });
+      body.addEventListener('drop',function(e){
+        e.preventDefault(); body.classList.remove('drag-over');
+        if(!_dragId) return;
+        var all=loadDeals();
+        var deal=all.find(function(d){ return d.id===_dragId; });
+        if(deal && deal.stage!==sk){ deal.stage=sk; saveDeals(all); renderKanban(); }
+      });
 
-    var tb=$("#fullPipeBody"); if(!tb) return;
-    if(!filtered.length){
-      tb.innerHTML='<tr><td colspan="5" style="text-align:center;padding:28px;color:var(--muted-2);font-family:var(--mono);font-size:12px">No deals in this stage</td></tr>';
-      return;
-    }
-    tb.innerHTML='';
-    filtered.forEach(function(d){
-      var hasSave = d.scorecardSavedAt || d.configSavedAt;
-      var tr=document.createElement('tr');
-      tr.className='clickable';
-      tr.dataset.dealId=d.id;
-      tr.innerHTML=
-        '<td class="co">'+esc(d.co)+(hasSave?'<span style="margin-left:7px;font-family:var(--mono);font-size:9px;color:var(--green);background:rgba(60,160,40,.1);border:1px solid rgba(60,160,40,.25);border-radius:4px;padding:1px 5px">docs</span>':'')+'</td>'+
-        '<td class="persona-tag">'+esc(d.persona)+'</td>'+
-        '<td><span class="stage '+d.stage+'">'+esc(STAGES[d.stage]||d.stage)+'</span></td>'+
-        '<td style="font-family:var(--mono);font-size:11px;color:var(--muted-2)">'+esc(d.dateAdded||'—')+'</td>'+
-        '<td class="amt">'+esc(d.amt||'—')+'</td>';
-      tb.appendChild(tr);
+      // Cards
+      if(stageDeals.length){
+        stageDeals.forEach(function(d){
+          var hasDocs=d.scorecardSavedAt||d.configSavedAt;
+          var card=document.createElement('div');
+          card.className='kancard';
+          card.draggable=true;
+          card.dataset.dealId=d.id;
+          card.innerHTML=
+            '<div class="kc-co">'+esc(d.co)+(hasDocs?'<span class="kc-docs">docs</span>':'')+' </div>'+
+            '<div class="kc-persona">'+esc(d.persona)+'</div>'+
+            (d.amt?'<div class="kc-amt">'+esc(d.amt)+'</div>':'')+
+            (d.dateAdded?'<div class="kc-date">'+esc(fmtDate(d.dateAdded))+'</div>':'');
+
+          card.addEventListener('dragstart',function(e){
+            _dragId=d.id; card.classList.add('dragging');
+            e.dataTransfer.effectAllowed='move';
+            e.dataTransfer.setData('text/plain',d.id);
+          });
+          card.addEventListener('dragend',function(){
+            card.classList.remove('dragging'); _dragId=null;
+          });
+          card.addEventListener('click',function(){ openDealDetail(d.id); });
+          body.appendChild(card);
+        });
+      } else {
+        var empty=document.createElement('div');
+        empty.style.cssText='text-align:center;padding:22px 8px;font-family:var(--mono);font-size:9.5px;color:var(--muted-2);letter-spacing:.5px;line-height:2';
+        empty.textContent='No deals';
+        body.appendChild(empty);
+      }
+
+      // + Add button pinned at bottom of column
+      var addBtn=document.createElement('button');
+      addBtn.className='kancol-add';
+      addBtn.textContent='+ Add deal';
+      addBtn.dataset.addStage=sk;
+      addBtn.addEventListener('click',function(){ openAddDeal(sk); });
+      body.appendChild(addBtn);
+
+      col.appendChild(body);
+      board.appendChild(col);
     });
   }
 
@@ -441,10 +518,10 @@
   function closeDetail(){ $("#dealDetail").classList.add('hidden'); _viewingDealId=null; }
 
   // ---- Add / Edit deal modal ----
-  function openAddDeal(){
+  function openAddDeal(stage){
     $("#dealModalTitle").textContent='Add Deal';
     $("#dealId").value=''; $("#deal-co").value='';
-    $("#deal-persona").value='Neocloud'; $("#deal-stage").value='disc';
+    $("#deal-persona").value='Neocloud'; $("#deal-stage").value=stage||'disc';
     $("#deal-amt").value=''; $("#deal-notes").value='';
     $("#dealModal").classList.remove('hidden');
     setTimeout(function(){ $("#deal-co").focus(); },50);
@@ -491,7 +568,7 @@
     }
     saveDeals(deals);
     $("#dealModal").classList.add('hidden');
-    renderPipeline();
+    renderKanban();
   }
 
   function deleteDeal(){
@@ -500,7 +577,7 @@
     var deal=deals.find(function(d){ return d.id===_viewingDealId; }); if(!deal) return;
     if(!confirm('Delete "'+deal.co+'"? This cannot be undone.')) return;
     saveDeals(deals.filter(function(d){ return d.id!==_viewingDealId; }));
-    closeDetail(); renderPipeline();
+    closeDetail(); renderKanban();
   }
 
   // ============================================================
@@ -616,11 +693,7 @@
     if(e.target.closest('#detailEditBtn')) { openEditDeal();    return; }
     if(e.target.closest('#detailDeleteBtn')){ deleteDeal();     return; }
 
-    // Stage filter tabs
-    var tab=e.target.closest('[data-stage-filter]');
-    if(tab){ _pipeFilter=tab.dataset.stageFilter; renderPipeline(); return; }
-
-    // Deal row
+    // Deal row (dashboard preview table)
     var tr=e.target.closest('tr[data-deal-id]');
     if(tr){ openDealDetail(tr.dataset.dealId); return; }
   });
