@@ -18,6 +18,7 @@
     var el = $("#view-"+view); if(el) el.classList.remove("hidden");
     $$("#nav button").forEach(function(b){ b.classList.toggle("active", b.dataset.view===view); });
     $("#crumb").textContent = VIEW_LABEL[view] || view;
+    // Tools: always fresh on every navigation
     if(view==="discovery")    loadFrame("discovery");
     if(view==="configurator") loadFrame("configurator");
     if(view==="quote"    && !mounted.quote)    { mountQuote();    mounted.quote=true; }
@@ -26,15 +27,15 @@
     window.scrollTo(0,0);
   }
 
+  // Always reload — fresh every time
   function loadFrame(name){
     var f = $("#frame-"+name);
-    if(f && !f.src && f.dataset.src){ f.src = f.dataset.src; }
+    if(f && f.dataset.src) f.src = f.dataset.src;
   }
 
-  // Nav click delegation
+  // Nav click delegation (skip detail-body tool buttons — handled separately)
   document.addEventListener("click", function(e){
     var b = e.target.closest("[data-view]"); if(!b) return;
-    // ignore clicks inside modal bodies (handled by pipeline delegation below)
     if(b.closest('#detailBody')) return;
     e.preventDefault(); show(b.dataset.view);
   });
@@ -76,8 +77,7 @@
   (function(){
     var list=$("#taskList"); if(!list||!DATA.tasks) return;
     function render(){
-      list.innerHTML="";
-      var open=0;
+      list.innerHTML=""; var open=0;
       DATA.tasks.forEach(function(t,i){
         if(!t.done) open++;
         var row=document.createElement("label");
@@ -107,6 +107,7 @@
   var _viewingDealId = null;
 
   function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function fmtDate(iso){ if(!iso) return '—'; try{ return new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }catch(e){ return iso.slice(0,10); } }
 
   function loadDeals(){
     try{ return JSON.parse(localStorage.getItem(PIPELINE_KEY)||'null')||[]; }catch(e){ return []; }
@@ -119,7 +120,8 @@
       var today=new Date().toISOString().slice(0,10);
       deals=DATA.pipeline.map(function(p,i){
         return {id:'deal_seed_'+i, co:p.co, persona:p.persona, stage:p.stage,
-          amt:p.amt, notes:'', scorecardNotes:'', quoteNotes:'', dateAdded:today};
+          amt:p.amt, notes:'', scorecardNotes:'', scorecardSavedAt:null,
+          quoteNotes:'', configSavedAt:null, dateAdded:today};
       });
       saveDeals(deals);
     }
@@ -130,7 +132,6 @@
     var deals=ensureDeals();
     var filtered=_pipeFilter==='all'?deals:deals.filter(function(d){ return d.stage===_pipeFilter; });
 
-    // Stage tabs
     var tabs=$("#stageTabs");
     if(tabs){
       var counts={all:deals.length};
@@ -146,7 +147,6 @@
       });
     }
 
-    // Table body
     var tb=$("#fullPipeBody"); if(!tb) return;
     if(!filtered.length){
       tb.innerHTML='<tr><td colspan="5" style="text-align:center;padding:28px;color:var(--muted-2);font-family:var(--mono);font-size:12px">No deals in this stage</td></tr>';
@@ -154,11 +154,12 @@
     }
     tb.innerHTML='';
     filtered.forEach(function(d){
+      var hasSave = d.scorecardSavedAt || d.configSavedAt;
       var tr=document.createElement('tr');
       tr.className='clickable';
       tr.dataset.dealId=d.id;
       tr.innerHTML=
-        '<td class="co">'+esc(d.co)+'</td>'+
+        '<td class="co">'+esc(d.co)+(hasSave?'<span style="margin-left:7px;font-family:var(--mono);font-size:9px;color:var(--green);background:rgba(60,160,40,.1);border:1px solid rgba(60,160,40,.25);border-radius:4px;padding:1px 5px">docs</span>':'')+'</td>'+
         '<td class="persona-tag">'+esc(d.persona)+'</td>'+
         '<td><span class="stage '+d.stage+'">'+esc(STAGES[d.stage]||d.stage)+'</span></td>'+
         '<td style="font-family:var(--mono);font-size:11px;color:var(--muted-2)">'+esc(d.dateAdded||'—')+'</td>'+
@@ -167,12 +168,47 @@
     });
   }
 
-  // ---- Deal detail modal ----
+  // ---- Deal detail ----
   function openDealDetail(id){
     var deals=loadDeals();
     var deal=deals.find(function(d){ return d.id===id; }); if(!deal) return;
     _viewingDealId=id;
     $("#detailTitle").textContent=deal.co;
+
+    // Scorecard block
+    var scorecardInner='';
+    if(deal.scorecardNotes && deal.scorecardSavedAt){
+      scorecardInner=
+        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">'+
+          '<div class="ds-label" style="margin:0">Scorecard</div>'+
+          '<span class="saved-badge">Saved from Discovery \u00b7 '+fmtDate(deal.scorecardSavedAt)+'</span>'+
+        '</div>'+
+        '<pre class="saved-pre">'+esc(deal.scorecardNotes)+'</pre>'+
+        '<div class="ds-label" style="margin-bottom:6px">Additional notes</div>'+
+        '<textarea id="detail-scorecard" style="width:100%;background:transparent;border:1px solid var(--line);border-radius:8px;color:var(--text);font-family:var(--sans);font-size:13px;resize:vertical;min-height:60px;padding:10px;outline:none" placeholder="Annotations, follow-ups, open items...">'+esc(deal.scorecardExtra||'')+'</textarea>';
+    } else {
+      scorecardInner=
+        '<div class="ds-label" style="margin-bottom:10px">Scorecard Notes</div>'+
+        '<textarea id="detail-scorecard" style="width:100%;background:transparent;border:none;color:var(--text);font-family:var(--sans);font-size:13px;resize:vertical;min-height:90px;outline:none" placeholder="Paste qualification scorecard results here \u2014 score per dimension, total, recommendation...">'+esc(deal.scorecardNotes||'')+'</textarea>';
+    }
+
+    // Config block
+    var configInner='';
+    if(deal.quoteNotes && deal.configSavedAt){
+      configInner=
+        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">'+
+          '<div class="ds-label" style="margin:0">Config &amp; Quote</div>'+
+          '<span class="saved-badge">Saved from Configurator \u00b7 '+fmtDate(deal.configSavedAt)+'</span>'+
+        '</div>'+
+        '<pre class="saved-pre">'+esc(deal.quoteNotes)+'</pre>'+
+        '<div class="ds-label" style="margin-bottom:6px">Additional notes</div>'+
+        '<textarea id="detail-quote" style="width:100%;background:transparent;border:1px solid var(--line);border-radius:8px;color:var(--text);font-family:var(--sans);font-size:13px;resize:vertical;min-height:60px;padding:10px;outline:none" placeholder="Pricing adjustments, custom terms, downpayment notes...">'+esc(deal.quoteExtra||'')+'</textarea>';
+    } else {
+      configInner=
+        '<div class="ds-label" style="margin-bottom:10px">Quote &amp; Config Notes</div>'+
+        '<textarea id="detail-quote" style="width:100%;background:transparent;border:none;color:var(--text);font-family:var(--sans);font-size:13px;resize:vertical;min-height:90px;outline:none" placeholder="GPU tier, cluster size, pricing, term, downpayment, key quote details...">'+esc(deal.quoteNotes||'')+'</textarea>';
+    }
+
     var body=$("#detailBody");
     body.innerHTML=
       '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">'+
@@ -188,29 +224,24 @@
       '</div>'+
 
       '<div class="detail-section">'+
-        '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px">'+
-          '<div class="ds-label" style="margin:0">Scorecard Notes</div>'+
-          '<button class="detail-link" data-view="discovery">Open Scorecard \u2192</button>'+
+        '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:0">'+
+          '<div style="flex:1">'+scorecardInner+'</div>'+
         '</div>'+
-        '<textarea id="detail-scorecard" style="width:100%;background:transparent;border:none;color:var(--text);font-family:var(--sans);font-size:13px;resize:vertical;min-height:90px;outline:none" placeholder="Paste qualification scorecard results here \u2014 score per dimension, total, recommendation...">'+esc(deal.scorecardNotes||'')+'</textarea>'+
+        '<div style="margin-top:10px"><button class="detail-link" data-view="discovery">Open Scorecard \u2192</button></div>'+
       '</div>'+
 
       '<div class="detail-section">'+
-        '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px">'+
-          '<div class="ds-label" style="margin:0">Quote &amp; Config Notes</div>'+
-          '<div style="display:flex;gap:8px">'+
-            '<button class="detail-link" data-view="configurator">Configurator \u2192</button>'+
-            '<button class="detail-link" data-view="quote">Quote \u2192</button>'+
-          '</div>'+
+        '<div>'+configInner+'</div>'+
+        '<div style="margin-top:10px;display:flex;gap:8px">'+
+          '<button class="detail-link" data-view="configurator">Configurator \u2192</button>'+
+          '<button class="detail-link" data-view="quote">Quote \u2192</button>'+
         '</div>'+
-        '<textarea id="detail-quote" style="width:100%;background:transparent;border:none;color:var(--text);font-family:var(--sans);font-size:13px;resize:vertical;min-height:90px;outline:none" placeholder="GPU tier, cluster size, pricing, term, downpayment, key quote details...">'+esc(deal.quoteNotes||'')+'</textarea>'+
       '</div>';
 
-    // wire tool buttons inside detail body
+    // Wire tool buttons inside detail body
     body.querySelectorAll('[data-view]').forEach(function(btn){
       btn.addEventListener('click', function(){
-        closeDetail();
-        show(btn.dataset.view);
+        closeDetail(); show(btn.dataset.view);
       });
     });
 
@@ -221,9 +252,23 @@
     if(!_viewingDealId) return;
     var deals=loadDeals();
     var deal=deals.find(function(d){ return d.id===_viewingDealId; }); if(!deal) return;
-    deal.notes          =($("#detail-notes").value||'').trim();
-    deal.scorecardNotes =($("#detail-scorecard").value||'').trim();
-    deal.quoteNotes     =($("#detail-quote").value||'').trim();
+
+    deal.notes = ($("#detail-notes").value||'').trim();
+
+    // Scorecard: if tool-saved, detail-scorecard is the "extra" textarea
+    if(deal.scorecardSavedAt){
+      deal.scorecardExtra = ($("#detail-scorecard").value||'').trim();
+    } else {
+      deal.scorecardNotes = ($("#detail-scorecard").value||'').trim();
+    }
+
+    // Config: same pattern
+    if(deal.configSavedAt){
+      deal.quoteExtra = ($("#detail-quote").value||'').trim();
+    } else {
+      deal.quoteNotes = ($("#detail-quote").value||'').trim();
+    }
+
     saveDeals(deals);
     var btn=$("#detailSaveBtn");
     btn.textContent='Saved \u2713';
@@ -276,7 +321,8 @@
         id:'deal_'+Date.now(), co:co, persona:$("#deal-persona").value,
         stage:$("#deal-stage").value, amt:($("#deal-amt").value||'').trim(),
         notes:($("#deal-notes").value||'').trim(),
-        scorecardNotes:'', quoteNotes:'',
+        scorecardNotes:'', scorecardSavedAt:null, scorecardExtra:'',
+        quoteNotes:'', configSavedAt:null, quoteExtra:'',
         dateAdded:new Date().toISOString().slice(0,10)
       });
     }
@@ -294,25 +340,130 @@
     closeDetail(); renderPipeline();
   }
 
-  // Global pipeline event delegation
-  document.addEventListener('click', function(e){
-    if(e.target.closest('#addDealBtn'))                                  { openAddDeal();   return; }
-    if(e.target.closest('#dealModalClose')||e.target.closest('#dealModalCancel')) { $("#dealModal").classList.add('hidden'); return; }
-    if(e.target.closest('#dealModalSave'))                               { saveDealForm();  return; }
-    if(e.target.closest('#dealDetailClose')||e.target.closest('#detailCloseBtn')) { closeDetail();   return; }
-    if(e.target.closest('#detailSaveBtn'))                               { saveDetailNotes(); return; }
-    if(e.target.closest('#detailEditBtn'))                               { openEditDeal(); return; }
-    if(e.target.closest('#detailDeleteBtn'))                             { deleteDeal();   return; }
+  // ============================================================
+  // SAVE TO DEAL (from tool toolbar)
+  // ============================================================
+  var _savingTool    = null;
+  var _pendingSummary = '';
 
+  function openSaveToDeal(toolName){
+    var frameId = toolName==='discovery' ? 'frame-discovery' : 'frame-configurator';
+    var f = $("#"+frameId);
+    var summary = '';
+    try{ summary = (f && f.contentWindow && f.contentWindow.__summary) || ''; }catch(e){}
+    if(!summary){
+      alert('Nothing to save yet \u2014 use the tool first to generate a scorecard or configure a deal.');
+      return;
+    }
+    _savingTool     = toolName;
+    _pendingSummary = summary;
+
+    $("#saveDealTitle").textContent = toolName==='discovery' ? 'Save Scorecard to Deal' : 'Save Config to Deal';
+    $("#saveSummaryPreview").textContent = summary.length>350 ? summary.slice(0,350)+'\u2026' : summary;
+
+    var sel=$("#saveDealSelect");
+    var deals=loadDeals();
+    sel.innerHTML='<option value="">— pick an existing deal —</option>';
+    deals.forEach(function(d){
+      var opt=document.createElement('option');
+      opt.value=d.id;
+      opt.textContent=d.co+' \u00b7 '+esc(STAGES[d.stage]||d.stage);
+      sel.appendChild(opt);
+    });
+
+    $("#saveNewDealName").value='';
+    $("#saveDealModal").classList.remove('hidden');
+    setTimeout(function(){ $("#saveDealSelect").focus(); },50);
+  }
+
+  function executeSaveToDeal(){
+    var dealId  = ($("#saveDealSelect").value||'').trim();
+    var newName = ($("#saveNewDealName").value||'').trim();
+    var now     = new Date().toISOString();
+
+    if(!dealId && !newName){
+      alert('Select an existing deal or enter an account name to create a new one.');
+      return;
+    }
+
+    var deals=loadDeals();
+
+    if(newName){
+      var newDeal={
+        id:'deal_'+Date.now(), co:newName, persona:'Neocloud', stage:'disc',
+        amt:'', notes:'',
+        scorecardNotes:  _savingTool==='discovery'   ? _pendingSummary : '',
+        scorecardSavedAt:_savingTool==='discovery'   ? now : null,
+        scorecardExtra:  '',
+        quoteNotes:      _savingTool==='configurator' ? _pendingSummary : '',
+        configSavedAt:   _savingTool==='configurator' ? now : null,
+        quoteExtra:      '',
+        dateAdded:       now.slice(0,10)
+      };
+      deals.unshift(newDeal);
+    } else {
+      var deal=deals.find(function(d){ return d.id===dealId; });
+      if(deal){
+        if(_savingTool==='discovery'){
+          if(deal.scorecardSavedAt && !confirm('This deal already has a saved scorecard. Replace it?')) return;
+          deal.scorecardNotes  = _pendingSummary;
+          deal.scorecardSavedAt= now;
+          deal.scorecardExtra  = '';
+        } else {
+          if(deal.configSavedAt && !confirm('This deal already has a saved config. Replace it?')) return;
+          deal.quoteNotes   = _pendingSummary;
+          deal.configSavedAt= now;
+          deal.quoteExtra   = '';
+        }
+      }
+    }
+
+    saveDeals(deals);
+    $("#saveDealModal").classList.add('hidden');
+
+    // Flash the save button
+    var btnId=_savingTool==='discovery'?'saveDiscovery':'saveConfigurator';
+    var btn=$("#"+btnId);
+    if(btn){ btn.textContent='Saved \u2713'; setTimeout(function(){ btn.textContent='Save to Deal'; },2000); }
+  }
+
+  // ============================================================
+  // GLOBAL EVENT DELEGATION
+  // ============================================================
+  document.addEventListener('click',function(e){
+    // Toolbar: Save to Deal
+    if(e.target.closest('#saveDiscovery'))   { openSaveToDeal('discovery');   return; }
+    if(e.target.closest('#saveConfigurator')){ openSaveToDeal('configurator'); return; }
+    // Toolbar: Refresh
+    if(e.target.closest('#refreshDiscovery'))   { loadFrame('discovery');   return; }
+    if(e.target.closest('#refreshConfigurator')){ loadFrame('configurator'); return; }
+
+    // Save-to-deal modal
+    if(e.target.closest('#saveDealClose')||e.target.closest('#saveDealCancel')){ $("#saveDealModal").classList.add('hidden'); return; }
+    if(e.target.closest('#saveDealConfirm')){ executeSaveToDeal(); return; }
+
+    // Add deal
+    if(e.target.closest('#addDealBtn')){ openAddDeal(); return; }
+    // Deal form modal
+    if(e.target.closest('#dealModalClose')||e.target.closest('#dealModalCancel')){ $("#dealModal").classList.add('hidden'); return; }
+    if(e.target.closest('#dealModalSave')){ saveDealForm(); return; }
+    // Deal detail
+    if(e.target.closest('#dealDetailClose')||e.target.closest('#detailCloseBtn')){ closeDetail(); return; }
+    if(e.target.closest('#detailSaveBtn')) { saveDetailNotes(); return; }
+    if(e.target.closest('#detailEditBtn')) { openEditDeal();    return; }
+    if(e.target.closest('#detailDeleteBtn')){ deleteDeal();     return; }
+
+    // Stage filter tabs
     var tab=e.target.closest('[data-stage-filter]');
     if(tab){ _pipeFilter=tab.dataset.stageFilter; renderPipeline(); return; }
 
+    // Deal row
     var tr=e.target.closest('tr[data-deal-id]');
     if(tr){ openDealDetail(tr.dataset.dealId); return; }
   });
 
   // Close modals on overlay click
-  ['dealModal','dealDetail'].forEach(function(id){
+  ['dealModal','dealDetail','saveDealModal'].forEach(function(id){
     var el=$("#"+id);
     if(el) el.addEventListener('click',function(e){ if(e.target===el) el.classList.add('hidden'); });
   });
@@ -350,23 +501,13 @@
     var icon='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
     var html='<div class="panel"><div class="ref-list">';
     refs.forEach(function(r){
-      var isPlaceholder=r.href==="#";
-      var isView=!isPlaceholder && r.href.charAt(0)==="#";
-      var tag, attr;
-      if(isPlaceholder){ tag='div'; attr='style="opacity:.55;cursor:default"'; }
-      else if(isView)  { tag='a';   attr='data-view="'+r.href.slice(1)+'"'; }
-      else             { tag='a';   attr='href="'+r.href+'" target="_blank" rel="noopener"'; }
-      var right=isPlaceholder
-        ? '<span style="font-family:var(--mono);font-size:9px;color:var(--amber);background:rgba(224,167,60,.1);border:1px solid rgba(224,167,60,.3);border-radius:5px;padding:2px 8px;letter-spacing:1px;text-transform:uppercase;white-space:nowrap">Add URL</span>'
-        : '<span class="ri-x">'+r.x+'</span>';
-      html+='<'+tag+' class="ref-item" '+attr+'>'+
+      html+='<a class="ref-item" href="'+r.href+'" target="_blank" rel="noopener">'+
         '<span class="ri-ic">'+icon+'</span>'+
         '<span><span class="ri-t">'+r.t+'</span><br><span class="ri-d">'+r.d+'</span></span>'+
-        right+
-        '</'+tag+'>';
+        '<span class="ri-x">'+r.x+'</span>'+
+        '</a>';
     });
-    html+='</div></div>'+
-      '<p style="font-size:11px;color:var(--muted-2);margin-top:14px;font-family:var(--mono)">Items marked \u201cAdd URL\u201d are placeholders \u2014 replace the <code>#</code> hrefs in portal.js with your live Google Drive links.</p>';
+    html+='</div></div>';
     el.innerHTML=html;
   }
 
