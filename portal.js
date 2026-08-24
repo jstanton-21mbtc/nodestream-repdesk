@@ -8,7 +8,8 @@
   var VIEW_LABEL = {
     dash:"Dashboard", pipeline:"Pipeline",
     discovery:"Discovery & Scoring", configurator:"Deal Configurator",
-    quote:"Quote Builder", ornn:"Compute Index", playbook:"Docs"
+    quote:"Quote Builder", ornn:"Compute Index", playbook:"Docs",
+    settings:"Settings"
   };
   var mounted = {};
 
@@ -25,6 +26,7 @@
     if(view==="quote"    && !mounted.quote)    { mountQuote();    mounted.quote=true; }
     if(view==="playbook" && !mounted.playbook) { mountPlaybook(); mounted.playbook=true; }
     if(view==="pipeline") renderPipeline();
+    if(view==="settings") mountSettings();
     window.scrollTo(0,0);
   }
 
@@ -581,6 +583,249 @@
     loadTicker();
     step();
   })();
+
+  // ============================================================
+  // SETTINGS — API Keys
+  // ============================================================
+  var KEY_ANTHROPIC = 'ns_anthropic_key_v1';
+  var KEY_OPENAI    = 'ns_openai_key_v1';
+  var KEY_GEMINI    = 'ns_gemini_key_v1';
+
+  function getKey(k){ return localStorage.getItem(k)||''; }
+  function setKey(k,v){ if(v) localStorage.setItem(k,v); else localStorage.removeItem(k); }
+
+  function mountSettings(){
+    var el=$("#settingsMount"); if(!el) return;
+    var providers=[
+      { id:'anthropic', label:'Anthropic', model:'Claude Sonnet 4.6', storageKey:KEY_ANTHROPIC, badgeClass:'pb-anth',
+        desc:'Powers the Claude Sonnet model. Best for long-form reasoning, deal analysis, and objection coaching.', placeholder:'sk-ant-...' },
+      { id:'openai',    label:'OpenAI',    model:'GPT-4o',             storageKey:KEY_OPENAI,    badgeClass:'pb-oai',
+        desc:'Enables GPT-4o. Strong for structured output, concise answers, and data-heavy questions.',          placeholder:'sk-...' },
+      { id:'gemini',    label:'Google',    model:'Gemini 2.0 Flash',   storageKey:KEY_GEMINI,    badgeClass:'pb-gem',
+        desc:'Enables Gemini 2.0 Flash. Fast, multimodal, great for market research and quick lookups.',          placeholder:'AIza...' }
+    ];
+
+    el.innerHTML='';
+    providers.forEach(function(p){
+      var current=getKey(p.storageKey);
+      var isSet=!!current;
+      var masked=isSet ? (p.id==='gemini' ? current.slice(0,8)+'…' : current.slice(0,12)+'…') : '';
+
+      var div=document.createElement('div');
+      div.className='settings-card';
+      div.innerHTML=
+        '<h3>'+p.label+' <span class="prov-badge '+p.badgeClass+'">'+p.model+'</span></h3>'+
+        '<p class="sc-desc">'+p.desc+'</p>'+
+        '<div class="form-field">'+
+          '<span class="form-label">API Key</span>'+
+          '<input class="form-input" type="password" id="key-'+p.id+'" autocomplete="off" '+
+            'placeholder="'+p.placeholder+'" value="'+(isSet?current:'')+'" style="font-family:var(--mono);font-size:12px">'+
+        '</div>'+
+        '<div style="display:flex;gap:10px;align-items:center;margin-top:12px">'+
+          '<button class="btn-primary" style="padding:7px 16px;font-size:12px" data-save-key="'+p.id+'">Save</button>'+
+          (isSet?'<button class="btn-danger" style="padding:7px 14px;font-size:12px" data-clear-key="'+p.id+'">Remove</button>':'')+
+        '</div>'+
+        '<div class="key-status" id="kstat-'+p.id+'">'+
+          '<span class="dot'+(isSet?' set':'')+'"></span>'+
+          '<span class="ksl'+(isSet?' set':'')+'">'+( isSet?'Key saved ('+masked+')' : 'No key saved' )+'</span>'+
+        '</div>';
+      el.appendChild(div);
+    });
+
+    // Settings event delegation
+    el.addEventListener('click', function(e){
+      var saveBtn=e.target.closest('[data-save-key]');
+      var clearBtn=e.target.closest('[data-clear-key]');
+      if(saveBtn){
+        var pid=saveBtn.dataset.saveKey;
+        var val=($("#key-"+pid).value||'').trim();
+        var sk=pid==='anthropic'?KEY_ANTHROPIC:pid==='openai'?KEY_OPENAI:KEY_GEMINI;
+        setKey(sk,val);
+        mountSettings(); // re-render to refresh status
+        return;
+      }
+      if(clearBtn){
+        var pid2=clearBtn.dataset.clearKey;
+        var sk2=pid2==='anthropic'?KEY_ANTHROPIC:pid2==='openai'?KEY_OPENAI:KEY_GEMINI;
+        setKey(sk2,'');
+        mountSettings();
+        return;
+      }
+    });
+  }
+
+  // ============================================================
+  // AI ANALYST
+  // ============================================================
+  var _aiHistory = []; // {role:'user'|'assistant', content:''}
+  var _aiLoading = false;
+
+  var AI_SYSTEM = 'You are an expert AI deal analyst for Nodestream, a verified AI compute marketplace specializing in HPC GPU-as-a-service (GPUaaS). Help sales reps with:\n'+
+    '- Deal strategy, stage advancement, and close tactics\n'+
+    '- GPU SKU guidance: H100 SXM5, A100 80GB, H200, B200, B300, MI300X — specs, use cases, pricing context\n'+
+    '- Market pricing context: ~$1.80–$3.20/GPU-hr depending on GPU and contract term\n'+
+    '- Contract structuring: 36/48/60-month terms, downpayment options, amortization schedules\n'+
+    '- Persona-specific selling: Frontier Labs (research-focused, performance-first), Neoclouds (resellers, economics-driven), Enterprise/Sovereign (compliance, SLA, procurement-heavy)\n'+
+    '- Objection handling, competitive positioning, and qualification coaching\n'+
+    '- HPC/AI market trends and competitive landscape\n\n'+
+    'Be concise, tactical, and specific. Use bullet points where helpful. Always tailor advice to the rep\'s actual situation.';
+
+  function aiAppendMsg(role, text){
+    var msgs=$("#aiMessages"); if(!msgs) return;
+    var div=document.createElement('div');
+    div.className='ai-msg '+role;
+    var label=role==='user'?'You':'AI';
+    div.innerHTML=
+      '<div class="ai-avatar">'+label+'</div>'+
+      '<div class="ai-bubble">'+escHtml(text)+'</div>';
+    msgs.appendChild(div);
+    msgs.scrollTop=msgs.scrollHeight;
+    return div;
+  }
+
+  function escHtml(s){
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function aiShowTyping(){
+    var msgs=$("#aiMessages"); if(!msgs) return null;
+    var div=document.createElement('div');
+    div.className='ai-msg ai';
+    div.id='ai-typing-indicator';
+    div.innerHTML='<div class="ai-avatar">AI</div><div class="ai-bubble"><div class="ai-typing"><span></span><span></span><span></span></div></div>';
+    msgs.appendChild(div);
+    msgs.scrollTop=msgs.scrollHeight;
+    return div;
+  }
+
+  function aiRemoveTyping(){
+    var el=$("#ai-typing-indicator"); if(el) el.remove();
+  }
+
+  function getActiveKey(){
+    var prov=($("#aiProviderSel")||{}).value||'anthropic';
+    if(prov==='anthropic') return {prov:'anthropic', key:getKey(KEY_ANTHROPIC)};
+    if(prov==='openai')    return {prov:'openai',    key:getKey(KEY_OPENAI)};
+    if(prov==='gemini')    return {prov:'gemini',    key:getKey(KEY_GEMINI)};
+    return {prov:'anthropic', key:''};
+  }
+
+  async function callAnthropic(key, messages){
+    var body={
+      model:'claude-sonnet-4-6',
+      max_tokens:1024,
+      system:AI_SYSTEM,
+      messages:messages
+    };
+    var r=await fetch('/api/anthropic/v1/messages',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'x-api-key':key,
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true'
+      },
+      body:JSON.stringify(body)
+    });
+    if(!r.ok){ var e=await r.text(); throw new Error('Anthropic '+r.status+': '+e.slice(0,200)); }
+    var j=await r.json();
+    return j.content[0].text;
+  }
+
+  async function callOpenAI(key, messages){
+    var oaiMsgs=[{role:'system',content:AI_SYSTEM}].concat(messages);
+    var body={model:'gpt-4o', max_tokens:1024, messages:oaiMsgs};
+    var r=await fetch('/api/openai/v1/chat/completions',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+      body:JSON.stringify(body)
+    });
+    if(!r.ok){ var e=await r.text(); throw new Error('OpenAI '+r.status+': '+e.slice(0,200)); }
+    var j=await r.json();
+    return j.choices[0].message.content;
+  }
+
+  async function callGemini(key, messages){
+    // Convert to Gemini format
+    var contents=messages.map(function(m){
+      return {role:m.role==='assistant'?'model':'user', parts:[{text:m.content}]};
+    });
+    // Prepend system as first user turn if history starts with assistant
+    var fullContents=[{role:'user',parts:[{text:AI_SYSTEM+'\n\n---\nUnderstood. Ready to help.'}]},{role:'model',parts:[{text:'Understood. Ready to help.'}]}].concat(contents);
+    var body={contents:fullContents,generationConfig:{maxOutputTokens:1024}};
+    var url='https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key='+encodeURIComponent(key);
+    var r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!r.ok){ var e=await r.text(); throw new Error('Gemini '+r.status+': '+e.slice(0,200)); }
+    var j=await r.json();
+    return j.candidates[0].content.parts[0].text;
+  }
+
+  async function sendAIMessage(){
+    if(_aiLoading) return;
+    var inp=$("#aiInput"); if(!inp) return;
+    var text=(inp.value||'').trim(); if(!text) return;
+
+    var kInfo=getActiveKey();
+    if(!kInfo.key){
+      aiAppendMsg('ai','No API key found for this provider. Go to Settings to add your '+kInfo.prov+' API key.');
+      return;
+    }
+
+    inp.value=''; inp.style.height='40px';
+    aiAppendMsg('user', text);
+    _aiHistory.push({role:'user', content:text});
+
+    var send=$("#aiSend"); if(send) send.disabled=true;
+    _aiLoading=true;
+    aiShowTyping();
+
+    try{
+      var reply='';
+      if(kInfo.prov==='anthropic') reply=await callAnthropic(kInfo.key, _aiHistory);
+      else if(kInfo.prov==='openai') reply=await callOpenAI(kInfo.key, _aiHistory);
+      else reply=await callGemini(kInfo.key, _aiHistory);
+      _aiHistory.push({role:'assistant', content:reply});
+      aiRemoveTyping();
+      aiAppendMsg('ai', reply);
+    }catch(err){
+      aiRemoveTyping();
+      aiAppendMsg('ai','Error: '+err.message);
+    }
+
+    _aiLoading=false;
+    if(send) send.disabled=false;
+    if(inp) inp.focus();
+  }
+
+  // AI Panel open/close
+  document.getElementById('aiFab').addEventListener('click', function(){
+    var p=$("#aiPanel"); if(p) p.classList.toggle('open');
+    var inp=$("#aiInput"); if(inp && p && p.classList.contains('open')) setTimeout(function(){ inp.focus(); },260);
+  });
+  document.getElementById('aiClose').addEventListener('click', function(){
+    var p=$("#aiPanel"); if(p) p.classList.remove('open');
+  });
+
+  // Send on button click
+  document.getElementById('aiSend').addEventListener('click', function(){ sendAIMessage(); });
+
+  // Send on Enter (Shift+Enter = newline)
+  document.getElementById('aiInput').addEventListener('keydown', function(e){
+    if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendAIMessage(); }
+  });
+
+  // Auto-resize textarea
+  document.getElementById('aiInput').addEventListener('input', function(){
+    this.style.height='40px';
+    this.style.height=Math.min(this.scrollHeight, 120)+'px';
+  });
+
+  // Clear conversation
+  document.getElementById('aiClear').addEventListener('click', function(){
+    _aiHistory=[];
+    var msgs=$("#aiMessages"); if(!msgs) return;
+    msgs.innerHTML='<div class="ai-msg ai"><div class="ai-avatar">AI</div><div class="ai-bubble">Conversation cleared. What can I help you with?</div></div>';
+  });
 
   window.NS_show=show;
 })();

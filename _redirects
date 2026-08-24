@@ -1,1 +1,3 @@
-/api/ornn/*  https://api.ornnai.com/:splat  200
+/api/ornn/*       https://api.ornnai.com/:splat  200
+/api/anthropic/*  https://api.anthropic.com/:splat  200
+/api/openai/*     https://api.openai.com/:splat  200
