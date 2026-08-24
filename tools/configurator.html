@@ -236,8 +236,8 @@
         </table>
 
         <table id="tierTable">
-          <caption>Quote-out by commitment tier · pick the customer's term</caption>
-          <thead><tr><th>Tier</th><th>Rate</th><th>Monthly</th><th>Margin %</th></tr></thead>
+          <caption>Quote-out by commitment tier &middot; <span style="color:var(--green-bright);font-size:9px;font-weight:400">click any rate to edit &mdash; changing one ripples &plusmn;10% to adjacent tiers</span></caption>
+          <thead><tr><th>Tier</th><th>Rate <span style="color:var(--green-dim);font-size:10px;font-weight:400">&#9998;</span></th><th>Monthly</th><th>Margin %</th></tr></thead>
           <tbody id="tierBody"></tbody>
         </table>
 
@@ -269,37 +269,144 @@
     "h100":{label:"NVIDIA HGX H100 (80GB HBM3)",   cost:2.65, kwRack:38, gpusPerRack:8}
   };
   var TIERS = {
-    "od":{label:"On-Demand", months:1, rate:5.90},
-    "30":{label:"30-Day Commit", months:1, rate:3.85},
+    "od":{label:"On-Demand",         months:1,  rate:5.90},
+    "30":{label:"30-Day Commit",     months:1,  rate:3.85},
     "12":{label:"12-Month Reserved", months:12, rate:3.75},
     "24":{label:"24-Month Reserved", months:24, rate:3.70},
     "36":{label:"36-Month Reserved", months:36, rate:3.65},
     "48":{label:"48-Month Reserved", months:48, rate:3.60},
     "60":{label:"60-Month Reserved", months:60, rate:3.55}
   };
+  // Ordered list of tier keys (shortest → longest commitment)
+  var TIER_KEYS = Object.keys(TIERS);
+
+  // Mutable per-tier rates — user can override any tier independently
+  var tierRates = {};
+  TIER_KEYS.forEach(function(k){ tierRates[k] = TIERS[k].rate; });
+
   var PRESETS = {
     ionet:   {model:"gb300", gpus:1024, tier:"60", resale:4.50, cost:3.65, kwRack:142, gpusPerRack:72, hrs:730, region:"US-Central (TX)"},
     edge:    {model:"b300",  gpus:128,  tier:"36", resale:5.90, cost:4.50, kwRack:50,  gpusPerRack:24, hrs:730, region:"US-East"},
     virginia:{model:"b300",  gpus:8,    tier:"12", resale:6.65, cost:4.50, kwRack:14,  gpusPerRack:8,  hrs:730, region:"US-East"},
-    // blank = clean custom start; rate/cost/power auto-derive from model+tier defaults
     blank:   {model:"b300",  gpus:8,    tier:"36", resale:null, cost:null, kwRack:null, gpusPerRack:null, hrs:730, region:"US-East"}
   };
 
   var modelSel=$("model");
+  TIER_KEYS; // ensure object keys order
   Object.keys(MODELS).forEach(function(k){var o=document.createElement("option");o.value=k;o.textContent=MODELS[k].label;modelSel.appendChild(o);});
   var tierSel=$("tier");
-  Object.keys(TIERS).forEach(function(k){var o=document.createElement("option");o.value=k;o.textContent=TIERS[k].label;tierSel.appendChild(o);});
+  TIER_KEYS.forEach(function(k){var o=document.createElement("option");o.value=k;o.textContent=TIERS[k].label;tierSel.appendChild(o);});
 
   function fmt(n){if(!isFinite(n))n=0;return "$"+Math.round(n).toLocaleString("en-US");}
   function fmt2(n){if(!isFinite(n))n=0;return "$"+n.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});}
   function num(id){var v=parseFloat($(id).value);return isFinite(v)?v:0;}
   function row(k,v){return '<div class="drow"><span>'+k+'</span><span>'+v+'</span></div>';}
 
-  var rateManuallySet=false;
-  $("resaleRate").addEventListener("input",function(){rateManuallySet=true;$("rateAuto").style.display="none";});
+  // Change one tier's rate and ripple ±10% to immediate neighbors only
+  function setTierRate(key, newRate){
+    newRate = Math.max(0, newRate);
+    tierRates[key] = newRate;
+    var idx = TIER_KEYS.indexOf(key);
+    if(idx > 0){
+      // Tier above = shorter commitment = more expensive → ×1.10
+      tierRates[TIER_KEYS[idx-1]] = parseFloat((newRate * 1.10).toFixed(2));
+    }
+    if(idx < TIER_KEYS.length - 1){
+      // Tier below = longer commitment = cheaper → ×0.90
+      tierRates[TIER_KEYS[idx+1]] = parseFloat((newRate * 0.90).toFixed(2));
+    }
+  }
 
-  function applyModelDefaults(){var m=MODELS[modelSel.value];$("costRate").value=m.cost;$("kwRack").value=m.kwRack;$("gpusPerRack").value=m.gpusPerRack;}
-  function applyTierRate(){if(rateManuallySet)return;$("resaleRate").value=TIERS[tierSel.value].rate.toFixed(2);$("rateAuto").style.display="";}
+  var rateManuallySet = false;
+
+  // When the top-level resaleRate input changes, sync to current tier + ripple
+  $("resaleRate").addEventListener("input", function(){
+    rateManuallySet = true;
+    $("rateAuto").style.display = "none";
+    var val = parseFloat(this.value);
+    if(isFinite(val) && val > 0){ setTierRate(tierSel.value, val); }
+    calc();
+  });
+
+  function applyModelDefaults(){
+    var m=MODELS[modelSel.value];
+    $("costRate").value=m.cost; $("kwRack").value=m.kwRack; $("gpusPerRack").value=m.gpusPerRack;
+  }
+  function applyTierRate(){
+    $("resaleRate").value = tierRates[tierSel.value].toFixed(2);
+    $("rateAuto").style.display = rateManuallySet ? "none" : "";
+  }
+
+  // Build editable tier rate inputs inside the table
+  function renderTierTable(gpuHrs, totalCost){
+    var tb = $("tierBody");
+    tb.innerHTML = "";
+    TIER_KEYS.forEach(function(k){
+      var T = TIERS[k];
+      var r = tierRates[k];
+      var isSel = (k === tierSel.value);
+      var rev = r * gpuHrs, mg = rev - totalCost, pct = rev > 0 ? (mg/rev*100) : 0;
+
+      var tr = document.createElement("tr");
+      if(isSel) tr.className = "sel";
+
+      // Tier label
+      var tdL = document.createElement("td");
+      tdL.innerHTML = T.label + (isSel ? " &#9664;" : "");
+      tr.appendChild(tdL);
+
+      // Rate — editable number input styled to match table
+      var tdR = document.createElement("td");
+      tdR.style.padding = "3px 6px";
+      var inp = document.createElement("input");
+      inp.type = "number";
+      inp.value = r.toFixed(2);
+      inp.step = "0.01";
+      inp.min = "0";
+      inp.title = "Click to edit rate for " + T.label;
+      inp.style.cssText =
+        "width:74px;background:transparent;border:1px solid transparent;border-radius:5px;" +
+        "color:" + (isSel ? "var(--green-bright)" : "var(--text)") + ";" +
+        "font-family:var(--mono);font-size:13px;padding:4px 5px;text-align:right;" +
+        "-moz-appearance:textfield;-webkit-appearance:none;outline:none;transition:border-color .13s,background .13s,color .13s";
+      inp.addEventListener("focus", function(){
+        this.style.borderColor = "var(--green-dim)";
+        this.style.background = "var(--panel-2)";
+      });
+      inp.addEventListener("blur", function(){
+        this.style.borderColor = "transparent";
+        this.style.background = "transparent";
+      });
+      inp.addEventListener("keydown", function(e){ if(e.key === "Enter") this.blur(); });
+      inp.addEventListener("change", function(){
+        var val = parseFloat(this.value);
+        if(!isFinite(val) || val <= 0) return;
+        setTierRate(k, val);
+        // If this is the active tier, sync the main resaleRate field too
+        if(k === tierSel.value){
+          rateManuallySet = true;
+          $("resaleRate").value = val.toFixed(2);
+          $("rateAuto").style.display = "none";
+        }
+        calc();
+      });
+      tdR.appendChild(inp);
+      tr.appendChild(tdR);
+
+      // Monthly revenue
+      var tdM = document.createElement("td");
+      tdM.textContent = fmt(rev);
+      tr.appendChild(tdM);
+
+      // Margin %
+      var tdP = document.createElement("td");
+      tdP.className = mg >= 0 ? "pos" : "neg";
+      tdP.textContent = pct.toFixed(1) + "%";
+      tr.appendChild(tdP);
+
+      tb.appendChild(tr);
+    });
+  }
 
   function calc(){
     var gpus=num("gpus"), costRate=num("costRate"), resaleRate=num("resaleRate"),
@@ -340,16 +447,7 @@
     $("vCost").textContent=fmt(totalCost);
     $("cbRacks").textContent=racks+" rack"+(racks===1?"":"s")+" · "+totalKw+"kW";
 
-    var tb=$("tierBody"); tb.innerHTML="";
-    Object.keys(TIERS).forEach(function(k){
-      var T=TIERS[k], r=(k===tierSel.value)?resaleRate:T.rate;
-      var rev=r*gpuHrs, mg=rev-totalCost, pct=rev>0?(mg/rev*100):0;
-      var tr=document.createElement("tr");
-      if(k===tierSel.value) tr.className="sel";
-      tr.innerHTML="<td>"+T.label+(k===tierSel.value?" ◄":"")+"</td><td>"+fmt2(r)+"</td><td>"+fmt(rev)+
-        "</td><td class='"+(mg>=0?'pos':'neg')+"'>"+pct.toFixed(1)+"%</td>";
-      tb.appendChild(tr);
-    });
+    renderTierTable(gpuHrs, totalCost);
 
     var spread=resaleRate-costRate;
     var note="<b>Read:</b> "+model.label.split(" (")[0]+" at "+fmt2(resaleRate)+" quote-out on a "+fmt2(costRate)+
@@ -373,28 +471,38 @@
 
   function loadPreset(key){
     var p=PRESETS[key]; if(!p) return;
+    // Reset all tier rates to defaults when loading a preset
+    TIER_KEYS.forEach(function(k){ tierRates[k] = TIERS[k].rate; });
     rateManuallySet=false; $("rateAuto").style.display="";
     modelSel.value=p.model; tierSel.value=p.tier;
     $("gpus").value=p.gpus; $("hrs").value=p.hrs; $("region").value=p.region;
-    // null fields => derive from the selected model / tier (custom starting point)
     var m=MODELS[p.model], T=TIERS[p.tier];
-    $("costRate").value      = (p.cost!=null?p.cost:m.cost);
-    $("kwRack").value        = (p.kwRack!=null?p.kwRack:m.kwRack);
-    $("gpusPerRack").value   = (p.gpusPerRack!=null?p.gpusPerRack:m.gpusPerRack);
-    $("resaleRate").value    = (p.resale!=null?p.resale:T.rate).toFixed(2);
+    $("costRate").value    = (p.cost!=null?p.cost:m.cost);
+    $("kwRack").value      = (p.kwRack!=null?p.kwRack:m.kwRack);
+    $("gpusPerRack").value = (p.gpusPerRack!=null?p.gpusPerRack:m.gpusPerRack);
+    var resale = (p.resale!=null ? p.resale : T.rate);
+    $("resaleRate").value = resale.toFixed(2);
+    if(p.resale != null && p.resale !== T.rate){
+      setTierRate(p.tier, p.resale);
+      rateManuallySet = true; $("rateAuto").style.display = "none";
+    }
     calc();
   }
 
   $("presets").addEventListener("click",function(e){
     var b=e.target.closest(".chip"); if(!b) return;
     document.querySelectorAll(".chip").forEach(function(c){c.classList.remove("active");});
-    // the clear/custom chip is an action, not a saved-deal state — don't leave it "active"
     if(b.dataset.preset!=="blank") b.classList.add("active");
     loadPreset(b.dataset.preset);
   });
   modelSel.addEventListener("change",function(){applyModelDefaults();calc();});
-  tierSel.addEventListener("change",function(){applyTierRate();calc();});
-  ["gpus","hrs","costRate","gpusPerRack","kwRack","coloRate","energyRate","resaleRate","region"].forEach(function(id){
+  // Switching tier: load that tier's current rate (including any manual overrides)
+  tierSel.addEventListener("change",function(){
+    rateManuallySet = false;
+    applyTierRate();
+    calc();
+  });
+  ["gpus","hrs","costRate","gpusPerRack","kwRack","coloRate","energyRate","region"].forEach(function(id){
     $(id).addEventListener("input",calc); $(id).addEventListener("change",calc);
   });
   $("powerInCost").addEventListener("change",calc);
@@ -404,7 +512,6 @@
     });
   });
 
-  // start on a clean custom build, not a saved deal
   loadPreset("blank");
 })();
 </script>
