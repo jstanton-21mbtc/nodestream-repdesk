@@ -6,7 +6,7 @@
 <title>Ornn Compute Index · Live</title>
 <style>
   :root{
-    --ink:#0E1311;--panel:#141A17;--panel-2:#1B2420;--panel-3:#212C27;--line:#2A352F;
+    --ink:#0E1311;--panel:#141A17;--panel-2:#1B2420;--line:#2A352F;
     --green:#3CA028;--green-bright:#4FD135;--green-dim:#2E7A1F;
     --amber:#E0A73C;--blue:#5B9BD5;--purple:#9B7FD4;--red:#D9584A;
     --text:#E8EFEA;--muted:#8A9A90;--muted-2:#5F6F66;
@@ -17,72 +17,62 @@
   body{background:var(--ink);color:var(--text);font-family:var(--sans);line-height:1.5;padding:24px 20px 48px;min-height:100vh}
   .wrap{max-width:1100px;margin:0 auto}
 
-  /* Header */
   .hdr{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--line)}
-  .hdr-left{display:flex;align-items:center;gap:12px}
-  .live-dot{width:8px;height:8px;background:var(--green-bright);border-radius:50%;box-shadow:0 0 8px var(--green-bright);animation:pulse 2s infinite}
-  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  .hdr-left{display:flex;align-items:center;gap:10px}
+  .live-dot{width:8px;height:8px;background:var(--green-bright);border-radius:50%;box-shadow:0 0 8px var(--green-bright);animation:pulse 2s infinite;flex:none}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
   .hdr h1{font-family:var(--mono);font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--green);font-weight:600}
   .hdr-meta{font-family:var(--mono);font-size:10px;color:var(--muted-2)}
   .hdr-meta b{color:var(--muted)}
   .refresh-btn{font-family:var(--mono);font-size:11px;background:var(--panel-2);border:1px solid var(--line);color:var(--muted);padding:6px 12px;border-radius:7px;cursor:pointer;transition:.13s}
   .refresh-btn:hover{border-color:var(--green-dim);color:var(--text)}
 
-  /* Section labels */
   .sec-label{font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted-2);margin-bottom:12px;display:flex;align-items:center;gap:8px}
   .sec-label::after{content:"";flex:1;height:1px;background:var(--line)}
 
-  /* GPU cards */
-  .gpu-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;margin-bottom:28px}
-  .gpu-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;position:relative;overflow:hidden;transition:.15s}
+  .gpu-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:12px;margin-bottom:28px}
+  .gpu-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;cursor:pointer;transition:.15s;position:relative;overflow:hidden}
   .gpu-card:hover{border-color:var(--green-dim)}
   .gpu-card.selected{border-color:var(--green);box-shadow:0 0 0 1px var(--green-dim)}
-  .gpu-card::before{content:"";position:absolute;top:0;left:0;right:0;height:2px;background:var(--green-dim);opacity:0;transition:.15s}
-  .gpu-card.selected::before{opacity:1;background:var(--green-bright)}
-  .gpu-name{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px}
-  .gpu-price{font-family:var(--mono);font-size:28px;font-weight:700;color:var(--green-bright);letter-spacing:-1px;line-height:1}
+  .gpu-card .top-bar{position:absolute;top:0;left:0;right:0;height:2px;background:var(--green-bright);transform:scaleX(0);transition:.15s}
+  .gpu-card.selected .top-bar{transform:scaleX(1)}
+  .gpu-name{font-family:var(--mono);font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px}
+  .gpu-price{font-family:var(--mono);font-size:28px;font-weight:700;letter-spacing:-1px;line-height:1}
   .gpu-price .unit{font-size:11px;color:var(--muted-2);font-weight:400;margin-left:2px}
-  .gpu-region{font-family:var(--mono);font-size:10px;color:var(--muted-2);margin-top:6px}
-  .gpu-updated{font-family:var(--mono);font-size:9px;color:var(--muted-2);margin-top:4px}
+  .gpu-region{font-family:var(--mono);font-size:9px;color:var(--muted-2);margin-top:5px;text-transform:uppercase;letter-spacing:.5px}
+  .gpu-updated{font-family:var(--mono);font-size:9px;color:var(--muted-2);margin-top:3px}
   .gpu-change{font-family:var(--mono);font-size:10px;margin-top:6px}
   .gpu-change.up{color:var(--green-bright)} .gpu-change.dn{color:var(--red)} .gpu-change.flat{color:var(--muted-2)}
 
-  /* History chart */
   .chart-wrap{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:28px}
   .chart-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px}
-  .chart-title{font-family:var(--mono);font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
-  .chart-gpu-name{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--green-bright)}
+  .chart-subtitle{font-family:var(--mono);font-size:10px;color:var(--muted-2);text-transform:uppercase;letter-spacing:1px}
+  .chart-gpu-name{font-family:var(--mono);font-size:14px;font-weight:700;color:var(--green-bright);margin-top:2px}
   .range-tabs{display:flex;gap:6px}
-  .range-tab{font-family:var(--mono);font-size:10px;letter-spacing:.3px;background:none;border:1px solid var(--line);color:var(--muted-2);padding:4px 10px;border-radius:6px;cursor:pointer;transition:.13s}
+  .range-tab{font-family:var(--mono);font-size:10px;background:none;border:1px solid var(--line);color:var(--muted-2);padding:4px 10px;border-radius:6px;cursor:pointer;transition:.13s}
   .range-tab:hover{border-color:var(--muted-2);color:var(--text)}
   .range-tab.active{border-color:var(--green-dim);color:var(--green-bright);background:rgba(60,160,40,.08)}
-  #chartSvg{width:100%;overflow:visible}
-  .chart-loading{text-align:center;padding:60px 0;font-family:var(--mono);font-size:11px;color:var(--muted-2)}
-
-  /* Stats row below chart */
+  .chart-area{width:100%;overflow:visible}
+  .chart-placeholder{text-align:center;padding:60px 0;font-family:var(--mono);font-size:11px;color:var(--muted-2)}
   .chart-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+  @media(max-width:600px){.chart-stats{grid-template-columns:repeat(2,1fr)}}
   .stat .sk{font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted-2);margin-bottom:4px}
-  .stat .sv{font-family:var(--mono);font-size:15px;font-weight:600;color:var(--text)}
-  .stat .sv.green{color:var(--green-bright)} .stat .sv.red{color:var(--red)}
+  .stat .sv{font-family:var(--mono);font-size:15px;font-weight:600}
+  .stat .sv.green{color:var(--green-bright)} .stat .sv.red{color:var(--red)} .stat .sv.neu{color:var(--text)}
 
-  /* Token table */
   .token-wrap{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:28px}
   .token-table{width:100%;border-collapse:collapse;font-size:13px}
   .token-table th{font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted-2);font-weight:500;padding:12px 16px;border-bottom:1px solid var(--line);text-align:left}
   .token-table th:not(:first-child){text-align:right}
-  .token-table td{padding:12px 16px;border-bottom:1px solid var(--line);color:var(--text)}
+  .token-table td{padding:12px 16px;border-bottom:1px solid var(--line)}
   .token-table td:not(:first-child){font-family:var(--mono);text-align:right}
   .token-table tr:last-child td{border-bottom:none}
   .token-table tr:hover td{background:var(--panel-2)}
-  .lab-name{font-weight:600}
   .tok-price{color:var(--amber)}
 
-  /* Error / loading */
-  .loading{text-align:center;padding:48px 0;font-family:var(--mono);font-size:12px;color:var(--muted-2)}
-  .error-box{background:rgba(217,88,74,.07);border:1px solid rgba(217,88,74,.3);border-radius:10px;padding:16px;font-size:13px;color:var(--red);margin-bottom:20px}
-
-  /* Attribution */
-  .attribution{font-family:var(--mono);font-size:10px;color:var(--muted-2);margin-top:16px;text-align:right}
+  .error-box{background:rgba(217,88,74,.07);border:1px solid rgba(217,88,74,.3);border-radius:10px;padding:14px 16px;font-size:12px;color:var(--red);margin-bottom:20px;font-family:var(--mono)}
+  .empty{text-align:center;padding:32px;font-family:var(--mono);font-size:11px;color:var(--muted-2)}
+  .attribution{font-family:var(--mono);font-size:10px;color:var(--muted-2);text-align:right}
   .attribution a{color:var(--muted);text-decoration:none}
   .attribution a:hover{color:var(--green)}
 </style>
@@ -96,25 +86,21 @@
       <h1>Ornn Compute Price Index</h1>
     </div>
     <div style="display:flex;align-items:center;gap:16px">
-      <div class="hdr-meta"><span id="lastUpdated">Loading&hellip;</span></div>
+      <div class="hdr-meta" id="lastUpdated">Loading&hellip;</div>
       <button class="refresh-btn" id="refreshBtn">&#8635; Refresh</button>
     </div>
   </div>
 
   <div id="errorBox" style="display:none" class="error-box"></div>
 
-  <!-- GPU CARDS -->
-  <div class="sec-label">Live GPU Spot Prices &mdash; Click a card to view history</div>
-  <div class="gpu-grid" id="gpuGrid">
-    <div class="loading">Fetching live prices&hellip;</div>
-  </div>
+  <div class="sec-label">Live GPU Spot Prices &mdash; click a card to view history</div>
+  <div class="gpu-grid" id="gpuGrid"><div class="empty">Fetching prices&hellip;</div></div>
 
-  <!-- HISTORY CHART -->
-  <div class="sec-label">Price History &mdash; <span id="chartGpuLabel" style="color:var(--muted)">select a GPU above</span></div>
+  <div class="sec-label">Price History &mdash; <span id="chartLabel" style="color:var(--muted)">select a GPU above</span></div>
   <div class="chart-wrap">
     <div class="chart-head">
       <div>
-        <div class="chart-title">Index Value $/GPU&middot;hr</div>
+        <div class="chart-subtitle">Index Value $/GPU&middot;hr</div>
         <div class="chart-gpu-name" id="chartGpuName">&mdash;</div>
       </div>
       <div class="range-tabs">
@@ -123,126 +109,160 @@
         <button class="range-tab" data-days="90">90D</button>
       </div>
     </div>
-    <div id="chartContainer"><div class="chart-loading">Select a GPU card above to view price history</div></div>
-    <div class="chart-stats" id="chartStats" style="display:none">
-      <div class="stat"><div class="sk">Current</div><div class="sv green" id="statCurrent">&mdash;</div></div>
-      <div class="stat"><div class="sk">Period High</div><div class="sv" id="statHigh">&mdash;</div></div>
-      <div class="stat"><div class="sk">Period Low</div><div class="sv" id="statLow">&mdash;</div></div>
-      <div class="stat"><div class="sk">Period Change</div><div class="sv" id="statChange">&mdash;</div></div>
+    <div id="chartContainer"><div class="chart-placeholder">Select a GPU card above to load price history</div></div>
+    <div id="chartStats" class="chart-stats" style="display:none">
+      <div class="stat"><div class="sk">Current</div><div class="sv green" id="sCur">&mdash;</div></div>
+      <div class="stat"><div class="sk">Period High</div><div class="sv neu" id="sHi">&mdash;</div></div>
+      <div class="stat"><div class="sk">Period Low</div><div class="sv neu" id="sLo">&mdash;</div></div>
+      <div class="stat"><div class="sk">Period Change</div><div class="sv" id="sChg">&mdash;</div></div>
     </div>
   </div>
 
-  <!-- TOKEN PRICE INDEX -->
   <div class="sec-label">Token Price Index &mdash; $/million tokens</div>
   <div class="token-wrap">
     <table class="token-table">
-      <thead><tr><th>Lab</th><th>Index ($/MTok)</th><th>Date</th></tr></thead>
-      <tbody id="tokenBody"><tr><td colspan="3" style="text-align:center;color:var(--muted-2);font-family:var(--mono);font-size:11px;padding:20px">Loading&hellip;</td></tr></tbody>
+      <thead><tr><th>Lab</th><th>$/MTok</th><th>Date</th></tr></thead>
+      <tbody id="tokenBody"><tr><td colspan="3" class="empty">Loading&hellip;</td></tr></tbody>
     </table>
   </div>
 
-  <div class="attribution">Data: <a href="https://index.ornn.com" target="_blank" rel="noopener">Ornn Compute Price Index</a> &mdash; Hourly updates &middot; Free-tier (5 GPU models)</div>
+  <div class="attribution">Data: <a href="https://index.ornn.com" target="_blank" rel="noopener">Ornn Compute Price Index</a> &mdash; Hourly updates &middot; Free tier (5 GPU models)</div>
 </div>
 
 <script>
 (function(){
-  var BASE = '/api/ornn';
+  // Try Netlify proxy first, fall back to direct if proxy 404s
+  var PROXY  = '/api/ornn';
+  var DIRECT = 'https://api.ornnai.com';
+  var BASE   = PROXY;
+
   var _gpus       = [];
-  var _currentMap = {};  // gpu_name -> price data
-  var _dailyMap   = {};  // gpu_name -> daily data
+  var _currentMap = {};
+  var _prevMap    = {};
   var _selectedGpu= null;
   var _histDays   = 30;
-  var _refreshTimer;
+  var _timer;
 
-  // ---- Utilities ----
-  function fmt2(n){ return '$'+Number(n).toFixed(2); }
-  function fmtDate(s){ try{ return new Date(s).toLocaleDateString('en-US',{month:'short',day:'numeric'}); }catch(e){ return s; } }
-  function fmtFull(s){ try{ return new Date(s).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}); }catch(e){ return s; } }
+  var GPU_COLORS = {
+    'H100 SXM' :'#4FD135',
+    'H200'     :'#3CA028',
+    'B200'     :'#E0A73C',
+    'A100 SXM4':'#5B9BD5',
+    'RTX 5090' :'#9B7FD4'
+  };
+  var LAB_LABELS = {anthropic:'Anthropic',openai:'OpenAI',google:'Google',deepseek:'DeepSeek'};
 
   function el(id){ return document.getElementById(id); }
+  function fmt2(n){ return '$'+Number(n).toFixed(2); }
+  function fmtDate(s){ try{ return new Date(s).toLocaleDateString('en-US',{month:'short',day:'numeric'}); }catch(e){ return String(s).slice(0,10); } }
+  function fmtTime(s){ try{ return new Date(s).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}); }catch(e){ return ''; } }
 
-  // ---- Error handling ----
+  async function fetchJ(path){
+    // Try proxy, then direct
+    var urls = [BASE+path];
+    if(BASE===PROXY) urls.push(DIRECT+path);
+    var lastErr;
+    for(var i=0;i<urls.length;i++){
+      try{
+        var r = await fetch(urls[i]);
+        if(!r.ok) throw new Error('HTTP '+r.status);
+        var json = await r.json();
+        // Switch to direct if proxy gave 404
+        if(i===1 && BASE===PROXY){ BASE=DIRECT; console.log('Ornn: switched to direct URL'); }
+        return json;
+      }catch(e){ lastErr=e; }
+    }
+    throw lastErr;
+  }
+
+  function unwrap(json){
+    // All Ornn responses: {success:true, data: [...] or {...}}
+    if(json && json.success && json.data !== undefined) return json.data;
+    return json; // fallback
+  }
+
   function showError(msg){
     el('errorBox').style.display='';
-    el('errorBox').innerHTML='<b>Error fetching Ornn API:</b> '+msg+
-      ' &mdash; <a href="https://index.ornn.com" target="_blank" rel="noopener" style="color:var(--red);text-decoration:underline">View on Ornn.com</a>';
+    el('errorBox').innerHTML='&#9888; '+msg+' &mdash; <a href="https://index.ornn.com" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">View on Ornn.com</a>';
   }
-  function clearError(){ el('errorBox').style.display='none'; el('errorBox').innerHTML=''; }
+  function clearError(){ el('errorBox').style.display='none'; }
 
-  // ---- Fetch helpers ----
-  async function fetchJSON(url){
-    var r = await fetch(url);
-    if(!r.ok) throw new Error(r.status+' '+r.statusText+' — '+url);
-    return r.json();
-  }
-
-  // ---- Main load ----
   async function load(){
     clearError();
-    el('lastUpdated').textContent = 'Refreshing\u2026';
+    el('lastUpdated').textContent='Refreshing\u2026';
     try{
       // 1. GPU types
-      _gpus = await fetchJSON(BASE+'/api/gpu-types-free');
+      var gpuRes = await fetchJ('/api/gpu-types-free');
+      _gpus = unwrap(gpuRes) || [];
 
-      // 2. All daily index (for change calc)
-      var daily = await fetchJSON(BASE+'/api/daily-index/all');
-      _dailyMap = {};
-      (daily||[]).forEach(function(d){ _dailyMap[d.gpu_type||d.gpu_name] = d; });
+      // 2. Daily index (for prev-close comparison)
+      var dailyRes = await fetchJ('/api/daily-index/all');
+      var daily = unwrap(dailyRes) || [];
+      _prevMap = {};
+      daily.forEach(function(d){ _prevMap[d.gpu_type] = d.index_value; });
 
       // 3. Current price per GPU (parallel)
       var results = await Promise.allSettled(
-        _gpus.map(function(g){ return fetchJSON(BASE+'/api/gpu/'+encodeURIComponent(g.gpu_name)); })
+        _gpus.map(function(g){
+          return fetchJ('/api/gpu/'+encodeURIComponent(g.gpu_name));
+        })
       );
       _currentMap = {};
       results.forEach(function(r,i){
-        if(r.status==='fulfilled') _currentMap[_gpus[i].gpu_name] = r.value;
+        if(r.status==='fulfilled'){
+          var d = unwrap(r.value);
+          _currentMap[_gpus[i].gpu_name] = d;
+        }
       });
 
-      renderGPUCards();
-      el('lastUpdated').innerHTML = '<b>Updated:</b> '+new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) + ' &mdash; Hourly index';
+      renderCards();
+
+      el('lastUpdated').innerHTML =
+        '<b>Updated:</b> '+new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})+
+        ' &mdash; Hourly index';
 
       // 4. Token prices
       loadTokens();
 
-      // 5. History for selected GPU (or first)
+      // 5. History for selected (or first) GPU
       var target = _selectedGpu || (_gpus.length ? _gpus[0].gpu_name : null);
       if(target) loadHistory(target);
 
     }catch(e){
-      showError(e.message||String(e));
-      el('lastUpdated').textContent = 'Error \u2014 check console';
+      showError('API error: '+(e.message||e));
+      el('lastUpdated').textContent='Error';
     }
   }
 
-  // ---- GPU cards ----
-  var GPU_COLORS = {'H100 SXM':'#4FD135','H200':'#3CA028','B200':'#E0A73C','A100 SXM4':'#5B9BD5','RTX 5090':'#9B7FD4'};
-
-  function renderGPUCards(){
+  function renderCards(){
     var grid = el('gpuGrid');
-    if(!_gpus.length){ grid.innerHTML='<div class="loading">No GPU data available</div>'; return; }
+    if(!_gpus.length){ grid.innerHTML='<div class="empty">No GPU data</div>'; return; }
     grid.innerHTML='';
     _gpus.forEach(function(g){
-      var cur  = _currentMap[g.gpu_name];
-      var price= cur ? cur.index_value : null;
-      var daily= _dailyMap[g.gpu_name];
-      var prev = daily ? daily.index_value : null;
-      var change='', changeClass='flat';
-      if(price!=null && prev!=null){
-        var pct=((price-prev)/prev*100);
-        change=(pct>=0?'+':'')+pct.toFixed(2)+'% vs prev close';
+      var cur   = _currentMap[g.gpu_name];
+      var price = cur ? cur.index_value : null;
+      var prev  = _prevMap[g.gpu_name];
+      var color = GPU_COLORS[g.gpu_name]||'var(--green-bright)';
+
+      var changeTxt='', changeClass='flat';
+      if(price!=null && prev!=null && prev>0){
+        var pct=(price-prev)/prev*100;
+        changeTxt=(pct>=0?'\u25b2 ':'\u25bc ')+Math.abs(pct).toFixed(2)+'% vs prev close';
         changeClass=pct>0.1?'up':pct<-0.1?'dn':'flat';
       }
-      var color = GPU_COLORS[g.gpu_name]||'var(--green-bright)';
-      var card = document.createElement('div');
-      card.className='gpu-card'+((_selectedGpu===g.gpu_name)?' selected':'');
+
+      var card=document.createElement('div');
+      card.className='gpu-card'+(_selectedGpu===g.gpu_name?' selected':'');
       card.dataset.gpu=g.gpu_name;
-      card.style.cursor='pointer';
       card.innerHTML=
+        '<div class="top-bar"></div>'+
         '<div class="gpu-name">'+g.gpu_name+'</div>'+
-        '<div class="gpu-price" style="color:'+color+'">'+(price!=null?fmt2(price):'—')+'<span class="unit">/GPU·hr</span></div>'+
-        (g.region?'<div class="gpu-region">'+g.region+'</div>':'')+
-        (cur&&cur.last_updated?'<div class="gpu-updated">'+fmtFull(cur.last_updated)+'</div>':'')+
-        (change?'<div class="gpu-change '+changeClass+'">'+change+'</div>':'');
+        '<div class="gpu-price" style="color:'+color+'">'+
+          (price!=null?fmt2(price):'&mdash;')+
+          '<span class="unit">/GPU&middot;hr</span>'+
+        '</div>'+
+        (changeTxt?'<div class="gpu-change '+changeClass+'">'+changeTxt+'</div>':'')+
+        (cur&&cur.last_updated?'<div class="gpu-updated">'+fmtTime(cur.last_updated)+'</div>':'');
       card.addEventListener('click',function(){ selectGpu(g.gpu_name); });
       grid.appendChild(card);
     });
@@ -250,150 +270,141 @@
 
   function selectGpu(name){
     _selectedGpu=name;
-    // Update selected state
     document.querySelectorAll('.gpu-card').forEach(function(c){
       c.classList.toggle('selected',c.dataset.gpu===name);
     });
     loadHistory(name);
   }
 
-  // ---- History chart ----
-  async function loadHistory(gpuName){
-    _selectedGpu=gpuName;
-    el('chartGpuName').textContent=gpuName;
-    el('chartGpuLabel').textContent=gpuName;
-    el('chartContainer').innerHTML='<div class="chart-loading">Loading history\u2026</div>';
+  async function loadHistory(name){
+    _selectedGpu=name;
+    el('chartGpuName').textContent=name;
+    el('chartLabel').textContent=name;
+    el('chartContainer').innerHTML='<div class="chart-placeholder">Loading history\u2026</div>';
     el('chartStats').style.display='none';
     try{
-      var end  = new Date();
-      var start= new Date(end.getTime()-_histDays*24*60*60*1000);
-      var url  = BASE+'/api/gpu/'+encodeURIComponent(gpuName)+'/index-history'+
-        '?startDate='+start.toISOString().slice(0,10)+'&endDate='+end.toISOString().slice(0,10);
-      var data = await fetchJSON(url);
-      var pts  = (data.history||data||[]).filter(function(d){ return d.index_value!=null; });
-      if(!pts.length){ el('chartContainer').innerHTML='<div class="chart-loading">No history data for this period</div>'; return; }
-      drawChart(pts, GPU_COLORS[gpuName]||'#4FD135');
-      renderChartStats(pts);
+      var end  =new Date();
+      var start=new Date(end.getTime()-_histDays*864e5);
+      var qs   ='?startDate='+start.toISOString().slice(0,10)+'&endDate='+end.toISOString().slice(0,10);
+      var res  =await fetchJ('/api/gpu/'+encodeURIComponent(name)+'/index-history'+qs);
+      var pts  =(unwrap(res)||[]).filter(function(d){ return d.index_value!=null; });
+      if(!pts.length){ el('chartContainer').innerHTML='<div class="chart-placeholder">No history data for this period</div>'; return; }
+      drawChart(pts, GPU_COLORS[name]||'#4FD135');
+      renderStats(pts);
     }catch(e){
-      el('chartContainer').innerHTML='<div class="chart-loading" style="color:var(--red)">Failed to load history: '+e.message+'</div>';
+      el('chartContainer').innerHTML='<div class="chart-placeholder" style="color:var(--red)">History load failed: '+(e.message||e)+'</div>';
     }
   }
 
   function drawChart(pts, color){
-    var W=900, H=220, PL=52, PR=16, PT=16, PB=30;
-    var vals = pts.map(function(p){ return p.index_value; });
-    var minV = Math.min.apply(null,vals), maxV = Math.max.apply(null,vals);
-    var pad  = (maxV-minV)*0.12||0.05;
+    var W=880,H=210,PL=50,PR=14,PT=14,PB=28;
+    var vals=pts.map(function(p){return p.index_value;});
+    var minV=Math.min.apply(null,vals),maxV=Math.max.apply(null,vals);
+    var pad=(maxV-minV)*0.14||(minV*0.05)||0.1;
     minV-=pad; maxV+=pad;
-    var times= pts.map(function(p){ return new Date(p.timestamp||p.date).getTime(); });
-    var minT = times[0], maxT = times[times.length-1];
-    var rW   = W-PL-PR, rH = H-PT-PB;
+    var times=pts.map(function(p){return new Date(p.timestamp||p.date).getTime();});
+    var minT=times[0],maxT=times[times.length-1];
+    var rW=W-PL-PR,rH=H-PT-PB;
+    function cx(i){return PL+(times[i]-minT)/((maxT-minT)||1)*rW;}
+    function cy(v) {return PT+(1-(v-minV)/((maxV-minV)||1))*rH;}
 
-    function cx(i){ return PL + (times[i]-minT)/(maxT-minT||1)*rW; }
-    function cy(v) { return PT + (1-(v-minV)/(maxV-minV||1))*rH; }
+    var poly=pts.map(function(p,i){return cx(i)+','+cy(p.index_value);}).join(' ');
+    var area='M'+cx(0)+','+cy(minV)+' '+
+      pts.map(function(p,i){return 'L'+cx(i)+','+cy(p.index_value);}).join(' ')+
+      ' L'+cx(pts.length-1)+','+cy(minV)+' Z';
 
-    // Build polyline
-    var poly = pts.map(function(p,i){ return cx(i)+','+cy(p.index_value); }).join(' ');
-    var area = 'M'+cx(0)+','+cy(minV)+' L'+pts.map(function(p,i){ return cx(i)+','+cy(p.index_value); }).join(' L')+' L'+cx(pts.length-1)+','+cy(minV)+' Z';
-
-    // Y-axis labels (5 ticks)
-    var yTicks='', yLines='';
+    // Y ticks
+    var yTicks='',yLines='';
     for(var yi=0;yi<=4;yi++){
-      var yv = minV + (maxV-minV)*yi/4;
-      var yyy= cy(yv);
-      yTicks+='<text x="'+(PL-6)+'" y="'+(yyy+4)+'" fill="var(--muted-2)" font-size="9" text-anchor="end" font-family="var(--mono)">'+fmt2(yv)+'</text>';
-      yLines+='<line x1="'+PL+'" y1="'+yyy+'" x2="'+(W-PR)+'" y2="'+yyy+'" stroke="var(--line)" stroke-width="1"/>';
+      var yv=minV+(maxV-minV)*yi/4, yyy=cy(yv);
+      yTicks+='<text x="'+(PL-6)+'" y="'+(yyy+3.5)+'" fill="var(--muted-2)" font-size="9" text-anchor="end" font-family="monospace">'+fmt2(yv)+'</text>';
+      if(yi>0) yLines+='<line x1="'+PL+'" y1="'+yyy+'" x2="'+(W-PR)+'" y2="'+yyy+'" stroke="var(--line)" stroke-width="1"/>';
     }
-
-    // X-axis labels (pick ~5 evenly spaced dates)
+    // X ticks (5 evenly spaced)
     var xTicks='';
-    var step = Math.floor(pts.length/4)||1;
+    var step=Math.max(1,Math.floor((pts.length-1)/4));
     for(var xi=0;xi<pts.length;xi+=step){
-      var xd=new Date(pts[xi].timestamp||pts[xi].date);
-      var xxx=cx(xi);
-      xTicks+='<text x="'+xxx+'" y="'+(H-6)+'" fill="var(--muted-2)" font-size="9" text-anchor="middle" font-family="var(--mono)">'+fmtDate(xd)+'</text>';
+      xTicks+='<text x="'+cx(xi)+'" y="'+(H-6)+'" fill="var(--muted-2)" font-size="9" text-anchor="middle" font-family="monospace">'+fmtDate(pts[xi].timestamp||pts[xi].date)+'</text>';
+    }
+    // Ensure last date shown
+    if((pts.length-1)%step!==0){
+      xTicks+='<text x="'+cx(pts.length-1)+'" y="'+(H-6)+'" fill="var(--muted-2)" font-size="9" text-anchor="end" font-family="monospace">'+fmtDate(pts[pts.length-1].timestamp||pts[pts.length-1].date)+'</text>';
     }
 
-    var svg='<svg id="chartSvg" viewBox="0 0 '+W+' '+H+'" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto">'+
-      '<defs>'+
-        '<linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">'+
-          '<stop offset="0%" stop-color="'+color+'" stop-opacity="0.25"/>'+
+    el('chartContainer').innerHTML=
+      '<svg class="chart-area" viewBox="0 0 '+W+' '+H+'" xmlns="http://www.w3.org/2000/svg">'+
+        '<defs><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1">'+
+          '<stop offset="0%" stop-color="'+color+'" stop-opacity="0.22"/>'+
           '<stop offset="100%" stop-color="'+color+'" stop-opacity="0.02"/>'+
-        '</linearGradient>'+
-      '</defs>'+
-      yLines+
-      '<path d="'+area+'" fill="url(#areaGrad)"/>'+
-      '<polyline points="'+poly+'" fill="none" stroke="'+color+'" stroke-width="2" stroke-linejoin="round"/>'+
-      // Latest dot
-      '<circle cx="'+cx(pts.length-1)+'" cy="'+cy(pts[pts.length-1].index_value)+'" r="4" fill="'+color+'" opacity="0.9"/>'+
-      yTicks+xTicks+
+        '</linearGradient></defs>'+
+        yLines+
+        '<path d="'+area+'" fill="url(#ag)"/>'+
+        '<polyline points="'+poly+'" fill="none" stroke="'+color+'" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>'+
+        '<circle cx="'+cx(pts.length-1)+'" cy="'+cy(pts[pts.length-1].index_value)+'" r="4" fill="'+color+'"/>'+
+        yTicks+xTicks+
       '</svg>';
-    el('chartContainer').innerHTML=svg;
   }
 
-  function renderChartStats(pts){
-    var vals=pts.map(function(p){ return p.index_value; });
-    var cur=vals[vals.length-1], hi=Math.max.apply(null,vals), lo=Math.min.apply(null,vals);
-    var first=vals[0], chg=cur-first, chgPct=(chg/first*100);
-    el('statCurrent').textContent=fmt2(cur);
-    el('statHigh').textContent=fmt2(hi);
-    el('statLow').textContent=fmt2(lo);
-    var changeEl=el('statChange');
-    changeEl.textContent=(chg>=0?'+':'')+fmt2(chg)+' ('+(chgPct>=0?'+':'')+chgPct.toFixed(1)+'%)';
-    changeEl.className='sv '+(chg>=0?'green':'red');
+  function renderStats(pts){
+    var vals=pts.map(function(p){return p.index_value;});
+    var cur=vals[vals.length-1],hi=Math.max.apply(null,vals),lo=Math.min.apply(null,vals);
+    var chg=cur-vals[0],pct=vals[0]>0?(chg/vals[0]*100):0;
+    el('sCur').textContent=fmt2(cur);
+    el('sHi').textContent=fmt2(hi);
+    el('sLo').textContent=fmt2(lo);
+    var cEl=el('sChg');
+    cEl.textContent=(chg>=0?'+':'')+fmt2(chg)+' ('+(pct>=0?'+':'')+pct.toFixed(1)+'%)';
+    cEl.className='sv '+(chg>0.001?'green':chg<-0.001?'red':'neu');
     el('chartStats').style.display='';
   }
 
-  // ---- Token prices ----
   async function loadTokens(){
-    var tbody=el('tokenBody');
-    var LAB_LABELS={'anthropic':'Anthropic','openai':'OpenAI','google':'Google','deepseek':'DeepSeek'};
+    var tb=el('tokenBody');
     try{
       var today=new Date().toISOString().slice(0,10);
-      var data =await fetchJSON(BASE+'/api/otpi?date='+today);
-      if(!data||!data.length){
+      var res=await fetchJ('/api/otpi?date='+today);
+      var data=unwrap(res)||[];
+      if(!data.length){
         // Try yesterday
         var yd=new Date(Date.now()-864e5).toISOString().slice(0,10);
-        data=await fetchJSON(BASE+'/api/otpi?date='+yd);
+        res=await fetchJ('/api/otpi?date='+yd);
+        data=unwrap(res)||[];
       }
-      if(!data||!data.length){ tbody.innerHTML='<tr><td colspan="3" style="text-align:center;color:var(--muted-2);font-family:var(--mono);font-size:11px;padding:20px">No token data available</td></tr>'; return; }
-      tbody.innerHTML='';
+      if(!data.length){ tb.innerHTML='<tr><td colspan="3" class="empty">No token data available</td></tr>'; return; }
+      tb.innerHTML='';
       data.forEach(function(t){
         var tr=document.createElement('tr');
-        var label=LAB_LABELS[t.lab]||t.lab;
-        tr.innerHTML='<td><span class="lab-name">'+label+'</span></td>'+
+        tr.innerHTML=
+          '<td><b>'+( LAB_LABELS[t.lab]||t.lab )+'</b></td>'+
           '<td class="tok-price">'+fmt2(t.indexPerMtok||0)+'</td>'+
           '<td style="color:var(--muted-2);font-family:var(--mono);font-size:11px">'+fmtDate(t.date)+'</td>';
-        tbody.appendChild(tr);
+        tb.appendChild(tr);
       });
     }catch(e){
-      tbody.innerHTML='<tr><td colspan="3" style="text-align:center;color:var(--muted-2);font-family:var(--mono);font-size:11px;padding:20px">Could not load token data</td></tr>';
+      tb.innerHTML='<tr><td colspan="3" class="empty" style="color:var(--red)">Could not load token data</td></tr>';
     }
   }
 
-  // ---- Range tabs ----
+  // Range tabs
   document.querySelectorAll('.range-tab').forEach(function(btn){
     btn.addEventListener('click',function(){
-      document.querySelectorAll('.range-tab').forEach(function(b){ b.classList.remove('active'); });
+      document.querySelectorAll('.range-tab').forEach(function(b){b.classList.remove('active');});
       btn.classList.add('active');
       _histDays=parseInt(btn.dataset.days,10);
       if(_selectedGpu) loadHistory(_selectedGpu);
     });
   });
 
-  // ---- Refresh ----
-  el('refreshBtn').addEventListener('click', function(){
-    clearTimeout(_refreshTimer);
-    load();
+  // Refresh
+  el('refreshBtn').addEventListener('click',function(){
+    clearTimeout(_timer); load();
   });
 
-  // Auto-refresh every 5 minutes
   function scheduleRefresh(){
-    clearTimeout(_refreshTimer);
-    _refreshTimer=setTimeout(function(){ load(); scheduleRefresh(); },5*60*1000);
+    clearTimeout(_timer);
+    _timer=setTimeout(function(){ load(); scheduleRefresh(); },5*60*1000);
   }
 
-  // ---- Init ----
   load().then(scheduleRefresh);
 })();
 </script>
