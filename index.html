@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,6 +11,13 @@
     --amber:#E0A73C;--text:#E8EFEA;--muted:#8A9A90;--muted-2:#5F6F66;--red:#D9584A;
     --mono:"JetBrains Mono","SF Mono",ui-monospace,"Cascadia Code",Menlo,monospace;
     --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    --topbar-bg:rgba(14,19,17,.88);
+  }
+  [data-theme="light"]{
+    --ink:#F0F6F2;--panel:#FFFFFF;--panel-2:#E8F2EB;--panel-3:#DDE9E1;--line:#C4D6CA;
+    --green:#2A7A18;--green-bright:#3CA028;--green-dim:#236015;
+    --amber:#8A5800;--text:#0D1510;--muted:#3A5244;--muted-2:#5F7A6C;--red:#B42C20;
+    --topbar-bg:rgba(240,246,242,.92);
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html{-webkit-text-size-adjust:100%}
@@ -52,7 +59,7 @@
   /* Main */
   .main{min-width:0;display:flex;flex-direction:column}
   .topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;
-    padding:16px 28px;border-bottom:1px solid var(--line);position:sticky;top:0;background:rgba(14,19,17,.85);backdrop-filter:blur(8px);z-index:10}
+    padding:16px 28px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--topbar-bg);backdrop-filter:blur(8px);z-index:10}
   .topbar .crumb{font-family:var(--mono);font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
   .topbar .crumb b{color:var(--green-bright);font-weight:600}
   .topbar .right{display:flex;align-items:center;gap:14px;font-family:var(--mono);font-size:11px;color:var(--muted-2)}
@@ -286,6 +293,11 @@
       <div class="crumb">Rep Desk / <b id="crumb">Dashboard</b></div>
       <div class="right">
         <span id="clock">—</span>
+        <button id="themeToggleBtn" title="Toggle theme" onclick="nsToggleTheme()" style="background:none;border:1px solid var(--line);color:var(--muted);cursor:pointer;padding:5px 8px;border-radius:7px;display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:9.5px;letter-spacing:.5px;text-transform:uppercase;transition:.13s" onmouseover="this.style.borderColor='var(--green-dim)';this.style.color='var(--text)'" onmouseout="this.style.borderColor='var(--line)';this.style.color='var(--muted)'">
+          <svg id="themeIcon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <span id="themeLabel">Light</span>
+        </button>
+        <button onclick="nsLogout()" title="Log out" style="background:none;border:1px solid var(--line);color:var(--muted-2);cursor:pointer;padding:5px 10px;border-radius:7px;font-family:var(--mono);font-size:9.5px;letter-spacing:.5px;text-transform:uppercase;transition:.13s" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--line)';this.style.color='var(--muted-2)'">Logout</button>
         <div class="rep"><span class="av" id="repInit">AE</span><span id="repName" style="color:var(--muted)">Account Exec</span></div>
       </div>
     </div>
@@ -554,6 +566,50 @@
   ]
 }
 </script>
+<!-- ============ LOGIN OVERLAY ============ -->
+<div id="loginOverlay" style="position:fixed;inset:0;background:var(--ink);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px;transition:opacity .25s">
+  <div style="background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:44px 48px;width:100%;max-width:400px;box-shadow:0 24px 60px rgba(0,0,0,.45)">
+    <div style="text-align:center;margin-bottom:32px">
+      <div style="font-weight:800;font-size:24px;letter-spacing:-.5px;margin-bottom:8px">
+        <span style="color:var(--green-bright)">NODE</span><span style="color:var(--text)">STREAM</span>
+      </div>
+      <div style="font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted-2)">REP DESK &middot; SECURE ACCESS</div>
+    </div>
+    <div id="loginHeading" style="font-size:18px;font-weight:700;margin-bottom:5px;color:var(--text)">Welcome back</div>
+    <div id="loginSub" style="font-size:13px;color:var(--muted);margin-bottom:24px;line-height:1.5">Enter your access code to unlock.</div>
+
+    <div id="loginNameWrap" style="display:none;margin-bottom:14px">
+      <label style="font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted-2);display:block;margin-bottom:6px">Your Name</label>
+      <input id="loginName" type="text" class="form-input" placeholder="e.g. Alex Chen" autocomplete="name" onkeydown="if(event.key==='Enter')nsSubmitLogin()">
+    </div>
+
+    <div style="margin-bottom:14px;position:relative">
+      <label style="font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted-2);display:block;margin-bottom:6px">Access Code</label>
+      <input id="loginPw" type="password" class="form-input" placeholder="Enter access code" style="padding-right:44px" onkeydown="if(event.key==='Enter')nsSubmitLogin()">
+      <button onclick="nsToggleEye()" tabindex="-1" style="position:absolute;right:12px;bottom:10px;background:none;border:none;color:var(--muted-2);cursor:pointer;padding:0;display:flex;align-items:center">
+        <svg id="loginEyeIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+    </div>
+
+    <div id="loginConfirmWrap" style="display:none;margin-bottom:14px">
+      <label style="font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted-2);display:block;margin-bottom:6px">Confirm Access Code</label>
+      <input id="loginConfirm" type="password" class="form-input" placeholder="Repeat access code" onkeydown="if(event.key==='Enter')nsSubmitLogin()">
+    </div>
+
+    <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);margin-bottom:18px;cursor:pointer;user-select:none">
+      <input id="loginStay" type="checkbox" style="accent-color:var(--green);width:15px;height:15px"> Stay logged in on this device
+    </label>
+
+    <div id="loginError" style="display:none;font-size:12px;color:var(--red);margin-bottom:12px;padding:10px 12px;background:rgba(217,88,74,.08);border:1px solid rgba(217,88,74,.2);border-radius:8px"></div>
+
+    <button id="loginBtn" class="btn-primary" onclick="nsSubmitLogin()" style="width:100%;padding:12px;font-size:14px;font-weight:700">Sign In</button>
+
+    <div style="font-family:var(--mono);font-size:10px;color:var(--muted-2);text-align:center;margin-top:18px;line-height:1.7">
+      Access code is SHA-256 hashed &amp; stored locally.<br>Nothing is sent to any server.
+    </div>
+  </div>
+</div>
+
 <script src="portal.js"></script>
 </body>
 </html>

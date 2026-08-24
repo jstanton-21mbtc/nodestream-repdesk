@@ -5,6 +5,162 @@
   var DATA = {};
   try{ DATA = JSON.parse($("#portal-data").textContent); }catch(e){ DATA = {}; }
 
+  // ============================================================
+  // AUTH + THEME
+  // ============================================================
+  var NS_PW_KEY    = 'ns_pw_v1';
+  var NS_NAME_KEY  = 'ns_repname_v1';
+  var NS_THEME_KEY = 'ns_theme_v1';
+  var NS_STAY_KEY  = 'ns_stay_v1';
+  var NS_SESS_KEY  = 'ns_session_v1';
+
+  function nsGetHash(){ return localStorage.getItem(NS_PW_KEY); }
+  function nsIsFirstTime(){ return !nsGetHash(); }
+  function nsIsLoggedIn(){
+    return localStorage.getItem(NS_STAY_KEY)==='1' || sessionStorage.getItem(NS_SESS_KEY)==='1';
+  }
+
+  function nsHashPw(pw){
+    return crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw)).then(function(buf){
+      return Array.from(new Uint8Array(buf)).map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
+    });
+  }
+
+  function nsApplyRepName(name){
+    if(!name) return;
+    var initials = name.split(' ').filter(Boolean).map(function(w){ return w[0]; }).join('').slice(0,2).toUpperCase();
+    var repNameEl = document.getElementById('repName');
+    var repInitEl = document.getElementById('repInit');
+    if(repNameEl) repNameEl.textContent = name;
+    if(repInitEl) repInitEl.textContent = initials || 'AE';
+  }
+
+  // --- Theme ---
+  function nsApplyTheme(t){
+    document.documentElement.setAttribute('data-theme', t || 'dark');
+    var icon = document.getElementById('themeIcon');
+    var label = document.getElementById('themeLabel');
+    if(t === 'light'){
+      if(icon) icon.innerHTML='<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>';
+      if(label) label.textContent = 'Dark';
+    } else {
+      if(icon) icon.innerHTML='<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+      if(label) label.textContent = 'Light';
+    }
+  }
+  window.nsSetTheme = function(t){
+    localStorage.setItem(NS_THEME_KEY, t);
+    nsApplyTheme(t);
+    // Re-render settings if open
+    if(!document.getElementById('view-settings').classList.contains('hidden')) mountSettings();
+  };
+  window.nsToggleTheme = function(){
+    var cur = localStorage.getItem(NS_THEME_KEY) || 'dark';
+    window.nsSetTheme(cur === 'dark' ? 'light' : 'dark');
+  };
+
+  // Apply saved theme immediately
+  nsApplyTheme(localStorage.getItem(NS_THEME_KEY) || 'dark');
+
+  // --- Login ---
+  function nsShowLogin(){
+    var ov = document.getElementById('loginOverlay');
+    if(!ov) return;
+    ov.style.display = 'flex';
+    if(nsIsFirstTime()){
+      document.getElementById('loginHeading').textContent = 'Set up your desk';
+      document.getElementById('loginSub').textContent = 'Choose your name and create an access code.';
+      document.getElementById('loginNameWrap').style.display = 'block';
+      document.getElementById('loginConfirmWrap').style.display = 'block';
+      document.getElementById('loginBtn').textContent = 'Create & Enter';
+      document.getElementById('loginStay').checked = true;
+    } else {
+      var name = localStorage.getItem(NS_NAME_KEY);
+      if(name) document.getElementById('loginHeading').textContent = 'Welcome back, ' + name.split(' ')[0];
+      document.getElementById('loginStay').checked = true;
+    }
+    setTimeout(function(){
+      var f = nsIsFirstTime() ? document.getElementById('loginName') : document.getElementById('loginPw');
+      if(f) f.focus();
+    }, 80);
+  }
+
+  function nsHideLogin(){
+    var ov = document.getElementById('loginOverlay');
+    if(!ov) return;
+    ov.style.opacity = '0';
+    setTimeout(function(){ ov.style.display = 'none'; ov.style.opacity = '1'; }, 250);
+  }
+
+  window.nsSubmitLogin = function(){
+    var err = document.getElementById('loginError');
+    var btn = document.getElementById('loginBtn');
+    var pw  = (document.getElementById('loginPw').value || '').trim();
+    err.style.display = 'none';
+    if(!pw){ err.textContent = 'Please enter an access code.'; err.style.display = 'block'; return; }
+
+    if(nsIsFirstTime()){
+      var name    = (document.getElementById('loginName').value || '').trim();
+      var confirm = (document.getElementById('loginConfirm').value || '').trim();
+      if(!name)    { err.textContent = 'Please enter your name.'; err.style.display = 'block'; return; }
+      if(pw.length < 4){ err.textContent = 'Access code must be at least 4 characters.'; err.style.display = 'block'; return; }
+      if(pw !== confirm){ err.textContent = 'Access codes do not match.'; err.style.display = 'block'; return; }
+      nsHashPw(pw).then(function(hash){
+        localStorage.setItem(NS_PW_KEY, hash);
+        localStorage.setItem(NS_NAME_KEY, name);
+        if(document.getElementById('loginStay').checked) localStorage.setItem(NS_STAY_KEY, '1');
+        else sessionStorage.setItem(NS_SESS_KEY, '1');
+        nsApplyRepName(name);
+        nsHideLogin();
+      });
+    } else {
+      btn.disabled = true; btn.textContent = 'Verifying\u2026';
+      nsHashPw(pw).then(function(hash){
+        if(hash === nsGetHash()){
+          if(document.getElementById('loginStay').checked) localStorage.setItem(NS_STAY_KEY, '1');
+          else { localStorage.removeItem(NS_STAY_KEY); sessionStorage.setItem(NS_SESS_KEY, '1'); }
+          btn.disabled = false; btn.textContent = 'Sign In';
+          nsHideLogin();
+        } else {
+          btn.disabled = false; btn.textContent = 'Sign In';
+          err.textContent = 'Incorrect access code. Please try again.';
+          err.style.display = 'block';
+          document.getElementById('loginPw').value = '';
+          document.getElementById('loginPw').focus();
+        }
+      });
+    }
+  };
+
+  window.nsToggleEye = function(){
+    var inp  = document.getElementById('loginPw');
+    var icon = document.getElementById('loginEyeIcon');
+    if(inp.type === 'password'){
+      inp.type = 'text';
+      icon.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>';
+    } else {
+      inp.type = 'password';
+      icon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+    }
+  };
+
+  window.nsLogout = function(){
+    localStorage.removeItem(NS_STAY_KEY);
+    sessionStorage.removeItem(NS_SESS_KEY);
+    // Reset login form state
+    document.getElementById('loginPw').value = '';
+    var errEl = document.getElementById('loginError');
+    if(errEl) errEl.style.display = 'none';
+    nsShowLogin();
+  };
+
+  // Init auth check
+  if(!nsIsLoggedIn()){
+    nsShowLogin();
+  } else {
+    nsApplyRepName(localStorage.getItem(NS_NAME_KEY));
+  }
+
   var VIEW_LABEL = {
     dash:"Dashboard", pipeline:"Pipeline",
     discovery:"Discovery & Scoring", configurator:"Deal Configurator",
@@ -50,8 +206,12 @@
   }
   tick(); setInterval(tick,30000);
 
-  // ---- Rep ----
-  if(DATA.rep){ $("#repName").textContent=DATA.rep.name; $("#repInit").textContent=DATA.rep.initials; }
+  // ---- Rep ---- (stored name takes priority over portal-data default)
+  if(localStorage.getItem(NS_NAME_KEY)){
+    nsApplyRepName(localStorage.getItem(NS_NAME_KEY));
+  } else if(DATA.rep){
+    $("#repName").textContent=DATA.rep.name; $("#repInit").textContent=DATA.rep.initials;
+  }
 
   // ---- KPIs ----
   (function(){
@@ -630,6 +790,76 @@
           '<span class="ksl'+(isSet?' set':'')+'">'+( isSet?'Key saved ('+masked+')' : 'No key saved' )+'</span>'+
         '</div>';
       el.appendChild(div);
+    });
+
+    // ---- Theme card ----
+    var currentTheme = localStorage.getItem(NS_THEME_KEY) || 'dark';
+    function themeOptHtml(val, label, icon){
+      var active = val === currentTheme;
+      return '<button onclick="window.nsSetTheme(\''+val+'\')" style="flex:1;background:'+(active?'rgba(60,160,40,.10)':'var(--panel-2)')+';border:2px solid '+(active?'var(--green-dim)':'var(--line)')+';border-radius:10px;padding:16px 10px;cursor:pointer;color:'+(active?'var(--green-bright)':'var(--muted)')+';font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase;transition:.13s;font-weight:'+(active?'700':'400')+';display:flex;flex-direction:column;align-items:center;gap:7px">'+
+        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">'+icon+'</svg>'+label+'</button>';
+    }
+    var moonIcon = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+    var sunIcon  = '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>';
+    var themeDiv = document.createElement('div');
+    themeDiv.className = 'settings-card';
+    themeDiv.innerHTML =
+      '<h3>Appearance</h3>'+
+      '<p class="sc-desc">Choose how the Rep Desk looks. Saved locally in this browser.</p>'+
+      '<div style="display:flex;gap:12px;margin-top:4px">'+
+        themeOptHtml('dark','Dark',moonIcon)+
+        themeOptHtml('light','Light',sunIcon)+
+      '</div>';
+    el.appendChild(themeDiv);
+
+    // ---- Access Code card ----
+    var accessDiv = document.createElement('div');
+    accessDiv.className = 'settings-card';
+    accessDiv.innerHTML =
+      '<h3>Access Code</h3>'+
+      '<p class="sc-desc">Change your SHA-256 protected access code. You will need to re-enter it on next login.</p>'+
+      '<div class="form-field" style="margin-bottom:10px">'+
+        '<span class="form-label">Current Code</span>'+
+        '<input class="form-input" type="password" id="ac-current" placeholder="Current access code" style="font-family:var(--mono);font-size:12px">'+
+      '</div>'+
+      '<div class="form-field" style="margin-bottom:10px">'+
+        '<span class="form-label">New Code</span>'+
+        '<input class="form-input" type="password" id="ac-new" placeholder="Min 4 characters" style="font-family:var(--mono);font-size:12px">'+
+      '</div>'+
+      '<div class="form-field" style="margin-bottom:14px">'+
+        '<span class="form-label">Confirm New Code</span>'+
+        '<input class="form-input" type="password" id="ac-confirm" placeholder="Repeat new code" style="font-family:var(--mono);font-size:12px">'+
+      '</div>'+
+      '<div id="ac-msg" style="display:none;font-size:12px;margin-bottom:10px;padding:9px 12px;border-radius:8px"></div>'+
+      '<button class="btn-primary" id="ac-save-btn" style="padding:7px 16px;font-size:12px">Update Code</button>';
+    el.appendChild(accessDiv);
+
+    // Wire access code save
+    accessDiv.querySelector('#ac-save-btn').addEventListener('click', function(){
+      var cur     = (accessDiv.querySelector('#ac-current').value||'').trim();
+      var nw      = (accessDiv.querySelector('#ac-new').value||'').trim();
+      var confirm = (accessDiv.querySelector('#ac-confirm').value||'').trim();
+      var msg     = accessDiv.querySelector('#ac-msg');
+      function showMsg(txt, ok){
+        msg.textContent = txt;
+        msg.style.display = 'block';
+        msg.style.background = ok ? 'rgba(60,160,40,.08)' : 'rgba(217,88,74,.08)';
+        msg.style.border = ok ? '1px solid rgba(60,160,40,.25)' : '1px solid rgba(217,88,74,.2)';
+        msg.style.color = ok ? 'var(--green-bright)' : 'var(--red)';
+      }
+      if(!cur || !nw || !confirm){ showMsg('Please fill in all three fields.', false); return; }
+      if(nw.length < 4){ showMsg('New code must be at least 4 characters.', false); return; }
+      if(nw !== confirm){ showMsg('New codes do not match.', false); return; }
+      nsHashPw(cur).then(function(curHash){
+        if(curHash !== nsGetHash()){ showMsg('Current access code is incorrect.', false); return; }
+        nsHashPw(nw).then(function(newHash){
+          localStorage.setItem(NS_PW_KEY, newHash);
+          accessDiv.querySelector('#ac-current').value = '';
+          accessDiv.querySelector('#ac-new').value = '';
+          accessDiv.querySelector('#ac-confirm').value = '';
+          showMsg('Access code updated successfully.', true);
+        });
+      });
     });
 
     // Settings event delegation
