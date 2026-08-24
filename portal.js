@@ -513,5 +513,74 @@
     el.innerHTML=html;
   }
 
+  // ============================================================
+  // NEWS TICKER — The GPU
+  // ============================================================
+  (function(){
+    var inner  = $("#tickerInner");
+    var track  = $("#tickerTrack");
+    if(!inner||!track) return;
+
+    var _pos   = 0;
+    var _speed = 0.6; // px per frame
+    var _raf;
+    var _paused= false;
+    var _halfW = 0;
+
+    function step(){
+      if(!_paused && _halfW>0){
+        _pos -= _speed;
+        if(_pos <= -_halfW) _pos = 0;
+        inner.style.transform = 'translateX('+_pos+'px)';
+      }
+      _raf = requestAnimationFrame(step);
+    }
+
+    track.addEventListener('mouseenter', function(){ _paused=true; });
+    track.addEventListener('mouseleave', function(){ _paused=false; });
+
+    function buildTicker(items){
+      if(!items||!items.length){
+        inner.innerHTML='<a class="ticker-item" href="https://thegpu.ai" target="_blank" rel="noopener">Visit The GPU for the latest GPU &amp; AI news</a>';
+        return;
+      }
+      // Build items once, duplicate for seamless loop
+      function makeItems(){
+        return items.map(function(it){
+          return '<a class="ticker-item" href="'+esc(it.link)+'" target="_blank" rel="noopener">'+
+            esc(it.title)+
+            '</a><span class="ticker-sep">&bull;</span>';
+        }).join('');
+      }
+      inner.innerHTML = makeItems() + makeItems();
+      // Measure half-width after render
+      requestAnimationFrame(function(){
+        _halfW = inner.scrollWidth / 2;
+        _pos   = 0;
+      });
+    }
+
+    async function loadTicker(){
+      var feedUrl  = encodeURIComponent('https://thegpu.ai/feed');
+      var api      = 'https://api.rss2json.com/v1/api.json?rss_url='+feedUrl+'&count=10';
+      try{
+        var r = await fetch(api);
+        var j = await r.json();
+        if(j.status==='ok' && j.items && j.items.length){
+          buildTicker(j.items);
+        } else {
+          throw new Error('empty');
+        }
+      }catch(e){
+        buildTicker(null);
+      }
+      // Refresh every 30 minutes
+      setTimeout(loadTicker, 30*60*1000);
+    }
+
+    loadTicker();
+    step();
+  })();
+
   window.NS_show=show;
 })();

@@ -145,6 +145,16 @@
 
   .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
 
+  /* ---- News Ticker ---- */
+  .ticker-bar{display:flex;align-items:center;height:30px;background:var(--panel-2);border-bottom:1px solid var(--line);overflow:hidden;flex:none;position:sticky;top:57px;z-index:9}
+  .ticker-source{font-family:var(--mono);font-size:8.5px;letter-spacing:1.5px;text-transform:uppercase;color:var(--ink);background:var(--green-bright);font-weight:800;padding:0 10px;height:100%;display:flex;align-items:center;white-space:nowrap;flex:none}
+  .ticker-track{flex:1;overflow:hidden;position:relative;height:100%;cursor:default}
+  .ticker-inner{display:inline-flex;align-items:center;gap:0;height:100%;white-space:nowrap;will-change:transform}
+  .ticker-item{font-family:var(--mono);font-size:10.5px;color:var(--muted);text-decoration:none;padding:0 6px;transition:color .13s}
+  .ticker-item:hover{color:var(--green-bright)}
+  .ticker-sep{color:var(--green-dim);padding:0 6px;font-size:10px;user-select:none}
+  .ticker-placeholder{font-family:var(--mono);font-size:10px;color:var(--muted-2);padding:0 16px}
+
   /* ---- Pipeline & Modals ---- */
   .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(4px);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px}
   .modal-overlay.hidden{display:none}
@@ -220,6 +230,16 @@
       <div class="right">
         <span id="clock">—</span>
         <div class="rep"><span class="av" id="repInit">AE</span><span id="repName" style="color:var(--muted)">Account Exec</span></div>
+      </div>
+    </div>
+
+    <!-- ============ NEWS TICKER ============ -->
+    <div class="ticker-bar" id="tickerBar">
+      <span class="ticker-source">The GPU</span>
+      <div class="ticker-track" id="tickerTrack">
+        <div class="ticker-inner" id="tickerInner">
+          <span class="ticker-placeholder">Loading latest from The GPU&hellip;</span>
+        </div>
       </div>
     </div>
 
