@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nodestream · Buyer Personas</title>
+<style>
+  :root{
+    --ink:#0E1311;--panel:#141A17;--panel-2:#1B2420;--line:#2A352F;
+    --green:#3CA028;--green-bright:#4FD135;--green-dim:#2E7A1F;
+    --amber:#E0A73C;--blue:#5B9BD5;--purple:#9B7FD4;
+    --text:#E8EFEA;--muted:#8A9A90;--muted-2:#5F6F66;--red:#D9584A;
+    --mono:"JetBrains Mono","SF Mono",ui-monospace,monospace;
+    --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--ink);color:var(--text);font-family:var(--sans);line-height:1.6;padding:36px 28px 60px;max-width:900px;margin:0 auto}
+  h1{font-family:var(--mono);font-size:13px;letter-spacing:2px;text-transform:uppercase;color:var(--green);margin-bottom:6px;display:flex;align-items:center;gap:8px}
+  h1::before{content:"";width:7px;height:7px;background:var(--green);border-radius:50%;box-shadow:0 0 8px var(--green);flex:none}
+  .sub{font-size:13px;color:var(--muted-2);margin-bottom:36px;max-width:65ch}
+
+  .persona{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:28px;margin-bottom:22px;position:relative;overflow:hidden}
+  .persona::before{content:"";position:absolute;top:0;left:0;width:4px;height:100%}
+  .persona.lab::before{background:var(--blue)}
+  .persona.neo::before{background:var(--green)}
+  .persona.ent::before{background:var(--amber)}
+
+  .persona-tag{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;padding:4px 12px;border-radius:999px;margin-bottom:14px}
+  .persona-tag.lab{background:rgba(91,155,213,.1);color:var(--blue);border:1px solid rgba(91,155,213,.3)}
+  .persona-tag.neo{background:rgba(60,160,40,.1);color:var(--green-bright);border:1px solid rgba(60,160,40,.3)}
+  .persona-tag.ent{background:rgba(224,167,60,.1);color:var(--amber);border:1px solid rgba(224,167,60,.3)}
+
+  .persona h2{font-size:20px;font-weight:700;margin-bottom:6px}
+  .persona .tagline{font-size:13px;color:var(--muted);margin-bottom:22px;font-style:italic}
+
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:22px}
+  @media(max-width:600px){.grid{grid-template-columns:1fr}}
+
+  .block{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:16px}
+  .block-label{font-family:var(--mono);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted-2);margin-bottom:10px}
+  .block ul{list-style:none;display:flex;flex-direction:column;gap:6px}
+  .block ul li{font-size:13px;padding-left:14px;position:relative;color:var(--text)}
+  .block ul li::before{content:"—";position:absolute;left:0;color:var(--muted-2)}
+
+  .objections{background:rgba(217,88,74,.05);border:1px solid rgba(217,88,74,.2);border-radius:10px;padding:16px;margin-bottom:18px}
+  .objections .block-label{color:rgba(217,88,74,.7)}
+  .obj-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px}
+  @media(max-width:600px){.obj-row{grid-template-columns:1fr}}
+  .obj-q{color:var(--muted);padding-left:14px;position:relative}
+  .obj-q::before{content:"Q";position:absolute;left:0;color:rgba(217,88,74,.7);font-family:var(--mono);font-size:10px;font-weight:700}
+  .obj-a{color:var(--text);padding-left:14px;position:relative}
+  .obj-a::before{content:"A";position:absolute;left:0;color:var(--green);font-family:var(--mono);font-size:10px;font-weight:700}
+
+  .pitch-box{background:var(--panel-2);border-left:3px solid var(--green-dim);border-radius:0 10px 10px 0;padding:14px 18px;font-size:13.5px;line-height:1.7;color:var(--text);font-style:italic}
+  .pitch-label{font-family:var(--mono);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted-2);margin-bottom:8px}
+
+  .divider{border:none;border-top:1px solid var(--line);margin:22px 0}
+
+  .kv-row{display:flex;gap:8px;font-size:13px;margin-bottom:6px}
+  .kv-k{font-family:var(--mono);font-size:10px;color:var(--muted-2);text-transform:uppercase;letter-spacing:.8px;min-width:110px;padding-top:2px}
+  .kv-v{color:var(--text)}
+
+  footer{font-family:var(--mono);font-size:10px;color:var(--muted-2);margin-top:40px;border-top:1px solid var(--line);padding-top:16px}
+</style>
+</head>
+<body>
+
+<h1>Buyer Personas</h1>
+<p class="sub">Three archetypes that account for the majority of Nodestream pipeline. Use these to route discovery, tailor the pitch, and anticipate objections before they surface.</p>
+
+<!-- ══════════════════════════════════════════════
+     PERSONA 1 — FRONTIER LAB
+════════════════════════════════════════════════ -->
+<div class="persona lab">
+  <div class="persona-tag lab">Persona 01 &mdash; Frontier Lab</div>
+  <h2>The Frontier Lab</h2>
+  <p class="tagline">"We need raw throughput at the frontier of what's possible — and we needed it yesterday."</p>
+
+  <div class="grid">
+    <div class="block">
+      <div class="block-label">Who They Are</div>
+      <ul>
+        <li>AI research orgs and well-funded startups training frontier models</li>
+        <li>Teams of 10–200 ML researchers and engineers</li>
+        <li>Burning through compute budgets of $5M–$50M+ per year</li>
+        <li>Decision makers: CTO, VP of Research, Head of Infrastructure</li>
+      </ul>
+    </div>
+    <div class="block">
+      <div class="block-label">What They Need</div>
+      <ul>
+        <li>Maximum GPU density (H100/B200 clusters, 256–2,048 GPUs)</li>
+        <li>Low-latency interconnects — InfiniBand HDR/NDR non-negotiable</li>
+        <li>Burst capacity with minimal lead time (&lt;2 weeks ideal)</li>
+        <li>Dedicated bare-metal — no noisy-neighbor risk</li>
+        <li>Flexible term (12–36 mo) with renewal options</li>
+      </ul>
+    </div>
+    <div class="block">
+      <div class="block-label">Pain Points</div>
+      <ul>
+        <li>Cloud GPU queues and spot-instance interruptions killing run schedules</li>
+        <li>Hyperscaler pricing unpredictability — AWS/Azure bills ballooning</li>
+        <li>Compliance/data-sovereignty pressure from investors or gov contracts</li>
+        <li>Wasted researcher time waiting on infra instead of shipping</li>
+      </ul>
+    </div>
+    <div class="block">
+      <div class="block-label">Buying Signals</div>
+      <ul>
+        <li>Actively benchmarking providers or just came off a failed cloud run</li>
+        <li>Recent funding round (Series A–C) — budget is real and moving fast</li>
+        <li>Hiring infra engineers — scaling signal</li>
+        <li>Asking about InfiniBand topology or RDMA specifics early</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="objections">
+    <div class="block-label">Common Objections &amp; Responses</div>
+    <div class="obj-row">
+      <div class="obj-q">"We're already on AWS Reserved."</div>
+      <div class="obj-a">Show 3-year TCO delta — bare-metal typically 40–60% cheaper at this scale. We'll model it together in the Configurator.</div>
+      <div class="obj-q">"What's your uptime SLA?"</div>
+      <div class="obj-a">99.9% hardware availability SLA with direct ops escalation — no ticket queue, dedicated POC.</div>
+      <div class="obj-q">"We need to move in 2 weeks."</div>
+      <div class="obj-a">That's exactly why we exist. Get hardware details from ops today, LOI this week, live next week.</div>
+    </div>
+  </div>
+
+  <div class="pitch-label">30-Second Pitch</div>
+  <div class="pitch-box">"You're burning researcher time and millions on cloud GPU queues that don't guarantee availability. Nodestream gives you dedicated bare-metal H100/B200 clusters with InfiniBand, no noisy neighbors, and a 2-week deployment window. You get the throughput, we handle the hardware — and on a 3-year basis you're likely cutting your compute bill in half."</div>
+
+  <hr class="divider">
+  <div class="kv-row"><span class="kv-k">Typical ACV</span><span class="kv-v">$8M – $30M</span></div>
+  <div class="kv-row"><span class="kv-k">Deal Length</span><span class="kv-v">24 – 36 months</span></div>
+  <div class="kv-row"><span class="kv-k">Sales Cycle</span><span class="kv-v">4 – 10 weeks</span></div>
+  <div class="kv-row"><span class="kv-k">Key Tools</span><span class="kv-v">Discovery Scorecard (section 2) &rarr; Deal Configurator &rarr; Full Quote</span></div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     PERSONA 2 — NEOCLOUD
+════════════════════════════════════════════════ -->
+<div class="persona neo">
+  <div class="persona-tag neo">Persona 02 &mdash; Neocloud</div>
+  <h2>The Neocloud</h2>
+  <p class="tagline">"We resell GPU capacity to our customers — margins live and die by what we pay for hardware."</p>
+
+  <div class="grid">
+    <div class="block">
+      <div class="block-label">Who They Are</div>
+      <ul>
+        <li>Infrastructure platforms reselling GPU compute as a service</li>
+        <li>Engineering-heavy teams of 20–500 people</li>
+        <li>Revenue-generating businesses with real customer demand today</li>
+        <li>Decision makers: CEO/Founder, VP Infrastructure, CFO</li>
+      </ul>
+    </div>
+    <div class="block">
+      <div class="block-label">What They Need</div>
+      <ul>
+        <li>Volume pricing and favorable long-term rate cards</li>
+        <li>Predictable cost basis to protect margin on customer contracts</li>
+        <li>Multi-cluster capacity with geographic flexibility</li>
+        <li>API-accessible infrastructure for orchestration integration</li>
+        <li>White-glove ops support — their SLA is passed through to their customers</li>
+      </ul>
+    </div>
+    <div class="block">
+      <div class="block-label">Pain Points</div>
+      <ul>
+        <li>Hyperscaler spot pricing eroding margin on fixed-price customer deals</li>
+        <li>Capacity crunches forcing them to turn away or delay customers</li>
+        <li>Vendor lock-in limiting their own pricing power downstream</li>
+        <li>Ops burden of managing multiple hyperscaler relationships</li>
+      </ul>
+    </div>
+    <div class="block">
+      <div class="block-label">Buying Signals</div>
+      <ul>
+        <li>Asking for blended rate cards across GPU SKUs — comparing suppliers</li>
+        <li>Questions about minimum cluster size and term flexibility</li>
+        <li>Customer growth story — "we're landing deals we can't fulfill"</li>
+        <li>Existing relationship with 1–2 other hardware vendors (competitive)</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="objections">
+    <div class="block-label">Common Objections &amp; Responses</div>
+    <div class="obj-row">
+      <div class="obj-q">"We already have a CoreWeave/Lambda deal."</div>
+      <div class="obj-a">We're not asking you to replace them — diversification is a margin strategy. What's your blended cost today? Let's see if we can improve it on incremental capacity.</div>
+      <div class="obj-q">"We need flexibility to scale down."</div>
+      <div class="obj-a">We offer partial-cluster commitments with defined ramp schedules. Walk us through your demand forecast and we'll build a structure around it.</div>
+      <div class="obj-q">"Your minimums are too high."</div>
+      <div class="obj-a">What's your current utilization rate? If you're near capacity, the math usually works. We can start at 64 GPUs and structure growth options into the contract.</div>
+    </div>
+  </div>
+
+  <div class="pitch-label">30-Second Pitch</div>
+  <div class="pitch-box">"Your margin is determined before your first customer signs — it's locked in by what you pay for hardware. Nodestream gives you a fixed, predictable cost basis on dedicated bare-metal capacity with volume pricing that improves as you grow. You stop losing deals to capacity crunches and stop watching your margin compress every time spot prices spike."</div>
+
+  <hr class="divider">
+  <div class="kv-row"><span class="kv-k">Typical ACV</span><span class="kv-v">$15M – $60M</span></div>
+  <div class="kv-row"><span class="kv-k">Deal Length</span><span class="kv-v">24 – 48 months</span></div>
+  <div class="kv-row"><span class="kv-k">Sales Cycle</span><span class="kv-v">6 – 16 weeks</span></div>
+  <div class="kv-row"><span class="kv-k">Key Tools</span><span class="kv-v">Deal Configurator (multi-tier pricing) &rarr; Full Quote with volume schedule</span></div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     PERSONA 3 — ENTERPRISE / SOVEREIGN
+════════════════════════════════════════════════ -->
+<div class="persona ent">
+  <div class="persona-tag ent">Persona 03 &mdash; Enterprise / Sovereign</div>
+  <h2>The Enterprise &amp; Sovereign</h2>
+  <p class="tagline">"We can't put sensitive workloads on public cloud — we need dedicated, auditable, on-soil infrastructure."</p>
+
+  <div class="grid">
+    <div class="block">
+      <div class="block-label">Who They Are</div>
+      <ul>
+        <li>Large enterprises, defense contractors, and government agencies</li>
+        <li>Organizations with strict data-sovereignty or air-gap requirements</li>
+        <li>Teams of 500–50,000+ employees; IT/procurement-led buying</li>
+        <li>Decision makers: CISO, CTO, Procurement, sometimes C-suite sponsor</li>
+      </ul>
+    </div>
+    <div class="block">
+      <div class="block-label">What They Need</div>
+      <ul>
+        <li>Data-residency guarantees — specific jurisdiction, no cross-border transfer</li>
+        <li>Physical isolation — dedicated racks, no logical multi-tenancy</li>
+        <li>Audit trails, compliance documentation (FedRAMP, ITAR, ISO 27001)</li>
+        <li>Long-term contracts with SLAs and financial penalties for breach</li>
+        <li>Procurement-friendly structure (MSA, SOW, PO-based billing)</li>
+      </ul>
+    </div>
+    <div class="block">
+      <div class="block-label">Pain Points</div>
+      <ul>
+        <li>Public cloud disqualified by legal, compliance, or national security policy</li>
+        <li>Internal HPC buildouts too slow and capital-intensive</li>
+        <li>Existing vendors can't provide the audit documentation security requires</li>
+        <li>Long procurement cycles — stakeholders span IT, legal, finance, security</li>
+      </ul>
+    </div>
+    <div class="block">
+      <div class="block-label">Buying Signals</div>
+      <ul>
+        <li>Mentioning FedRAMP, ITAR, CMMC, or data-residency in the first call</li>
+        <li>Asking about physical security, SOC 2, or third-party audits</li>
+        <li>IT/procurement involved from day one — not just technical buyer</li>
+        <li>Long decision timeline expectations (&gt;90 days) mentioned proactively</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="objections">
+    <div class="block-label">Common Objections &amp; Responses</div>
+    <div class="obj-row">
+      <div class="obj-q">"Our procurement cycle is 6 months minimum."</div>
+      <div class="obj-a">We work with that — we'll get a Letter of Intent in place, then your team drives the formal process. We can hold capacity with a soft reservation while you proceed.</div>
+      <div class="obj-q">"Can you pass our security review?"</div>
+      <div class="obj-a">We provide SOC 2 Type II, physical security documentation, and dedicated compliance support. Loop in your CISO and we'll set up a technical review call this week.</div>
+      <div class="obj-q">"We need on-prem — not a data center."</div>
+      <div class="obj-a">We offer isolated, geo-specific deployments that satisfy most sovereignty requirements without the capital burden of a full build. Let's review your compliance spec together.</div>
+    </div>
+  </div>
+
+  <div class="pitch-label">30-Second Pitch</div>
+  <div class="pitch-box">"Public cloud is off the table for your sensitive workloads — but building your own HPC environment takes 18 months and nine figures of capex. Nodestream gives you dedicated, physically isolated GPU infrastructure in your required jurisdiction, with the audit documentation your security team needs, on a contract structure your procurement team can actually process."</div>
+
+  <hr class="divider">
+  <div class="kv-row"><span class="kv-k">Typical ACV</span><span class="kv-v">$5M – $25M</span></div>
+  <div class="kv-row"><span class="kv-k">Deal Length</span><span class="kv-v">36 – 60 months</span></div>
+  <div class="kv-row"><span class="kv-k">Sales Cycle</span><span class="kv-v">12 – 26 weeks</span></div>
+  <div class="kv-row"><span class="kv-k">Key Tools</span><span class="kv-v">Discovery Scorecard (compliance section) &rarr; Deal Configurator &rarr; Full Quote + MSA</span></div>
+</div>
+
+<footer>Nodestream Rep Desk &mdash; Internal Reference &mdash; Confirm figures with HPC Division before external use</footer>
+</body>
+</html>

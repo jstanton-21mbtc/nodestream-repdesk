@@ -8,7 +8,7 @@
   var VIEW_LABEL = {
     dash:"Dashboard", pipeline:"Pipeline",
     discovery:"Discovery & Scoring", configurator:"Deal Configurator",
-    quote:"Quote Builder", playbook:"Playbook & Docs"
+    quote:"Quote Builder", playbook:"Docs"
   };
   var mounted = {};
 
@@ -343,9 +343,8 @@
   function mountPlaybook(){
     var el=$("#refMount"); if(!el) return;
     var refs=[
-      {t:"Go-to-Market Plan",       d:"Market, ICP, business lines, pricing philosophy",         x:"Doc",  href:"#"},
       {t:"Battlecards",             d:"30-sec pitch, objection handling, discovery Qs per line",  x:"PDF",  href:"tools/battlecards.pdf"},
-      {t:"Persona Decks",           d:"Frontier Lab \u00b7 Neocloud \u00b7 Enterprise/Sovereign", x:"Deck", href:"#"},
+      {t:"Buyer Personas",          d:"Frontier Lab \u00b7 Neocloud \u00b7 Enterprise/Sovereign \u2014 who they are, pain points, objections, pitch", x:"Doc", href:"tools/personas.html"},
       {t:"Fillable Quote (current)",d:"36/48/60-mo \u00b7 256-GPU default \u00b7 downpayment",   x:"PDF",  href:"tools/quote.pdf"}
     ];
     var icon='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
