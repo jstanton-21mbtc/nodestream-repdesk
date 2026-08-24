@@ -144,6 +144,41 @@
   .backbtn:hover{border-color:var(--green-dim);color:var(--text)}
 
   .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+
+  /* ---- Pipeline & Modals ---- */
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(4px);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px}
+  .modal-overlay.hidden{display:none}
+  .modal{background:var(--panel);border:1px solid var(--line);border-radius:16px;width:100%;max-width:540px;max-height:92vh;display:flex;flex-direction:column;overflow:hidden}
+  .modal.modal-wide{max-width:740px}
+  .modal-head{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--line)}
+  .modal-title{font-size:16px;font-weight:700}
+  .modal-x{background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1;padding:2px 8px;border-radius:6px;font-family:inherit}
+  .modal-x:hover{background:var(--panel-2);color:var(--text)}
+  .modal-body{padding:22px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:14px}
+  .modal-foot{padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:10px;align-items:center}
+  .form-field{display:flex;flex-direction:column;gap:6px}
+  .form-label{font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted-2)}
+  .form-input{background:var(--panel-2);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:9px 12px;font-family:var(--sans);font-size:13.5px;width:100%;outline:none;transition:.13s}
+  .form-input:focus{border-color:var(--green-dim)}
+  .form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .btn-primary{background:var(--green-dim);border:1px solid var(--green-dim);color:#fff;padding:9px 18px;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--sans);transition:.13s}
+  .btn-primary:hover{background:var(--green);border-color:var(--green)}
+  .btn-ghost{background:var(--panel-2);border:1px solid var(--line);color:var(--muted);padding:9px 18px;border-radius:9px;font-size:13px;cursor:pointer;font-family:var(--sans);transition:.13s}
+  .btn-ghost:hover{border-color:var(--muted-2);color:var(--text)}
+  .btn-danger{background:rgba(217,88,74,.1);border:1px solid rgba(217,88,74,.3);color:var(--red);padding:9px 18px;border-radius:9px;font-size:13px;cursor:pointer;font-family:var(--sans);transition:.13s}
+  .btn-danger:hover{background:rgba(217,88,74,.2)}
+  .add-btn{background:var(--green-dim);border:1px solid var(--green);color:#fff;padding:8px 16px;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--sans);transition:.13s;display:flex;align-items:center;gap:7px}
+  .add-btn:hover{background:var(--green)}
+  .stage-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+  .stage-tab{font-family:var(--mono);font-size:10px;letter-spacing:.5px;text-transform:uppercase;padding:6px 14px;border-radius:999px;border:1px solid var(--line);color:var(--muted);background:none;cursor:pointer;transition:.13s}
+  .stage-tab:hover{border-color:var(--muted-2);color:var(--text)}
+  .stage-tab.active{border-color:var(--green-dim);color:var(--green-bright);background:rgba(60,160,40,.08)}
+  .pipe tr.clickable{cursor:pointer}
+  .pipe tr.clickable:hover td{background:rgba(27,36,32,.6)}
+  .detail-section{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:16px}
+  .ds-label{font-family:var(--mono);font-size:10px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted-2);margin-bottom:10px}
+  .detail-link{padding:4px 10px;font-family:var(--mono);font-size:10px;color:var(--green);border:1px solid var(--green-dim);border-radius:7px;text-decoration:none;cursor:pointer;background:none;transition:.13s;white-space:nowrap}
+  .detail-link:hover{background:rgba(60,160,40,.1)}
 </style>
 </head>
 <body>
@@ -158,6 +193,7 @@
     <nav class="nav" id="nav">
       <div class="navlabel">Today</div>
       <button data-view="dash" class="active"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>Dashboard</button>
+      <button data-view="pipeline"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v4H3z"/><path d="M3 10h12v4H3z"/><path d="M3 17h7v4H3z"/></svg>Pipeline</button>
       <div class="navlabel">Tools</div>
       <button data-view="discovery"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>Discovery &amp; Scoring</button>
       <button data-view="configurator"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>Deal Configurator</button>
@@ -228,12 +264,104 @@
       <div id="quoteMount"></div>
     </section>
 
+    <!-- ============ PIPELINE ============ -->
+    <section class="view hidden" id="view-pipeline">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:14px;margin-bottom:6px">
+        <div>
+          <div class="h">Pipeline</div>
+          <p class="lede" style="margin:0">All deals — open and closed. Click any row to view details, scorecard notes, and quote notes.</p>
+        </div>
+        <button class="add-btn" id="addDealBtn">+ Add Deal</button>
+      </div>
+      <div class="stage-tabs" id="stageTabs" style="margin-top:20px"></div>
+      <div class="panel" style="padding:0;overflow:hidden">
+        <table class="pipe" id="fullPipeTable">
+          <thead><tr><th>Account</th><th>Persona</th><th>Stage</th><th>Date Added</th><th style="text-align:right">Contract</th></tr></thead>
+          <tbody id="fullPipeBody"></tbody>
+        </table>
+      </div>
+    </section>
+
     <!-- ============ PLAYBOOK ============ -->
     <section class="view hidden" id="view-playbook">
       <div class="h">Playbook &amp; reference</div>
       <p class="lede">The living GTM material behind the tools. Figures are illustrative — confirm before external use.</p>
       <div id="refMount"></div>
     </section>
+  </div>
+</div>
+
+<!-- ============ ADD / EDIT DEAL MODAL ============ -->
+<div class="modal-overlay hidden" id="dealModal">
+  <div class="modal">
+    <div class="modal-head">
+      <span class="modal-title" id="dealModalTitle">Add Deal</span>
+      <button class="modal-x" id="dealModalClose">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="dealId">
+      <div class="form-row">
+        <div class="form-field">
+          <span class="form-label">Account Name</span>
+          <input class="form-input" type="text" id="deal-co" placeholder="Company name">
+        </div>
+        <div class="form-field">
+          <span class="form-label">Persona</span>
+          <select class="form-input" id="deal-persona">
+            <option>Neocloud</option>
+            <option>Frontier Lab</option>
+            <option>Enterprise</option>
+            <option>Sovereign</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <span class="form-label">Stage</span>
+          <select class="form-input" id="deal-stage">
+            <option value="disc">Discovery</option>
+            <option value="qual">Qualifying</option>
+            <option value="quote">Quote Out</option>
+            <option value="nego">Negotiation</option>
+            <option value="won">Closed Won</option>
+            <option value="lost">Closed Lost</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <span class="form-label">Contract Value</span>
+          <input class="form-input" type="text" id="deal-amt" placeholder="e.g. $12.4M">
+        </div>
+      </div>
+      <div class="form-field">
+        <span class="form-label">Notes</span>
+        <textarea class="form-input" id="deal-notes" rows="3" style="resize:vertical" placeholder="Key contacts, context, next steps..."></textarea>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-ghost" id="dealModalCancel">Cancel</button>
+      <span style="flex:1"></span>
+      <button class="btn-primary" id="dealModalSave">Save Deal</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ DEAL DETAIL MODAL ============ -->
+<div class="modal-overlay hidden" id="dealDetail">
+  <div class="modal modal-wide">
+    <div class="modal-head">
+      <span class="modal-title" id="detailTitle">—</span>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn-ghost" style="padding:5px 14px;font-size:12px" id="detailEditBtn">Edit</button>
+        <button class="modal-x" id="dealDetailClose">✕</button>
+      </div>
+    </div>
+    <div class="modal-body" id="detailBody"></div>
+    <div class="modal-foot">
+      <button class="btn-danger" id="detailDeleteBtn">Delete Deal</button>
+      <span style="flex:1"></span>
+      <button class="btn-ghost" id="detailCloseBtn">Close</button>
+      <button class="btn-primary" id="detailSaveBtn">Save Notes</button>
+    </div>
   </div>
 </div>
 
