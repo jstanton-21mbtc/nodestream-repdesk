@@ -128,11 +128,8 @@
         <p class="sub">Build any configuration — every field below is editable. Selecting a GPU model and tier auto-fills sensible defaults you can override. Or load a past deal as a starting point.</p>
 
         <div class="examples">
-          <span class="exlabel">Load example</span>
+          <span class="exlabel">Recent pipeline deals</span>
           <div class="presets" id="presets">
-            <button class="chip" data-preset="ionet">IO.NET · 1,024 B300</button>
-            <button class="chip" data-preset="edge">Edge Node · 128 B300</button>
-            <button class="chip" data-preset="virginia">Virginia · 8 B300</button>
             <button class="chip clear" data-preset="blank">Clear / custom</button>
           </div>
         </div>
@@ -284,12 +281,7 @@
   var tierRates = {};
   TIER_KEYS.forEach(function(k){ tierRates[k] = TIERS[k].rate; });
 
-  var PRESETS = {
-    ionet:   {model:"gb300", gpus:1024, tier:"60", resale:4.50, cost:3.65, kwRack:142, gpusPerRack:72, hrs:730, region:"US-Central (TX)"},
-    edge:    {model:"b300",  gpus:128,  tier:"36", resale:5.90, cost:4.50, kwRack:50,  gpusPerRack:24, hrs:730, region:"US-East"},
-    virginia:{model:"b300",  gpus:8,    tier:"12", resale:6.65, cost:4.50, kwRack:14,  gpusPerRack:8,  hrs:730, region:"US-East"},
-    blank:   {model:"b300",  gpus:8,    tier:"36", resale:null, cost:null, kwRack:null, gpusPerRack:null, hrs:730, region:"US-East"}
-  };
+  var BLANK_PRESET = {model:"b300", gpus:8, tier:"36", resale:null, cost:null, kwRack:null, gpusPerRack:null, hrs:730, region:"US-East"};
 
   var modelSel=$("model");
   TIER_KEYS; // ensure object keys order
@@ -469,31 +461,120 @@
       "Monthly margin: "+fmt(margin)+" ("+marginPct.toFixed(1)+"%)   Contract margin: "+fmt(margin*term);
   }
 
-  function loadPreset(key){
-    var p=PRESETS[key]; if(!p) return;
-    // Reset all tier rates to defaults when loading a preset
+  // Reset to blank custom config
+  function loadBlank(){
+    var p = BLANK_PRESET;
     TIER_KEYS.forEach(function(k){ tierRates[k] = TIERS[k].rate; });
     rateManuallySet=false; $("rateAuto").style.display="";
     modelSel.value=p.model; tierSel.value=p.tier;
     $("gpus").value=p.gpus; $("hrs").value=p.hrs; $("region").value=p.region;
     var m=MODELS[p.model], T=TIERS[p.tier];
-    $("costRate").value    = (p.cost!=null?p.cost:m.cost);
-    $("kwRack").value      = (p.kwRack!=null?p.kwRack:m.kwRack);
-    $("gpusPerRack").value = (p.gpusPerRack!=null?p.gpusPerRack:m.gpusPerRack);
-    var resale = (p.resale!=null ? p.resale : T.rate);
-    $("resaleRate").value = resale.toFixed(2);
-    if(p.resale != null && p.resale !== T.rate){
-      setTierRate(p.tier, p.resale);
-      rateManuallySet = true; $("rateAuto").style.display = "none";
-    }
+    $("costRate").value=m.cost; $("kwRack").value=m.kwRack; $("gpusPerRack").value=m.gpusPerRack;
+    $("resaleRate").value=T.rate.toFixed(2);
     calc();
   }
 
-  $("presets").addEventListener("click",function(e){
-    var b=e.target.closest(".chip"); if(!b) return;
-    document.querySelectorAll(".chip").forEach(function(c){c.classList.remove("active");});
-    if(b.dataset.preset!=="blank") b.classList.add("active");
-    loadPreset(b.dataset.preset);
+  // Parse a saved __summary text back into form fields
+  function parseQuoteSummary(text){
+    if(!text) return null;
+    var lines = text.split('\n');
+    var out = {};
+    // "8× NVIDIA HGX B300 (288GB HBM3e)"
+    var gpuM = (lines[1]||'').match(/^(\d+)\u00d7\s+(.+)$/);
+    if(gpuM){
+      out.gpus = parseInt(gpuM[1]);
+      var lbl = gpuM[2];
+      Object.keys(MODELS).forEach(function(k){ if(MODELS[k].label===lbl) out.model=k; });
+    }
+    // "36-Month Reserved · 730h/mo · US-East"
+    var tierM = (lines[2]||'').match(/^(.+?)\s+\u00b7\s+(\d+)h\/mo\s+\u00b7\s+(.+)$/);
+    if(tierM){
+      var tl = tierM[1];
+      out.hrs = parseInt(tierM[2]);
+      out.region = tierM[3];
+      TIER_KEYS.forEach(function(k){ if(TIERS[k].label===tl) out.tier=k; });
+    }
+    // "Quote-out: $5.90/GPU·hr"
+    var rM = (lines[3]||'').match(/Quote-out:\s+\$([0-9.]+)/);
+    if(rM) out.resale = parseFloat(rM[1]);
+    // "Cost basis: $4.50/hr"
+    var cM = (lines[6]||'').match(/Cost basis:\s+\$([0-9.]+)/);
+    if(cM) out.cost = parseFloat(cM[1]);
+    return out;
+  }
+
+  // Load a pipeline deal into the configurator
+  function loadDealPreset(deal){
+    TIER_KEYS.forEach(function(k){ tierRates[k] = TIERS[k].rate; });
+    rateManuallySet=false; $("rateAuto").style.display="";
+
+    if(!deal.quoteNotes){ loadBlank(); return; }
+
+    var p = parseQuoteSummary(deal.quoteNotes);
+    if(!p || !p.model){ loadBlank(); return; }
+
+    modelSel.value = p.model || BLANK_PRESET.model;
+    tierSel.value  = p.tier  || BLANK_PRESET.tier;
+    if(p.gpus)   $("gpus").value   = p.gpus;
+    if(p.hrs)    $("hrs").value    = p.hrs;
+    if(p.region){
+      var rOpts = $("region").options;
+      for(var i=0;i<rOpts.length;i++){ if(rOpts[i].text===p.region||rOpts[i].value===p.region){ $("region").selectedIndex=i; break; } }
+    }
+    var m = MODELS[p.model] || MODELS["b300"];
+    $("costRate").value    = (p.cost!=null ? p.cost : m.cost);
+    $("kwRack").value      = m.kwRack;
+    $("gpusPerRack").value = m.gpusPerRack;
+
+    var resale = (p.resale!=null ? p.resale : TIERS[tierSel.value].rate);
+    $("resaleRate").value = resale.toFixed(2);
+    setTierRate(tierSel.value, resale);
+    if(p.resale!=null){ rateManuallySet=true; $("rateAuto").style.display="none"; }
+    calc();
+  }
+
+  // Populate chip strip from the 3 most recent pipeline deals
+  function renderRecentChips(){
+    var container = document.getElementById("presets");
+    // Remove any previously rendered deal chips
+    container.querySelectorAll("[data-deal-id]").forEach(function(el){ el.remove(); });
+
+    var deals = [];
+    try{ deals = JSON.parse(localStorage.getItem("ns_pipeline_v1")||"[]")||[]; }catch(e){}
+    var recent = deals.slice(0, 3); // array is unshifted so index 0 = newest
+
+    var clearBtn = container.querySelector("[data-preset='blank']");
+
+    if(!recent.length){
+      var hint = document.createElement("span");
+      hint.style.cssText = "font-family:var(--mono);font-size:10px;color:var(--muted-2);padding:7px 2px;align-self:center";
+      hint.textContent = "No pipeline deals yet";
+      container.insertBefore(hint, clearBtn);
+      return;
+    }
+
+    recent.forEach(function(deal){
+      var hasConfig = !!deal.quoteNotes;
+      var chip = document.createElement("button");
+      chip.className = "chip";
+      chip.dataset.dealId = deal.id;
+      chip.title = hasConfig ? "Load saved config" : "No saved config — opens blank";
+      var label = deal.co + (deal.amt ? " \u00b7 " + deal.amt : "");
+      chip.textContent = label;
+      if(!hasConfig) chip.style.opacity = "0.6";
+      chip.addEventListener("click", function(){
+        container.querySelectorAll(".chip").forEach(function(c){ c.classList.remove("active"); });
+        chip.classList.add("active");
+        loadDealPreset(deal);
+      });
+      container.insertBefore(chip, clearBtn);
+    });
+  }
+
+  // Clear / custom chip
+  document.getElementById("presets").querySelector("[data-preset='blank']").addEventListener("click", function(){
+    document.querySelectorAll(".chip").forEach(function(c){ c.classList.remove("active"); });
+    loadBlank();
   });
   modelSel.addEventListener("change",function(){applyModelDefaults();calc();});
   // Switching tier: load that tier's current rate (including any manual overrides)
@@ -512,7 +593,8 @@
     });
   });
 
-  loadPreset("blank");
+  renderRecentChips();
+  loadBlank();
 })();
 </script>
 </body>
