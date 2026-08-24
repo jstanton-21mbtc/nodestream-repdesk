@@ -181,6 +181,7 @@
     if(view==="ornn")         loadFrame("ornn");
     if(view==="quote"    && !mounted.quote)    { mountQuote();    mounted.quote=true; }
     if(view==="playbook" && !mounted.playbook) { mountPlaybook(); mounted.playbook=true; }
+    if(view==="dash")     loadDailyBrief();
     if(view==="pipeline") renderKanban();
     if(view==="settings") mountSettings();
     window.scrollTo(0,0);
@@ -935,6 +936,41 @@
       });
     });
 
+    // ---- Google Workspace card ----
+    var gConnected = !!nsGoogleToken();
+    var gClientId  = localStorage.getItem(NS_GCLIENT_KEY)||'';
+    var gDiv = document.createElement('div');
+    gDiv.className = 'settings-card';
+    gDiv.innerHTML =
+      '<h3>Google Workspace <span class="prov-badge pb-gem">Calendar · Gmail · Drive</span></h3>'+
+      '<p class="sc-desc">Connect your Google account to show today\'s calendar events, unread inbox messages, and recently viewed Drive files on the Dashboard.</p>'+
+      '<div class="form-field" style="margin-bottom:14px">'+
+        '<span class="form-label">Google OAuth Client ID</span>'+
+        '<input class="form-input" type="text" id="g-client-id" autocomplete="off" '+
+          'placeholder="xxxxxxxx.apps.googleusercontent.com" '+
+          'value="'+escHtml(gClientId)+'" style="font-family:var(--mono);font-size:11px">'+
+      '</div>'+
+      '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'+
+        '<button class="btn-primary" style="padding:7px 16px;font-size:12px" id="g-save-btn">Save Client ID</button>'+
+        (gConnected
+          ? '<button class="g-btn connected" onclick="nsGoogleDisconnect()">&#10003; Connected &mdash; Disconnect</button>'
+          : '<button class="g-btn" onclick="nsGoogleConnect()">Connect Google</button>'
+        )+
+      '</div>'+
+      '<div class="key-status" style="margin-top:12px">'+
+        '<span class="dot'+(gConnected?' set':'')+'"></span>'+
+        '<span class="ksl'+(gConnected?' set':'')+'">'+
+          (gConnected ? 'Google connected — Daily Brief active' : 'Not connected')+
+        '</span>'+
+      '</div>';
+    el.appendChild(gDiv);
+    gDiv.querySelector('#g-save-btn').addEventListener('click', function(){
+      var val = (gDiv.querySelector('#g-client-id').value||'').trim();
+      if(val) localStorage.setItem(NS_GCLIENT_KEY, val);
+      else    localStorage.removeItem(NS_GCLIENT_KEY);
+      mountSettings();
+    });
+
     // Settings event delegation
     el.addEventListener('click', function(e){
       var saveBtn=e.target.closest('[data-save-key]');
@@ -956,6 +992,214 @@
       }
     });
   }
+
+  // ============================================================
+  // GOOGLE WORKSPACE INTEGRATION
+  // ============================================================
+  var NS_GCLIENT_KEY = 'ns_google_client_v1';
+  var NS_GTOKEN_KEY  = 'ns_google_token_v1';
+  var NS_GEXPIRY_KEY = 'ns_google_expiry_v1';
+
+  function nsGoogleToken(){
+    var tok    = localStorage.getItem(NS_GTOKEN_KEY);
+    var expiry = parseInt(localStorage.getItem(NS_GEXPIRY_KEY)||'0', 10);
+    if(!tok || Date.now() > expiry) return null;
+    return tok;
+  }
+
+  window.nsGoogleConnect = function(){
+    var clientId = (localStorage.getItem(NS_GCLIENT_KEY)||'').trim();
+    if(!clientId){
+      alert('Enter your Google Client ID in Settings \u2192 Google Workspace first.');
+      return;
+    }
+    if(typeof google === 'undefined' || !google.accounts){
+      alert('Google Identity Services not loaded. Check your internet connection and refresh.');
+      return;
+    }
+    var client = google.accounts.oauth2.initTokenClient({
+      client_id: clientId,
+      scope: 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/drive.readonly',
+      callback: function(resp){
+        if(resp && resp.error){ console.error('GIS error:', resp.error); return; }
+        var tok = resp.access_token;
+        var exp = Date.now() + ((resp.expires_in||3600) - 30) * 1000;
+        localStorage.setItem(NS_GTOKEN_KEY, tok);
+        localStorage.setItem(NS_GEXPIRY_KEY, String(exp));
+        loadDailyBrief();
+        mountSettings();
+      }
+    });
+    client.requestAccessToken();
+  };
+
+  window.nsGoogleDisconnect = function(){
+    localStorage.removeItem(NS_GTOKEN_KEY);
+    localStorage.removeItem(NS_GEXPIRY_KEY);
+    loadDailyBrief();
+    mountSettings();
+  };
+
+  function loadDailyBrief(){
+    var mount = document.getElementById('dailyBriefMount');
+    if(!mount) return;
+    var tok = nsGoogleToken();
+    if(!tok){ renderBriefDisconnected(mount); return; }
+
+    mount.innerHTML =
+      '<div class="brief-grid">'+
+        '<div class="brief-panel"><div class="brief-head"><span class="brief-head-title">Calendar</span></div><div class="brief-empty">Loading\u2026</div></div>'+
+        '<div class="brief-panel"><div class="brief-head"><span class="brief-head-title">Gmail</span></div><div class="brief-empty">Loading\u2026</div></div>'+
+        '<div class="brief-panel"><div class="brief-head"><span class="brief-head-title">Drive</span></div><div class="brief-empty">Loading\u2026</div></div>'+
+      '</div>';
+
+    Promise.all([fetchCalendarEvents(tok), fetchGmailMessages(tok), fetchDriveFiles(tok)])
+      .then(function(res){ renderDailyBrief(mount, res[0], res[1], res[2]); })
+      .catch(function(err){
+        // Token might be expired — clear it and show connect prompt
+        localStorage.removeItem(NS_GTOKEN_KEY);
+        localStorage.removeItem(NS_GEXPIRY_KEY);
+        renderBriefDisconnected(mount);
+        console.warn('Daily Brief error:', err.message);
+      });
+  }
+
+  function fetchCalendarEvents(tok){
+    var now   = new Date();
+    var start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0).toISOString();
+    var end   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59).toISOString();
+    var url   = 'https://www.googleapis.com/calendar/v3/calendars/primary/events'+
+      '?timeMin='+encodeURIComponent(start)+'&timeMax='+encodeURIComponent(end)+
+      '&singleEvents=true&orderBy=startTime&maxResults=8';
+    return fetch(url, {headers:{Authorization:'Bearer '+tok}})
+      .then(function(r){ if(!r.ok) throw new Error('Cal '+r.status); return r.json(); })
+      .then(function(j){ return j.items||[]; });
+  }
+
+  function fetchGmailMessages(tok){
+    var url = 'https://gmail.googleapis.com/gmail/v1/users/me/messages?q=is%3Aunread+in%3Ainbox&maxResults=6';
+    return fetch(url, {headers:{Authorization:'Bearer '+tok}})
+      .then(function(r){ if(!r.ok) throw new Error('Gmail '+r.status); return r.json(); })
+      .then(function(j){
+        var msgs = j.messages||[];
+        if(!msgs.length) return [];
+        return Promise.all(msgs.slice(0,6).map(function(m){
+          return fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/'+m.id+
+            '?format=metadata&metadataHeaders=Subject&metadataHeaders=From',
+            {headers:{Authorization:'Bearer '+tok}})
+            .then(function(r){ return r.json(); })
+            .then(function(data){
+              var hdrs = (data.payload&&data.payload.headers)||[];
+              var subj = (hdrs.find(function(h){ return h.name==='Subject'; })||{}).value||'(no subject)';
+              var from = (hdrs.find(function(h){ return h.name==='From'; })||{}).value||'';
+              var sender = from.replace(/"([^"]+)".*/, '$1').trim() || from.split('@')[0] || from;
+              return {subject:subj, sender:sender};
+            });
+        }));
+      });
+  }
+
+  function fetchDriveFiles(tok){
+    var url = 'https://www.googleapis.com/drive/v3/files'+
+      '?orderBy=viewedByMeTime+desc&pageSize=6'+
+      '&fields=files(id,name,mimeType,webViewLink)';
+    return fetch(url, {headers:{Authorization:'Bearer '+tok}})
+      .then(function(r){ if(!r.ok) throw new Error('Drive '+r.status); return r.json(); })
+      .then(function(j){ return j.files||[]; });
+  }
+
+  function renderDailyBrief(mount, events, emails, files){
+    var calSvg   = '<svg class="brief-head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
+    var gmailSvg = '<svg class="brief-head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>';
+    var driveSvg = '<svg class="brief-head-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12H2"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/></svg>';
+
+    var calHTML = '';
+    if(!events.length){
+      calHTML = '<div class="brief-empty">No events today</div>';
+    } else {
+      events.forEach(function(ev){
+        var start = ev.start && (ev.start.dateTime||ev.start.date);
+        var timeStr = '';
+        if(start && start.indexOf('T') !== -1){
+          var d = new Date(start);
+          timeStr = d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true}).toLowerCase().replace(' ','');
+        } else { timeStr = 'all day'; }
+        calHTML += '<div class="brief-item">'+
+          '<div class="brief-dot"></div>'+
+          '<div class="brief-time">'+timeStr+'</div>'+
+          '<div class="brief-text">'+escHtml(ev.summary||'(untitled)')+'</div>'+
+        '</div>';
+      });
+    }
+
+    var gmailHTML = '';
+    if(!emails.length){
+      gmailHTML = '<div class="brief-empty">Inbox is clear</div>';
+    } else {
+      emails.forEach(function(em){
+        gmailHTML += '<div class="brief-item">'+
+          '<div class="brief-dot" style="background:var(--amber)"></div>'+
+          '<div style="min-width:0;flex:1">'+
+            '<div class="brief-title">'+escHtml(em.subject)+'</div>'+
+            '<div class="brief-sub">'+escHtml(em.sender)+'</div>'+
+          '</div>'+
+        '</div>';
+      });
+    }
+
+    var driveHTML = '';
+    if(!files.length){
+      driveHTML = '<div class="brief-empty">No recent files</div>';
+    } else {
+      files.forEach(function(f){
+        var ext = (f.mimeType||'').indexOf('spreadsheet')!==-1?'Sheet':
+                  (f.mimeType||'').indexOf('document')!==-1?'Doc':
+                  (f.mimeType||'').indexOf('presentation')!==-1?'Slides':
+                  (f.mimeType||'').indexOf('pdf')!==-1?'PDF':'File';
+        var onClick = f.webViewLink ? ' onclick="window.open('+JSON.stringify(f.webViewLink)+',\'_blank\')" class="brief-item clickable"' : ' class="brief-item"';
+        driveHTML += '<div'+onClick+'>'+
+          '<div class="brief-dot" style="background:var(--green-dim)"></div>'+
+          '<div style="min-width:0;flex:1">'+
+            '<div class="brief-title">'+escHtml(f.name)+'</div>'+
+            '<div class="brief-sub">'+ext+'</div>'+
+          '</div>'+
+        '</div>';
+      });
+    }
+
+    mount.innerHTML =
+      '<div class="brief-grid">'+
+        '<div class="brief-panel">'+
+          '<div class="brief-head">'+calSvg+'<span class="brief-head-title">Today\'s Calendar</span></div>'+
+          calHTML+
+        '</div>'+
+        '<div class="brief-panel">'+
+          '<div class="brief-head">'+gmailSvg+'<span class="brief-head-title">Unread Gmail</span></div>'+
+          gmailHTML+
+        '</div>'+
+        '<div class="brief-panel">'+
+          '<div class="brief-head">'+driveSvg+'<span class="brief-head-title">Recent Drive</span></div>'+
+          driveHTML+
+        '</div>'+
+      '</div>';
+  }
+
+  function renderBriefDisconnected(mount){
+    mount.innerHTML =
+      '<div class="brief-connect-bar">'+
+        '<div>'+
+          '<div style="font-size:13.5px;font-weight:600;margin-bottom:3px">Daily Brief</div>'+
+          '<div style="font-size:12px;color:var(--muted-2)">Connect Google Workspace to see today\'s calendar, unread emails, and recent Drive files.</div>'+
+        '</div>'+
+        '<button class="g-btn" onclick="nsGoogleConnect()">'+
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>'+
+          'Connect Google'+
+        '</button>'+
+      '</div>';
+  }
+
+  // Load brief on initial dash view
+  loadDailyBrief();
 
   // ============================================================
   // AI ANALYST
