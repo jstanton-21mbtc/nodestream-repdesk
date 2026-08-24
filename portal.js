@@ -8,7 +8,7 @@
   var VIEW_LABEL = {
     dash:"Dashboard", pipeline:"Pipeline",
     discovery:"Discovery & Scoring", configurator:"Deal Configurator",
-    quote:"Quote Builder", playbook:"Docs"
+    quote:"Quote Builder", ornn:"Compute Index", playbook:"Docs"
   };
   var mounted = {};
 
@@ -21,6 +21,7 @@
     // Tools: always fresh on every navigation
     if(view==="discovery")    loadFrame("discovery");
     if(view==="configurator") loadFrame("configurator");
+    if(view==="ornn")         loadFrame("ornn");
     if(view==="quote"    && !mounted.quote)    { mountQuote();    mounted.quote=true; }
     if(view==="playbook" && !mounted.playbook) { mountPlaybook(); mounted.playbook=true; }
     if(view==="pipeline") renderPipeline();
