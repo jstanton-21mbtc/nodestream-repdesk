@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect width="512" height="512" rx="80" fill="#141A17"/>
+  <!-- NS -->
+  <text x="256" y="300" font-family="'Inter','Segoe UI',sans-serif" font-weight="800"
+        font-size="210" text-anchor="middle" fill="#3CA028">NS</text>
+  <!-- Divider line -->
+  <rect x="96" y="320" width="320" height="2" rx="1" fill="#2A352F"/>
+  <!-- REP DESK -->
+  <text x="256" y="372" font-family="'Inter','Segoe UI',sans-serif" font-weight="500"
+        font-size="54" text-anchor="middle" letter-spacing="8" fill="#8A9A90">REP DESK</text>
+</svg>
