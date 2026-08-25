@@ -1591,7 +1591,7 @@
     {
       id:'demo_1', co:'Vertex Analytics', persona:'Neocloud', stage:'nego', amt:'$240K',
       notes:'Key contact: David Park (CTO). Contract under legal review — targeting signature by Aug 31. Board demo locked for Dec.',
-      scorecardNotes:'BANT Score: 87 / 100\n\nBudget: $200–250K confirmed via CFO email. Within our range.\nAuthority: CTO is sole decision-maker. No procurement gate.\nNeed: 4× H100 SXM5 cluster for LLM fine-tuning. Current Azure setup is VRAM-capped on 70B model runs.\nTimeline: Q4 deployment locked. Urgency is real.\n\nFit: Strong — classic Neocloud buyer. High urgency, budget confirmed, champion is the decision-maker.',
+      scorecardNotes:'Scorecard Score: 26 / 30\n\nBudget: $200–250K confirmed via CFO email. Within our range.\nAuthority: CTO is sole decision-maker. No procurement gate.\nNeed: 4× H100 SXM5 cluster for LLM fine-tuning. Current Azure setup is VRAM-capped on 70B model runs.\nTimeline: Q4 deployment locked. Urgency is real.\n\nFit: Strong — classic Neocloud buyer. High urgency, budget confirmed, champion is the decision-maker.',
       scorecardSavedAt:'2026-07-15T14:22:00.000Z', scorecardExtra:'Ask about multi-year extension on first renewal call.',
       quoteNotes:'Config: 4× H100 SXM5 80GB | NVLink fabric | DGX-compatible OS stack\nTerm: 24 months | ARR: $240,000\nDownpayment: 30% ($72K) due on signature\nSLA: 99.9% uptime, 4-hr hardware response\nCustom requirements: Dedicated VLAN, SOC 2 Type II attestation',
       configSavedAt:'2026-07-22T09:15:00.000Z', quoteExtra:'Legal reviewing indemnity clause — expect sign-off by end of week.',
@@ -1600,7 +1600,7 @@
     {
       id:'demo_2', co:'Cascade Systems', persona:'Enterprise', stage:'quote', amt:'$180K',
       notes:'CFO wants revised pricing before sign-off. Champion: Rachel Torres (VP Infra). Next call Thu 2pm. Consider 5% discount.',
-      scorecardNotes:'BANT Score: 74 / 100\n\nBudget: $150–200K approved by IT board. On the lower end.\nAuthority: VP Infra + CFO dual sign-off. Procurement adds 2–3 weeks.\nNeed: Mixed workload — 60% inference, 40% dev cluster access.\nTimeline: 90-day eval window closes Sep 15. Some urgency.\n\nFit: Good — procurement friction but champion is strong. Close-able with right pricing move.',
+      scorecardNotes:'Scorecard Score: 22 / 30\n\nBudget: $150–200K approved by IT board. On the lower end.\nAuthority: VP Infra + CFO dual sign-off. Procurement adds 2–3 weeks.\nNeed: Mixed workload — 60% inference, 40% dev cluster access.\nTimeline: 90-day eval window closes Sep 15. Some urgency.\n\nFit: Good — procurement friction but champion is strong. Close-able with right pricing move.',
       scorecardSavedAt:'2026-07-28T11:00:00.000Z', scorecardExtra:'',
       quoteNotes:'Config: 2× H100 SXM5 + 4× A100 80GB | Hybrid burst model\nTerm: 12 months | ARR: $180,000 | Downpayment: 20% ($36K)\nPOC cluster: 2-week free access pre-contract\nFlexible start date: Oct 1 or Nov 1',
       configSavedAt:'2026-08-01T16:30:00.000Z', quoteExtra:'May need a 5% discount to get CFO sign-off — flagged to manager.',
@@ -1609,7 +1609,7 @@
     {
       id:'demo_3', co:'Meridian Health', persona:'Sovereign', stage:'qual', amt:'$95K',
       notes:'HIPAA-compliant infra required. Looped in legal re: BAA. IT Director is compliance-first. Slow cycle — keep warm.',
-      scorecardNotes:'BANT Score: 61 / 100\n\nBudget: $80–120K under board review. Not yet approved.\nAuthority: IT Director + CIO approval chain. Long procurement cycle.\nNeed: GPU infra for radiology imaging AI models. Compliance is top priority.\nTimeline: 6–12 months realistic. No urgency pressure.\n\nFit: Moderate — high compliance burden, long sales cycle. Nurture.',
+      scorecardNotes:'Scorecard Score: 18 / 30\n\nBudget: $80–120K under board review. Not yet approved.\nAuthority: IT Director + CIO approval chain. Long procurement cycle.\nNeed: GPU infra for radiology imaging AI models. Compliance is top priority.\nTimeline: 6–12 months realistic. No urgency pressure.\n\nFit: Moderate — high compliance burden, long sales cycle. Nurture.',
       scorecardSavedAt:'2026-08-10T10:00:00.000Z', scorecardExtra:'',
       quoteNotes:'', configSavedAt:null, quoteExtra:'',
       dateAdded:'2026-07-25'
@@ -1624,7 +1624,7 @@
     {
       id:'demo_5', co:'Silverpeak Capital', persona:'Frontier Lab', stage:'won', amt:'$150K',
       notes:'Closed June 28. Deployed and live. Strong reference account — ask for intro to portfolio companies. Renewal talk in 10 months.',
-      scorecardNotes:'BANT Score: 92 / 100\n\nQuick close — inbound from VC partner referral. Budget pre-approved. CTO has full authority. Immediate timeline for quant trading model infrastructure.',
+      scorecardNotes:'Scorecard Score: 28 / 30\n\nQuick close — inbound from VC partner referral. Budget pre-approved. CTO has full authority. Immediate timeline for quant trading model infrastructure.',
       scorecardSavedAt:'2026-06-15T08:00:00.000Z', scorecardExtra:'',
       quoteNotes:'Config: 2× H100 SXM5 80GB | 12-month term | $150,000 ARR\nSigned: June 28, 2026 | Downpayment: 50% ($75K) wired on signature.',
       configSavedAt:'2026-06-20T14:00:00.000Z', quoteExtra:'',
@@ -1663,12 +1663,12 @@
     },
     {
       title:"Deal Detail — Scorecard & Config",
-      body:"Vertex Analytics has a saved BANT Scorecard (87/100) and a full GPU Config attached. All deal context in one place.",
+      body:"Vertex Analytics has a saved Scorecard (26/30) and a full GPU Config attached. All deal context in one place.",
       nav:null, closeDeal:false, openDeal:'demo_1'
     },
     {
       title:"Discovery & Scoring Tool",
-      body:"Score new prospects across 10 BANT dimensions. Hit 'Save to Deal' in the toolbar to attach results to any pipeline deal.",
+      body:"Score new prospects across 10 scoring dimensions. Hit 'Save to Deal' in the toolbar to attach results to any pipeline deal.",
       nav:'discovery', closeDeal:true, openDeal:null
     },
     {
