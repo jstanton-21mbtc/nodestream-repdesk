@@ -181,7 +181,7 @@
     if(view==="ornn")         loadFrame("ornn");
     if(view==="quote"    && !mounted.quote)    { mountQuote();    mounted.quote=true; }
     if(view==="playbook" && !mounted.playbook) { mountPlaybook(); mounted.playbook=true; }
-    if(view==="dash")     { loadDailyBrief(); renderDashPipeline(); }
+    if(view==="dash")     { loadDailyBrief(); renderDashKPIs(); renderDashPipeline(); }
     if(view==="pipeline") renderKanban();
     if(view==="settings") mountSettings();
     window.scrollTo(0,0);
@@ -214,15 +214,7 @@
     $("#repName").textContent=DATA.rep.name; $("#repInit").textContent=DATA.rep.initials;
   }
 
-  // ---- KPIs ----
-  (function(){
-    var wrap=$("#kpis"); if(!wrap||!DATA.kpis) return;
-    DATA.kpis.forEach(function(k){
-      var d=document.createElement("div"); d.className="kpi";
-      d.innerHTML='<div class="k">'+k.k+'</div><div class="v'+(k.green?' green':'')+'">'+k.v+'</div><div class="d">'+(k.d||"")+'</div>';
-      wrap.appendChild(d);
-    });
-  })();
+  // KPIs rendered after pipeline section defines ensureDeals / renderDashKPIs
 
   // Dashboard pipeline preview — rendered after pipeline section defines loadDeals/STAGES
 
@@ -407,6 +399,50 @@
   }
   function saveDeals(d){ localStorage.setItem(PIPELINE_KEY, JSON.stringify(d)); }
 
+  var STAGE_WEIGHTS = {disc:0.10, qual:0.25, quote:0.50, nego:0.75, won:1.0, lost:0.0};
+
+  function parseAmt(s){
+    if(!s) return 0;
+    var n = parseFloat(String(s).replace(/[^0-9.]/g,''))||0;
+    if(/M/i.test(s)) return n * 1e6;
+    if(/K/i.test(s)) return n * 1e3;
+    return n;
+  }
+  function fmtAmt(n){
+    if(n >= 1e6) return '$'+(n/1e6).toFixed(1)+'M';
+    if(n >= 1e3) return '$'+Math.round(n/1e3)+'K';
+    return '$'+Math.round(n||0);
+  }
+
+  function renderDashKPIs(){
+    var wrap = $("#kpis"); if(!wrap) return;
+    var deals  = ensureDeals();
+    var active = deals.filter(function(d){ return d.stage!=='won'&&d.stage!=='lost'; });
+    var won    = deals.filter(function(d){ return d.stage==='won'; });
+    var quoting= deals.filter(function(d){ return d.stage==='quote'; });
+    var openVal    = active.reduce(function(s,d){ return s+parseAmt(d.amt); }, 0);
+    var weightedVal= active.reduce(function(s,d){ return s+parseAmt(d.amt)*(STAGE_WEIGHTS[d.stage]||0); }, 0);
+    var wonVal     = won.reduce(function(s,d){ return s+parseAmt(d.amt); }, 0);
+    var kpis = [
+      {k:'Open pipeline', v:active.length?fmtAmt(openVal):'—', green:true,
+       d:active.length+' active deal'+(active.length!==1?'s':'')},
+      {k:'Weighted',      v:active.length?fmtAmt(weightedVal):'—', green:false,
+       d:'stage-adjusted'},
+      {k:'Quotes out',    v:String(quoting.length), green:false,
+       d:quoting.length?'awaiting signature':'none out'},
+      {k:'Closed won',    v:won.length?fmtAmt(wonVal):'—', green:false,
+       d:won.length+' deal'+(won.length!==1?'s':'')}
+    ];
+    wrap.innerHTML='';
+    kpis.forEach(function(k){
+      var d=document.createElement('div'); d.className='kpi';
+      d.innerHTML='<div class="k">'+k.k+'</div>'+
+        '<div class="v'+(k.green?' green':'')+'">'+k.v+'</div>'+
+        '<div class="d">'+k.d+'</div>';
+      wrap.appendChild(d);
+    });
+  }
+
   function renderDashPipeline(){
     var tb = $("#pipeBody"); if(!tb) return;
     var active = ensureDeals().filter(function(d){ return d.stage!=='won' && d.stage!=='lost'; });
@@ -509,7 +545,7 @@
         if(!_dragId) return;
         var all=loadDeals();
         var deal=all.find(function(d){ return d.id===_dragId; });
-        if(deal && deal.stage!==sk){ deal.stage=sk; saveDeals(all); renderKanban(); renderDashPipeline(); }
+        if(deal && deal.stage!==sk){ deal.stage=sk; saveDeals(all); renderKanban(); renderDashKPIs(); renderDashPipeline(); }
       });
 
       // Cards
@@ -718,6 +754,7 @@
     saveDeals(deals);
     $("#dealModal").classList.add('hidden');
     renderKanban();
+    renderDashKPIs();
     renderDashPipeline();
   }
 
@@ -727,7 +764,7 @@
     var deal=deals.find(function(d){ return d.id===_viewingDealId; }); if(!deal) return;
     if(!confirm('Delete "'+deal.co+'"? This cannot be undone.')) return;
     saveDeals(deals.filter(function(d){ return d.id!==_viewingDealId; }));
-    closeDetail(); renderKanban(); renderDashPipeline();
+    closeDetail(); renderKanban(); renderDashKPIs(); renderDashPipeline();
   }
 
   // ============================================================
@@ -1347,8 +1384,9 @@
       '</div>';
   }
 
-  // Load brief + pipeline preview on initial dash view
+  // Load brief + KPIs + pipeline preview on initial dash view
   loadDailyBrief();
+  renderDashKPIs();
   renderDashPipeline();
 
   // ============================================================
