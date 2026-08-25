@@ -501,6 +501,18 @@
     return '$'+Math.round(t);
   }
 
+  var LI_TITLES = {
+    'Neocloud':    'Head of Infrastructure OR CTO OR VP Engineering OR Cloud Architect',
+    'Frontier Lab':'Head of AI OR VP Research OR Chief Scientist OR ML Infrastructure',
+    'Enterprise':  'CTO OR VP IT OR VP Infrastructure OR Director of Technology',
+    'Sovereign':   'CTO OR Chief Digital Officer OR VP Technology OR Director IT'
+  };
+  function liSearchUrl(co, persona){
+    var titles = LI_TITLES[persona] || 'CTO OR VP Technology OR Head of Infrastructure';
+    return 'https://www.linkedin.com/search/results/people/?keywords='+
+      encodeURIComponent(co+' '+titles);
+  }
+
   var _dragId = null;
 
   function renderKanban(){
@@ -560,7 +572,10 @@
             '<div class="kc-co">'+esc(d.co)+(hasDocs?'<span class="kc-docs">docs</span>':'')+' </div>'+
             '<div class="kc-persona">'+esc(d.persona)+'</div>'+
             (d.amt?'<div class="kc-amt">'+esc(d.amt)+'</div>':'')+
-            (d.dateAdded?'<div class="kc-date">'+esc(fmtDate(d.dateAdded))+'</div>':'');
+            '<div class="kc-date" style="display:flex;align-items:center;justify-content:space-between;gap:6px">'+
+              '<span>'+(d.dateAdded?esc(fmtDate(d.dateAdded)):'')+'</span>'+
+              '<button class="kc-li" data-li-url="'+esc(liSearchUrl(d.co,d.persona))+'">in</button>'+
+            '</div>';
 
           card.addEventListener('dragstart',function(e){
             _dragId=d.id; card.classList.add('dragging');
@@ -570,7 +585,11 @@
           card.addEventListener('dragend',function(){
             card.classList.remove('dragging'); _dragId=null;
           });
-          card.addEventListener('click',function(){ openDealDetail(d.id); });
+          card.addEventListener('click',function(e){
+            var liBtn = e.target.closest('.kc-li');
+            if(liBtn){ e.stopPropagation(); window.open(liBtn.dataset.liUrl,'_blank'); return; }
+            openDealDetail(d.id);
+          });
           body.appendChild(card);
         });
       } else {
@@ -1561,6 +1580,213 @@
     var msgs=$("#aiMessages"); if(!msgs) return;
     msgs.innerHTML='<div class="ai-msg ai"><div class="ai-avatar">AI</div><div class="ai-bubble">Conversation cleared. What can I help you with?</div></div>';
   });
+
+  // ============================================================
+  // DEMO MODE + GUIDED TOUR
+  // ============================================================
+  var NS_DEMO_KEY = 'ns_demo_v1';
+  var _tourStep   = 0;
+
+  var DEMO_DEALS = [
+    {
+      id:'demo_1', co:'Vertex Analytics', persona:'Neocloud', stage:'nego', amt:'$240K',
+      notes:'Key contact: David Park (CTO). Contract under legal review — targeting signature by Aug 31. Board demo locked for Dec.',
+      scorecardNotes:'BANT Score: 87 / 100\n\nBudget: $200–250K confirmed via CFO email. Within our range.\nAuthority: CTO is sole decision-maker. No procurement gate.\nNeed: 4× H100 SXM5 cluster for LLM fine-tuning. Current Azure setup is VRAM-capped on 70B model runs.\nTimeline: Q4 deployment locked. Urgency is real.\n\nFit: Strong — classic Neocloud buyer. High urgency, budget confirmed, champion is the decision-maker.',
+      scorecardSavedAt:'2026-07-15T14:22:00.000Z', scorecardExtra:'Ask about multi-year extension on first renewal call.',
+      quoteNotes:'Config: 4× H100 SXM5 80GB | NVLink fabric | DGX-compatible OS stack\nTerm: 24 months | ARR: $240,000\nDownpayment: 30% ($72K) due on signature\nSLA: 99.9% uptime, 4-hr hardware response\nCustom requirements: Dedicated VLAN, SOC 2 Type II attestation',
+      configSavedAt:'2026-07-22T09:15:00.000Z', quoteExtra:'Legal reviewing indemnity clause — expect sign-off by end of week.',
+      dateAdded:'2026-07-01'
+    },
+    {
+      id:'demo_2', co:'Cascade Systems', persona:'Enterprise', stage:'quote', amt:'$180K',
+      notes:'CFO wants revised pricing before sign-off. Champion: Rachel Torres (VP Infra). Next call Thu 2pm. Consider 5% discount.',
+      scorecardNotes:'BANT Score: 74 / 100\n\nBudget: $150–200K approved by IT board. On the lower end.\nAuthority: VP Infra + CFO dual sign-off. Procurement adds 2–3 weeks.\nNeed: Mixed workload — 60% inference, 40% dev cluster access.\nTimeline: 90-day eval window closes Sep 15. Some urgency.\n\nFit: Good — procurement friction but champion is strong. Close-able with right pricing move.',
+      scorecardSavedAt:'2026-07-28T11:00:00.000Z', scorecardExtra:'',
+      quoteNotes:'Config: 2× H100 SXM5 + 4× A100 80GB | Hybrid burst model\nTerm: 12 months | ARR: $180,000 | Downpayment: 20% ($36K)\nPOC cluster: 2-week free access pre-contract\nFlexible start date: Oct 1 or Nov 1',
+      configSavedAt:'2026-08-01T16:30:00.000Z', quoteExtra:'May need a 5% discount to get CFO sign-off — flagged to manager.',
+      dateAdded:'2026-07-10'
+    },
+    {
+      id:'demo_3', co:'Meridian Health', persona:'Sovereign', stage:'qual', amt:'$95K',
+      notes:'HIPAA-compliant infra required. Looped in legal re: BAA. IT Director is compliance-first. Slow cycle — keep warm.',
+      scorecardNotes:'BANT Score: 61 / 100\n\nBudget: $80–120K under board review. Not yet approved.\nAuthority: IT Director + CIO approval chain. Long procurement cycle.\nNeed: GPU infra for radiology imaging AI models. Compliance is top priority.\nTimeline: 6–12 months realistic. No urgency pressure.\n\nFit: Moderate — high compliance burden, long sales cycle. Nurture.',
+      scorecardSavedAt:'2026-08-10T10:00:00.000Z', scorecardExtra:'',
+      quoteNotes:'', configSavedAt:null, quoteExtra:'',
+      dateAdded:'2026-07-25'
+    },
+    {
+      id:'demo_4', co:'Apex Robotics', persona:'Neocloud', stage:'disc', amt:'$320K',
+      notes:'Inbound from LinkedIn — CTO reached out directly. Building AV perception stack. Massive VRAM demand. First call next week.',
+      scorecardNotes:'', scorecardSavedAt:null, scorecardExtra:'',
+      quoteNotes:'', configSavedAt:null, quoteExtra:'',
+      dateAdded:'2026-08-18'
+    },
+    {
+      id:'demo_5', co:'Silverpeak Capital', persona:'Frontier Lab', stage:'won', amt:'$150K',
+      notes:'Closed June 28. Deployed and live. Strong reference account — ask for intro to portfolio companies. Renewal talk in 10 months.',
+      scorecardNotes:'BANT Score: 92 / 100\n\nQuick close — inbound from VC partner referral. Budget pre-approved. CTO has full authority. Immediate timeline for quant trading model infrastructure.',
+      scorecardSavedAt:'2026-06-15T08:00:00.000Z', scorecardExtra:'',
+      quoteNotes:'Config: 2× H100 SXM5 80GB | 12-month term | $150,000 ARR\nSigned: June 28, 2026 | Downpayment: 50% ($75K) wired on signature.',
+      configSavedAt:'2026-06-20T14:00:00.000Z', quoteExtra:'',
+      dateAdded:'2026-06-05'
+    },
+    {
+      id:'demo_6', co:'Northbay Media', persona:'Enterprise', stage:'disc', amt:'$65K',
+      notes:'Video transcoding + AI content moderation pipeline. Early-stage. Budget TBD — founder-led, no formal procurement yet.',
+      scorecardNotes:'', scorecardSavedAt:null, scorecardExtra:'',
+      quoteNotes:'', configSavedAt:null, quoteExtra:'',
+      dateAdded:'2026-08-20'
+    }
+  ];
+
+  var DEMO_TASKS = [
+    {id:'dt1', text:'Follow up with Vertex Analytics on contract redlines', meta:'Negotiation \u00b7 Due today', done:false},
+    {id:'dt2', text:'Send Cascade revised pricing deck to Rachel Torres', meta:'Quote \u00b7 Thu 2pm call', done:false},
+    {id:'dt3', text:'Prep discovery brief for Apex Robotics first call', meta:'New account \u00b7 Next week', done:false}
+  ];
+
+  var TOUR_STEPS = [
+    {
+      title:"Welcome to Jordan's Rep Desk",
+      body:"You're in demo mode as Jordan Mitchell, AE — a $770K active pipeline with deals at every stage. Let's take a quick tour.",
+      nav:'dash', closeDeal:false, openDeal:null
+    },
+    {
+      title:"Dashboard — Command Center",
+      body:"KPIs at a glance: open pipeline, weighted value, quotes pending. Tasks and one-tap tool shortcuts live below.",
+      nav:null, closeDeal:false, openDeal:null
+    },
+    {
+      title:"Pipeline Kanban",
+      body:"6 deals across all stages — Discovery through Closed Won. Drag cards between columns to advance a deal. Click any card for details.",
+      nav:'pipeline', closeDeal:false, openDeal:null
+    },
+    {
+      title:"Deal Detail — Scorecard & Config",
+      body:"Vertex Analytics has a saved BANT Scorecard (87/100) and a full GPU Config attached. All deal context in one place.",
+      nav:null, closeDeal:false, openDeal:'demo_1'
+    },
+    {
+      title:"Discovery & Scoring Tool",
+      body:"Score new prospects across 10 BANT dimensions. Hit 'Save to Deal' in the toolbar to attach results to any pipeline deal.",
+      nav:'discovery', closeDeal:true, openDeal:null
+    },
+    {
+      title:"Deal Configurator",
+      body:"Build GPU cluster configurations with pricing tiers, terms, and downpayment. Results feed directly into the Quote Builder.",
+      nav:'configurator', closeDeal:false, openDeal:null
+    },
+    {
+      title:"Ready to Get Started?",
+      body:"That's the Rep Desk. Create your account to build your real pipeline, score your own deals, and configure live quotes.",
+      nav:'dash', closeDeal:false, openDeal:null
+    }
+  ];
+
+  window.nsLoadDemo = function(){
+    sessionStorage.setItem(NS_DEMO_KEY, '1');
+    // Backup real data so we can restore on exit
+    var realPipeline = localStorage.getItem(PIPELINE_KEY);
+    var realTasks    = localStorage.getItem(NS_TASKS_KEY);
+    if(realPipeline) sessionStorage.setItem('ns_demo_bak_pipeline', realPipeline);
+    if(realTasks)    sessionStorage.setItem('ns_demo_bak_tasks',    realTasks);
+    // Load demo data
+    saveDeals(DEMO_DEALS.slice());
+    localStorage.setItem(NS_TASKS_KEY, JSON.stringify(DEMO_TASKS));
+    // Set demo rep name (DOM only, not in localStorage)
+    var rn = document.getElementById('repName'), ri = document.getElementById('repInit');
+    if(rn) rn.textContent = 'Jordan Mitchell';
+    if(ri) ri.textContent = 'JM';
+    // Hide login overlay
+    var ov = document.getElementById('loginOverlay');
+    if(ov){ ov.style.opacity='0'; setTimeout(function(){ ov.style.display='none'; ov.style.opacity='1'; },250); }
+    // Show demo banner
+    var banner = document.getElementById('nsDemoBanner');
+    if(banner) banner.style.display = 'flex';
+    // Navigate to dashboard and start tour
+    show('dash');
+    setTimeout(function(){ startTour(0); }, 500);
+  };
+
+  window.nsExitDemo = function(){
+    sessionStorage.removeItem(NS_DEMO_KEY);
+    // Restore backed-up real data
+    var realPipeline = sessionStorage.getItem('ns_demo_bak_pipeline');
+    var realTasks    = sessionStorage.getItem('ns_demo_bak_tasks');
+    if(realPipeline) localStorage.setItem(PIPELINE_KEY, realPipeline);
+    else             localStorage.removeItem(PIPELINE_KEY);
+    if(realTasks)    localStorage.setItem(NS_TASKS_KEY, realTasks);
+    else             localStorage.removeItem(NS_TASKS_KEY);
+    sessionStorage.removeItem('ns_demo_bak_pipeline');
+    sessionStorage.removeItem('ns_demo_bak_tasks');
+    // Hide banner + tour + deal detail
+    var banner = document.getElementById('nsDemoBanner');
+    if(banner) banner.style.display = 'none';
+    closeTour();
+    closeDetail();
+    // Restore real rep name (or blank)
+    var realName = localStorage.getItem(NS_NAME_KEY);
+    if(realName){ nsApplyRepName(realName); }
+    else {
+      var rn = document.getElementById('repName'), ri = document.getElementById('repInit');
+      if(rn) rn.textContent = 'Account Exec';
+      if(ri) ri.textContent = 'AE';
+    }
+    // Show login screen
+    nsShowLogin();
+  };
+
+  // Intercept logout during demo so it also cleans up demo data
+  (function(){
+    var _origLogout = window.nsLogout;
+    window.nsLogout = function(){
+      if(sessionStorage.getItem(NS_DEMO_KEY)){ window.nsExitDemo(); }
+      else { _origLogout(); }
+    };
+  })();
+
+  function startTour(stepIdx){
+    _tourStep = stepIdx;
+    var panel = document.getElementById('nsTour');
+    if(panel) panel.style.display = 'block';
+    renderTourStep();
+  }
+
+  function renderTourStep(){
+    var step  = TOUR_STEPS[_tourStep]; if(!step) return;
+    var total = TOUR_STEPS.length;
+    // Navigate / open deal
+    if(step.closeDeal) closeDetail();
+    if(step.openDeal){
+      var d = loadDeals().find(function(x){ return x.id === step.openDeal; });
+      if(d){ setTimeout(function(){ openDealDetail(d.id); }, 120); }
+    } else if(step.nav){
+      show(step.nav);
+    }
+    // Update tour card UI
+    var titleEl  = document.getElementById('tourTitle');
+    var bodyEl   = document.getElementById('tourBody');
+    var stepEl   = document.getElementById('tourStep');
+    var fillEl   = document.getElementById('tourProgress');
+    var nextBtn  = document.getElementById('tourNextBtn');
+    if(titleEl) titleEl.textContent = step.title;
+    if(bodyEl)  bodyEl.textContent  = step.body;
+    if(stepEl)  stepEl.textContent  = (_tourStep+1) + ' / ' + total;
+    if(fillEl)  fillEl.style.width  = ((_tourStep+1) / total * 100) + '%';
+    if(nextBtn) nextBtn.textContent = (_tourStep === total-1) ? 'Done \u2713' : 'Next \u2192';
+  }
+
+  window.nsTourNext = function(){
+    if(_tourStep >= TOUR_STEPS.length - 1){ closeTour(); return; }
+    _tourStep++;
+    renderTourStep();
+  };
+
+  function closeTour(){
+    var panel = document.getElementById('nsTour');
+    if(panel) panel.style.display = 'none';
+  }
+  window.nsTourClose = closeTour;
 
   window.NS_show=show;
 })();
