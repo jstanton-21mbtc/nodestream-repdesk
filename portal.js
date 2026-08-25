@@ -181,7 +181,7 @@
     if(view==="ornn")         loadFrame("ornn");
     if(view==="quote"    && !mounted.quote)    { mountQuote();    mounted.quote=true; }
     if(view==="playbook" && !mounted.playbook) { mountPlaybook(); mounted.playbook=true; }
-    if(view==="dash")     loadDailyBrief();
+    if(view==="dash")     { loadDailyBrief(); renderDashPipeline(); }
     if(view==="pipeline") renderKanban();
     if(view==="settings") mountSettings();
     window.scrollTo(0,0);
@@ -224,18 +224,7 @@
     });
   })();
 
-  // ---- Dashboard pipeline preview ----
-  (function(){
-    var tb=$("#pipeBody"); if(!tb||!DATA.pipeline) return;
-    DATA.pipeline.forEach(function(p){
-      var tr=document.createElement("tr");
-      tr.innerHTML='<td class="co">'+p.co+'</td>'+
-        '<td class="persona-tag">'+p.persona+'</td>'+
-        '<td><span class="stage '+p.stage+'">'+p.stageLabel+'</span></td>'+
-        '<td class="amt">'+p.amt+'</td>';
-      tb.appendChild(tr);
-    });
-  })();
+  // Dashboard pipeline preview — rendered after pipeline section defines loadDeals/STAGES
 
   // ---- Tasks (localStorage-backed, full CRUD) ----
   var NS_TASKS_KEY = 'ns_tasks_v1';
@@ -418,6 +407,25 @@
   }
   function saveDeals(d){ localStorage.setItem(PIPELINE_KEY, JSON.stringify(d)); }
 
+  function renderDashPipeline(){
+    var tb = $("#pipeBody"); if(!tb) return;
+    var active = ensureDeals().filter(function(d){ return d.stage!=='won' && d.stage!=='lost'; });
+    tb.innerHTML = '';
+    if(!active.length){
+      var empty = document.createElement('tr');
+      empty.innerHTML = '<td colspan="4" style="text-align:center;font-family:var(--mono);font-size:11px;color:var(--muted-2);padding:18px 0">No active deals — add one in Pipeline</td>';
+      tb.appendChild(empty); return;
+    }
+    active.forEach(function(d){
+      var tr = document.createElement('tr');
+      tr.innerHTML = '<td class="co">'+esc(d.co)+'</td>'+
+        '<td class="persona-tag">'+esc(d.persona||'')+'</td>'+
+        '<td><span class="stage '+d.stage+'">'+esc(STAGES[d.stage]||d.stage)+'</span></td>'+
+        '<td class="amt">'+esc(d.amt||'—')+'</td>';
+      tb.appendChild(tr);
+    });
+  }
+
   function ensureDeals(){
     var deals=loadDeals();
     if(!deals.length && DATA.pipeline && DATA.pipeline.length){
@@ -501,7 +509,7 @@
         if(!_dragId) return;
         var all=loadDeals();
         var deal=all.find(function(d){ return d.id===_dragId; });
-        if(deal && deal.stage!==sk){ deal.stage=sk; saveDeals(all); renderKanban(); }
+        if(deal && deal.stage!==sk){ deal.stage=sk; saveDeals(all); renderKanban(); renderDashPipeline(); }
       });
 
       // Cards
@@ -710,6 +718,7 @@
     saveDeals(deals);
     $("#dealModal").classList.add('hidden');
     renderKanban();
+    renderDashPipeline();
   }
 
   function deleteDeal(){
@@ -718,7 +727,7 @@
     var deal=deals.find(function(d){ return d.id===_viewingDealId; }); if(!deal) return;
     if(!confirm('Delete "'+deal.co+'"? This cannot be undone.')) return;
     saveDeals(deals.filter(function(d){ return d.id!==_viewingDealId; }));
-    closeDetail(); renderKanban();
+    closeDetail(); renderKanban(); renderDashPipeline();
   }
 
   // ============================================================
@@ -1338,8 +1347,9 @@
       '</div>';
   }
 
-  // Load brief on initial dash view
+  // Load brief + pipeline preview on initial dash view
   loadDailyBrief();
+  renderDashPipeline();
 
   // ============================================================
   // AI ANALYST
