@@ -239,6 +239,53 @@
         </table>
 
         <div class="note" id="dynNote"></div>
+
+        <!-- ── Referral Fee Calculator ── -->
+        <div style="margin-top:20px;padding-top:18px;border-top:1px solid var(--line)">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px">
+            <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--amber);display:flex;align-items:center;gap:8px">
+              <span style="width:6px;height:6px;background:var(--amber);border-radius:50%;box-shadow:0 0 6px var(--amber);flex:none;display:inline-block"></span>
+              Referral Fee
+            </div>
+            <label style="display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10px;color:var(--muted);cursor:pointer;user-select:none">
+              <input type="checkbox" id="referralToggle" style="accent-color:var(--amber);width:14px;height:14px;cursor:pointer">
+              Enable
+            </label>
+          </div>
+
+          <div id="referralPanel" style="display:none">
+            <p style="font-size:12px;color:var(--muted-2);margin-bottom:14px;line-height:1.5">
+              Model your earnings as the referring partner — an ongoing % of the customer's monthly revenue for the life of the contract.
+            </p>
+
+            <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;flex-wrap:wrap">
+              <span style="font-family:var(--mono);font-size:11px;color:var(--muted);flex:none">Referral %</span>
+              <input type="range" id="referralRange" min="1" max="10" value="5" step="1"
+                style="flex:1;min-width:80px;accent-color:var(--amber);cursor:pointer">
+              <div style="display:flex;align-items:center;gap:5px;flex:none">
+                <input type="number" id="referralPct" min="1" max="10" value="5" step="0.5"
+                  style="width:58px;background:var(--panel-2);border:1px solid var(--line);color:var(--text);font-family:var(--mono);font-size:14px;padding:7px 8px;border-radius:8px;text-align:center;-moz-appearance:textfield;outline:none">
+                <span style="font-family:var(--mono);font-size:13px;color:var(--muted)">%</span>
+              </div>
+            </div>
+
+            <div style="background:rgba(224,167,60,.06);border:1px solid rgba(224,167,60,.25);border-radius:10px;padding:14px 16px">
+              <div style="font-family:var(--mono);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--amber);margin-bottom:10px">Your referral earnings</div>
+              <div style="display:flex;justify-content:space-between;align-items:baseline;font-family:var(--mono);font-size:12px;padding:4px 0">
+                <span style="color:var(--muted)">Rate applied</span>
+                <span id="refRateLabel" style="color:var(--text)">—</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:baseline;font-family:var(--mono);font-size:12px;padding:4px 0">
+                <span style="color:var(--muted)">Monthly referral</span>
+                <span id="refMonthly" style="color:var(--amber);font-weight:600">—</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:15px;font-weight:700;padding:10px 0 0;margin-top:6px;border-top:1px solid rgba(224,167,60,.2)">
+                <span style="font-family:var(--mono);font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted)">Contract total</span>
+                <span id="refTotal" style="font-family:var(--mono);color:var(--amber)">—</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="foot">
@@ -459,6 +506,8 @@
       "--- INTERNAL ---\n"+
       "Cost basis: "+fmt2(costRate)+"/hr   Blended: "+fmt2(blended)+"/hr\n"+
       "Monthly margin: "+fmt(margin)+" ("+marginPct.toFixed(1)+"%)   Contract margin: "+fmt(margin*term);
+
+    updateReferral(revenue, term);
   }
 
   // Reset to blank custom config
@@ -591,6 +640,36 @@
     navigator.clipboard.writeText(window.__summary||"").then(function(){
       $("copyBtn").textContent="Copied ✓"; setTimeout(function(){$("copyBtn").textContent="Copy quote";},1400);
     });
+  });
+
+  // ── Referral Fee ──────────────────────────────────────────────
+  var _referralRevenue = 0;
+  var _referralTerm    = 1;
+
+  function updateReferral(revenue, term){
+    if(revenue !== undefined) _referralRevenue = revenue;
+    if(term    !== undefined) _referralTerm    = term;
+    if(!$("referralToggle") || !$("referralToggle").checked) return;
+    var pct     = Math.min(10, Math.max(1, parseFloat($("referralPct").value)||5));
+    var monthly = _referralRevenue * pct / 100;
+    var total   = monthly * _referralTerm;
+    $("refRateLabel").textContent = pct.toFixed(1)+"% of customer revenue";
+    $("refMonthly").textContent   = fmt(monthly)+"/mo";
+    $("refTotal").textContent     = fmt(total);
+  }
+
+  $("referralToggle").addEventListener("change", function(){
+    $("referralPanel").style.display = this.checked ? "" : "none";
+    if(this.checked) updateReferral();
+  });
+  $("referralRange").addEventListener("input", function(){
+    $("referralPct").value = this.value;
+    updateReferral();
+  });
+  $("referralPct").addEventListener("input", function(){
+    var v = Math.min(10, Math.max(1, parseFloat(this.value)||5));
+    $("referralRange").value = Math.round(v);
+    updateReferral();
   });
 
   renderRecentChips();
