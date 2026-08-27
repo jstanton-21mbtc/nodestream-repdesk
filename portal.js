@@ -158,7 +158,22 @@
   if(!nsIsLoggedIn()){
     nsShowLogin();
   } else {
+    // Already authenticated — hide the overlay immediately (no fade)
+    var _ov = document.getElementById('loginOverlay');
+    if(_ov) _ov.style.display = 'none';
     nsApplyRepName(localStorage.getItem(NS_NAME_KEY));
+    // Recovery: if the user closed the browser mid-demo, restore their real pipeline backup
+    var _demoBak = sessionStorage.getItem('ns_demo_bak_pipeline');
+    if(_demoBak){
+      localStorage.setItem('ns_pipeline_v1', _demoBak);
+      sessionStorage.removeItem('ns_demo_bak_pipeline');
+    }
+    var _taskBak = sessionStorage.getItem('ns_demo_bak_tasks');
+    if(_taskBak){
+      localStorage.setItem('ns_tasks_v1', _taskBak);
+      sessionStorage.removeItem('ns_demo_bak_tasks');
+    }
+    sessionStorage.removeItem('ns_demo_v1');
   }
 
   var VIEW_LABEL = {
@@ -395,9 +410,17 @@
   function fmtDate(iso){ if(!iso) return '—'; try{ return new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }catch(e){ return iso.slice(0,10); } }
 
   function loadDeals(){
-    try{ return JSON.parse(localStorage.getItem(PIPELINE_KEY)||'null')||[]; }catch(e){ return []; }
+    var isDemo = sessionStorage.getItem('ns_demo_v1');
+    var store = isDemo ? sessionStorage : localStorage;
+    var key   = isDemo ? 'ns_demo_pipeline' : PIPELINE_KEY;
+    try{ return JSON.parse(store.getItem(key)||'null')||[]; }catch(e){ return []; }
   }
-  function saveDeals(d){ localStorage.setItem(PIPELINE_KEY, JSON.stringify(d)); }
+  function saveDeals(d){
+    if(sessionStorage.getItem('ns_demo_v1'))
+      sessionStorage.setItem('ns_demo_pipeline', JSON.stringify(d));
+    else
+      localStorage.setItem(PIPELINE_KEY, JSON.stringify(d));
+  }
 
   var STAGE_WEIGHTS = {disc:0.10, qual:0.25, quote:0.50, nego:0.75, won:1.0, lost:0.0};
 
@@ -1684,15 +1707,9 @@
   ];
 
   window.nsLoadDemo = function(){
+    // Demo data lives exclusively in sessionStorage — real localStorage is never touched
     sessionStorage.setItem(NS_DEMO_KEY, '1');
-    // Backup real data so we can restore on exit
-    var realPipeline = localStorage.getItem(PIPELINE_KEY);
-    var realTasks    = localStorage.getItem(NS_TASKS_KEY);
-    if(realPipeline) sessionStorage.setItem('ns_demo_bak_pipeline', realPipeline);
-    if(realTasks)    sessionStorage.setItem('ns_demo_bak_tasks',    realTasks);
-    // Load demo data
-    saveDeals(DEMO_DEALS.slice());
-    localStorage.setItem(NS_TASKS_KEY, JSON.stringify(DEMO_TASKS));
+    sessionStorage.setItem('ns_demo_pipeline', JSON.stringify(DEMO_DEALS));
     // Set demo rep name (DOM only, not in localStorage)
     var rn = document.getElementById('repName'), ri = document.getElementById('repInit');
     if(rn) rn.textContent = 'Jordan Mitchell';
@@ -1709,16 +1726,9 @@
   };
 
   window.nsExitDemo = function(){
+    // Clean up demo session data — real localStorage was never modified
     sessionStorage.removeItem(NS_DEMO_KEY);
-    // Restore backed-up real data
-    var realPipeline = sessionStorage.getItem('ns_demo_bak_pipeline');
-    var realTasks    = sessionStorage.getItem('ns_demo_bak_tasks');
-    if(realPipeline) localStorage.setItem(PIPELINE_KEY, realPipeline);
-    else             localStorage.removeItem(PIPELINE_KEY);
-    if(realTasks)    localStorage.setItem(NS_TASKS_KEY, realTasks);
-    else             localStorage.removeItem(NS_TASKS_KEY);
-    sessionStorage.removeItem('ns_demo_bak_pipeline');
-    sessionStorage.removeItem('ns_demo_bak_tasks');
+    sessionStorage.removeItem('ns_demo_pipeline');
     // Hide banner + tour + deal detail
     var banner = document.getElementById('nsDemoBanner');
     if(banner) banner.style.display = 'none';
