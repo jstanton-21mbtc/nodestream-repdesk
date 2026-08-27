@@ -238,15 +238,10 @@
   (function(){
     var list = $("#taskList"); if(!list) return;
 
-    // Load or seed from portal-data
+    // Load tasks — new users start with an empty list
     var tasks;
     try{ tasks = JSON.parse(localStorage.getItem(NS_TASKS_KEY)||'null'); }catch(e){ tasks=null; }
-    if(!tasks){
-      tasks = (DATA.tasks||[]).map(function(t,i){
-        return {id:'seed'+i, text:t.t, meta:t.m||'', done:!!t.done};
-      }).filter(function(t){ return !t.done; }); // only seed open ones
-      localStorage.setItem(NS_TASKS_KEY, JSON.stringify(tasks));
-    }
+    if(!tasks){ tasks = []; }
 
     function saveTasks(){ localStorage.setItem(NS_TASKS_KEY, JSON.stringify(tasks)); }
 
@@ -486,17 +481,7 @@
   }
 
   function ensureDeals(){
-    var deals=loadDeals();
-    if(!deals.length && DATA.pipeline && DATA.pipeline.length){
-      var today=new Date().toISOString().slice(0,10);
-      deals=DATA.pipeline.map(function(p,i){
-        return {id:'deal_seed_'+i, co:p.co, persona:p.persona, stage:p.stage,
-          amt:p.amt, notes:'', scorecardNotes:'', scorecardSavedAt:null,
-          quoteNotes:'', configSavedAt:null, dateAdded:today};
-      });
-      saveDeals(deals);
-    }
-    return deals;
+    return loadDeals();
   }
 
   var STAGE_CFG = {
