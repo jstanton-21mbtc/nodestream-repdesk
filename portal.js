@@ -238,12 +238,20 @@
   (function(){
     var list = $("#taskList"); if(!list) return;
 
-    // Load tasks — new users start with an empty list
+    // Load tasks — demo reads from sessionStorage, real users from localStorage
     var tasks;
-    try{ tasks = JSON.parse(localStorage.getItem(NS_TASKS_KEY)||'null'); }catch(e){ tasks=null; }
+    try{
+      var _demoTasks = sessionStorage.getItem('ns_demo_v1');
+      tasks = JSON.parse((_demoTasks ? sessionStorage.getItem('ns_demo_tasks') : localStorage.getItem(NS_TASKS_KEY))||'null');
+    }catch(e){ tasks=null; }
     if(!tasks){ tasks = []; }
 
-    function saveTasks(){ localStorage.setItem(NS_TASKS_KEY, JSON.stringify(tasks)); }
+    function saveTasks(){
+      if(sessionStorage.getItem('ns_demo_v1'))
+        sessionStorage.setItem('ns_demo_tasks', JSON.stringify(tasks));
+      else
+        localStorage.setItem(NS_TASKS_KEY, JSON.stringify(tasks));
+    }
 
     var isAdding = false;
     var editingId = null;
@@ -271,8 +279,8 @@
           row.innerHTML =
             '<input type="checkbox" disabled style="margin-top:3px;accent-color:var(--green);width:15px;height:15px;flex:none;opacity:.3">'+
             '<div style="flex:1;display:flex;flex-direction:column;gap:6px">'+
-              '<input type="text" class="form-input ns-te-text" value="'+escHtml(t.text)+'" style="padding:6px 10px;font-size:13px" placeholder="Task description">'+
-              '<input type="text" class="form-input ns-te-meta" value="'+escHtml(t.meta)+'" style="padding:5px 10px;font-size:11px;font-family:var(--mono)" placeholder="Label / due (optional)">'+
+              '<input type="text" class="form-input ns-te-text" value="'+esc(t.text)+'" style="padding:6px 10px;font-size:13px" placeholder="Task description">'+
+              '<input type="text" class="form-input ns-te-meta" value="'+esc(t.meta)+'" style="padding:5px 10px;font-size:11px;font-family:var(--mono)" placeholder="Label / due (optional)">'+
               '<div style="display:flex;gap:8px">'+
                 '<button class="btn-primary ns-te-save" data-id="'+t.id+'" style="padding:5px 13px;font-size:12px">Save</button>'+
                 '<button class="btn-ghost ns-te-cancel" style="padding:5px 13px;font-size:12px">Cancel</button>'+
@@ -282,8 +290,8 @@
           row.innerHTML =
             '<input type="checkbox" class="ns-cb" data-id="'+t.id+'" style="margin-top:3px;accent-color:var(--green);width:15px;height:15px;flex:none;cursor:pointer">'+
             '<div style="flex:1;min-width:0">'+
-              '<div class="tt">'+escHtml(t.text)+'</div>'+
-              (t.meta?'<div class="tm">'+escHtml(t.meta)+'</div>':'')+
+              '<div class="tt">'+esc(t.text)+'</div>'+
+              (t.meta?'<div class="tm">'+esc(t.meta)+'</div>':'')+
             '</div>'+
             '<div style="display:flex;gap:2px;flex:none;align-items:center;opacity:0;transition:opacity .15s" class="ns-ta">'+
               '<button class="ns-eb" data-id="'+t.id+'" title="Edit" style="background:none;border:none;color:var(--muted-2);cursor:pointer;padding:4px 6px;border-radius:6px;line-height:1;transition:.12s">'+
@@ -419,13 +427,6 @@
 
   var STAGE_WEIGHTS = {disc:0.10, qual:0.25, quote:0.50, nego:0.75, won:1.0, lost:0.0};
 
-  function parseAmt(s){
-    if(!s) return 0;
-    var n = parseFloat(String(s).replace(/[^0-9.]/g,''))||0;
-    if(/M/i.test(s)) return n * 1e6;
-    if(/K/i.test(s)) return n * 1e3;
-    return n;
-  }
   function fmtAmt(n){
     if(n >= 1e6) return '$'+(n/1e6).toFixed(1)+'M';
     if(n >= 1e3) return '$'+Math.round(n/1e3)+'K';
@@ -472,6 +473,8 @@
     }
     active.forEach(function(d){
       var tr = document.createElement('tr');
+      tr.className = 'clickable';
+      tr.dataset.dealId = d.id;
       tr.innerHTML = '<td class="co">'+esc(d.co)+'</td>'+
         '<td class="persona-tag">'+esc(d.persona||'')+'</td>'+
         '<td><span class="stage '+d.stage+'">'+esc(STAGES[d.stage]||d.stage)+'</span></td>'+
@@ -912,10 +915,20 @@
     if(tr){ openDealDetail(tr.dataset.dealId); return; }
   });
 
-  // Close modals on overlay click
+  // Close modals on overlay click (with dirty-state guard for deal form)
   ['dealModal','dealDetail','saveDealModal'].forEach(function(id){
-    var el=$("#"+id);
-    if(el) el.addEventListener('click',function(e){ if(e.target===el) el.classList.add('hidden'); });
+    var ol=$("#"+id);
+    if(!ol) return;
+    ol.addEventListener('click',function(e){
+      if(e.target!==ol) return;
+      if(id==='dealModal'){
+        var co=($("#deal-co")||{}).value||'';
+        var amt=($("#deal-amt")||{}).value||'';
+        var notes=($("#deal-notes")||{}).value||'';
+        if((co||amt||notes) && !confirm('Discard unsaved changes?')) return;
+      }
+      ol.classList.add('hidden');
+    });
   });
 
   // ============================================================
@@ -1161,7 +1174,7 @@
         '<span class="form-label">Google OAuth Client ID</span>'+
         '<input class="form-input" type="text" id="g-client-id" autocomplete="off" '+
           'placeholder="xxxxxxxx.apps.googleusercontent.com" '+
-          'value="'+escHtml(gClientId)+'" style="font-family:var(--mono);font-size:11px">'+
+          'value="'+esc(gClientId)+'" style="font-family:var(--mono);font-size:11px">'+
       '</div>'+
       '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'+
         '<button class="btn-primary" style="padding:7px 16px;font-size:12px" id="g-save-btn">Save Client ID</button>'+
@@ -1257,7 +1270,11 @@
     var mount = document.getElementById('dailyBriefMount');
     if(!mount) return;
     var tok = nsGoogleToken();
-    if(!tok){ renderBriefDisconnected(mount); return; }
+    if(!tok){
+      var hadToken = !!localStorage.getItem(NS_GTOKEN_KEY);
+      renderBriefDisconnected(mount, hadToken);
+      return;
+    }
 
     mount.innerHTML =
       '<div class="brief-grid">'+
@@ -1269,10 +1286,10 @@
     Promise.all([fetchCalendarEvents(tok), fetchGmailMessages(tok), fetchDriveFiles(tok)])
       .then(function(res){ renderDailyBrief(mount, res[0], res[1], res[2]); })
       .catch(function(err){
-        // Token might be expired — clear it and show connect prompt
+        // Token likely expired — clear it and show reconnect prompt
         localStorage.removeItem(NS_GTOKEN_KEY);
         localStorage.removeItem(NS_GEXPIRY_KEY);
-        renderBriefDisconnected(mount);
+        renderBriefDisconnected(mount, true);
         console.warn('Daily Brief error:', err.message);
       });
   }
@@ -1340,7 +1357,7 @@
         calHTML += '<div class="brief-item">'+
           '<div class="brief-dot"></div>'+
           '<div class="brief-time">'+timeStr+'</div>'+
-          '<div class="brief-text">'+escHtml(ev.summary||'(untitled)')+'</div>'+
+          '<div class="brief-text">'+esc(ev.summary||'(untitled)')+'</div>'+
         '</div>';
       });
     }
@@ -1353,8 +1370,8 @@
         gmailHTML += '<div class="brief-item">'+
           '<div class="brief-dot" style="background:var(--amber)"></div>'+
           '<div style="min-width:0;flex:1">'+
-            '<div class="brief-title">'+escHtml(em.subject)+'</div>'+
-            '<div class="brief-sub">'+escHtml(em.sender)+'</div>'+
+            '<div class="brief-title">'+esc(em.subject)+'</div>'+
+            '<div class="brief-sub">'+esc(em.sender)+'</div>'+
           '</div>'+
         '</div>';
       });
@@ -1373,7 +1390,7 @@
         driveHTML += '<div'+onClick+'>'+
           '<div class="brief-dot" style="background:var(--green-dim)"></div>'+
           '<div style="min-width:0;flex:1">'+
-            '<div class="brief-title">'+escHtml(f.name)+'</div>'+
+            '<div class="brief-title">'+esc(f.name)+'</div>'+
             '<div class="brief-sub">'+ext+'</div>'+
           '</div>'+
         '</div>';
@@ -1397,16 +1414,22 @@
       '</div>';
   }
 
-  function renderBriefDisconnected(mount){
+  function renderBriefDisconnected(mount, expired){
+    var label = expired ? 'Reconnect Google' : 'Connect Google';
+    var subtitle = expired
+      ? 'Your Google session expired. Reconnect to restore the Daily Brief.'
+      : 'Connect Google Workspace to see today\'s calendar, unread emails, and recent Drive files.';
     mount.innerHTML =
       '<div class="brief-connect-bar">'+
         '<div>'+
-          '<div style="font-size:13.5px;font-weight:600;margin-bottom:3px">Daily Brief</div>'+
-          '<div style="font-size:12px;color:var(--muted-2)">Connect Google Workspace to see today\'s calendar, unread emails, and recent Drive files.</div>'+
+          '<div style="font-size:13.5px;font-weight:600;margin-bottom:3px">Daily Brief'+
+            (expired?' <span style="font-family:var(--mono);font-size:10px;color:var(--amber);font-weight:400">&mdash; session expired</span>':'')+
+          '</div>'+
+          '<div style="font-size:12px;color:var(--muted-2)">'+subtitle+'</div>'+
         '</div>'+
         '<button class="g-btn" onclick="nsGoogleConnect()">'+
           '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>'+
-          'Connect Google'+
+          label+
         '</button>'+
       '</div>';
   }
@@ -1432,6 +1455,35 @@
     '- HPC/AI market trends and competitive landscape\n\n'+
     'Be concise, tactical, and specific. Use bullet points where helpful. Always tailor advice to the rep\'s actual situation.';
 
+  // Convert simple markdown to safe HTML (bold, italic, code, lists)
+  function mdToHtml(raw){
+    var s = esc(String(raw||''));
+    // Bold **text**
+    s = s.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+    // Italic *text*
+    s = s.replace(/\*([^*\n]+)\*/g,'<em>$1</em>');
+    // Inline code `code`
+    s = s.replace(/`([^`\n]+)`/g,'<code>$1</code>');
+    // Build output line by line to handle bullet lists
+    var lines = s.split('\n');
+    var out = []; var inList = false;
+    lines.forEach(function(line){
+      var bullet  = line.match(/^[\*\-]\s+([\s\S]+)/);
+      var numbered= line.match(/^\d+\.\s+([\s\S]+)/);
+      if(bullet || numbered){
+        if(!inList){ out.push('<ul style="margin:4px 0 4px 16px;padding:0">'); inList=true; }
+        out.push('<li style="margin:2px 0">'+(bullet?bullet[1]:numbered[1])+'</li>');
+      } else {
+        if(inList){ out.push('</ul>'); inList=false; }
+        out.push(line===''?'<br>':line+'<br>');
+      }
+    });
+    if(inList) out.push('</ul>');
+    // Trim trailing <br> tags
+    var result = out.join('').replace(/(<br>)+$/, '');
+    return result;
+  }
+
   function aiAppendMsg(role, text){
     var msgs=$("#aiMessages"); if(!msgs) return;
     var div=document.createElement('div');
@@ -1439,14 +1491,10 @@
     var label=role==='user'?'You':'AI';
     div.innerHTML=
       '<div class="ai-avatar">'+label+'</div>'+
-      '<div class="ai-bubble">'+escHtml(text)+'</div>';
+      '<div class="ai-bubble">'+(role==='ai'?mdToHtml(text):esc(text))+'</div>';
     msgs.appendChild(div);
     msgs.scrollTop=msgs.scrollHeight;
     return div;
-  }
-
-  function escHtml(s){
-    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
   function aiShowTyping(){
@@ -1515,8 +1563,8 @@
     // Prepend system as first user turn if history starts with assistant
     var fullContents=[{role:'user',parts:[{text:AI_SYSTEM+'\n\n---\nUnderstood. Ready to help.'}]},{role:'model',parts:[{text:'Understood. Ready to help.'}]}].concat(contents);
     var body={contents:fullContents,generationConfig:{maxOutputTokens:1024}};
-    var url='https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key='+encodeURIComponent(key);
-    var r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    var url='https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+    var r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},body:JSON.stringify(body)});
     if(!r.ok){ var e=await r.text(); throw new Error('Gemini '+r.status+': '+e.slice(0,200)); }
     var j=await r.json();
     return j.candidates[0].content.parts[0].text;
@@ -1695,6 +1743,7 @@
     // Demo data lives exclusively in sessionStorage — real localStorage is never touched
     sessionStorage.setItem(NS_DEMO_KEY, '1');
     sessionStorage.setItem('ns_demo_pipeline', JSON.stringify(DEMO_DEALS));
+    sessionStorage.setItem('ns_demo_tasks', JSON.stringify(DEMO_TASKS));
     // Set demo rep name (DOM only, not in localStorage)
     var rn = document.getElementById('repName'), ri = document.getElementById('repInit');
     if(rn) rn.textContent = 'Jordan Mitchell';
@@ -1714,6 +1763,7 @@
     // Clean up demo session data — real localStorage was never modified
     sessionStorage.removeItem(NS_DEMO_KEY);
     sessionStorage.removeItem('ns_demo_pipeline');
+    sessionStorage.removeItem('ns_demo_tasks');
     // Hide banner + tour + deal detail
     var banner = document.getElementById('nsDemoBanner');
     if(banner) banner.style.display = 'none';
