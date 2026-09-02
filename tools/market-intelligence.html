@@ -171,9 +171,49 @@
   .toc a{color:var(--muted)}
   .toc a:hover{color:var(--green-bright)}
 
+  /* ── GPU Spec Cards ── */
+  .gpu-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:16px;margin-bottom:20px}
+  .gpu-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px;transition:.15s}
+  .gpu-card:hover{border-color:var(--green-dim);transform:translateY(-2px)}
+  .gpu-card.featured{border-color:var(--green-dim);background:linear-gradient(160deg,rgba(60,160,40,.05),var(--panel))}
+  .gpu-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;gap:8px}
+  .gpu-name{font-size:17px;font-weight:800;letter-spacing:-.3px}
+  .gpu-arch{font-family:var(--mono);font-size:9px;letter-spacing:1.2px;text-transform:uppercase;
+    padding:3px 8px;border-radius:5px;flex:none;margin-top:3px}
+  .arch-hopper{background:rgba(91,155,213,.1);color:var(--blue);border:1px solid rgba(91,155,213,.25)}
+  .arch-blackwell{background:rgba(224,167,60,.1);color:var(--amber);border:1px solid rgba(224,167,60,.25)}
+  .arch-blackwell-ultra{background:rgba(60,160,40,.12);color:var(--green-bright);border:1px solid rgba(60,160,40,.3)}
+  .arch-rack{background:rgba(217,88,74,.08);color:#e07070;border:1px solid rgba(217,88,74,.2)}
+  .arch-roadmap{background:rgba(140,60,200,.1);color:#c080ff;border:1px solid rgba(140,60,200,.25)}
+  .arch-ampere{background:rgba(100,100,110,.12);color:var(--muted);border:1px solid var(--line)}
+  .gpu-desc{font-size:12.5px;color:var(--muted);line-height:1.55;margin-bottom:16px}
+  .spec-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+  .spec-item{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:9px 11px}
+  .spec-item .sk{font-family:var(--mono);font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--muted-2);margin-bottom:3px}
+  .spec-item .sv{font-size:13px;font-weight:700;color:var(--text)}
+  .spec-item .sv.green{color:var(--green-bright)}
+  .spec-item .sv.amber{color:var(--amber)}
+  .spec-item .sv.blue{color:var(--blue)}
+  .spec-item .sv.purple{color:#c080ff}
+  .gpu-use{border-top:1px solid var(--line);padding-top:12px}
+  .gpu-use-label{font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted-2);margin-bottom:6px}
+  .gpu-use-tags{display:flex;flex-wrap:wrap;gap:5px}
+  .use-tag{font-size:11px;padding:3px 8px;border-radius:5px;background:var(--panel-3);color:var(--muted);border:1px solid var(--line)}
+  .use-tag.hot{background:rgba(60,160,40,.08);color:var(--green);border-color:rgba(60,160,40,.2)}
+
+  /* ── Perf bar ── */
+  .perf-section{margin-bottom:20px}
+  .perf-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  .perf-label{font-size:12px;font-weight:600;width:130px;flex:none}
+  .perf-bar-wrap{flex:1;background:var(--panel-2);border-radius:4px;height:8px;overflow:hidden;border:1px solid var(--line)}
+  .perf-bar{height:100%;border-radius:4px;transition:width .4s ease}
+  .perf-val{font-family:var(--mono);font-size:11px;color:var(--muted);width:90px;flex:none;text-align:right}
+
   @media(max-width:700px){
     .player-grid{grid-template-columns:1fr}
+    .gpu-grid{grid-template-columns:1fr}
     .kpi-row{grid-template-columns:repeat(2,1fr)}
+    .spec-grid{grid-template-columns:1fr 1fr}
     .wrap{padding:24px 16px 60px}
     .mi-title{font-size:22px}
   }
@@ -205,6 +245,7 @@
       <li><a href="#mid-market">Tier 3 — Mid-Market Neoclouds</a></li>
       <li><a href="#hpc-colo">Tier 4 — HPC / Colo Operators</a></li>
       <li><a href="#pricing">GPU Pricing Landscape</a></li>
+      <li><a href="#gpu-specs">GPU Hardware Specs</a></li>
       <li><a href="#nodestream">Nodestream's Position</a></li>
       <li><a href="#battlecard">Rep Battlecard</a></li>
     </ol>
@@ -795,6 +836,386 @@
 
     <div class="callout">
       <b>Pricing trend:</b> H100 spot pricing may reach sub-$2/hr universally by end of 2026 as new supply comes online. The value conversation is shifting from GPU price per hour to <b>cluster ownership economics, financing terms, delivery timelines, and power guarantees</b> — exactly where Nodestream competes.
+    </div>
+  </section>
+
+  <!-- GPU HARDWARE SPECS -->
+  <section id="gpu-specs">
+    <div class="sec-label">Hardware Intelligence</div>
+    <h2 class="sec-title">GPU Hardware Specs Comparison</h2>
+    <p class="sec-desc">Know the iron. When buyers talk about their compute requirements, you need to speak confidently about what each GPU generation delivers — memory capacity, bandwidth, compute throughput, and power draw. This is what separates a trusted advisor from a hardware broker.</p>
+
+    <!-- Relative Performance Bars -->
+    <div class="panel perf-section" style="margin-bottom:24px">
+      <div class="ph"><span class="t">Relative AI Inference Performance (FP8) — Normalized to H100 = 1×</span></div>
+      <div style="margin-top:4px">
+        <div class="perf-row">
+          <span class="perf-label">A100 (Ampere)</span>
+          <div class="perf-bar-wrap"><div class="perf-bar" style="width:33%;background:var(--muted-2)"></div></div>
+          <span class="perf-val">~0.33×</span>
+        </div>
+        <div class="perf-row">
+          <span class="perf-label">H100 SXM5</span>
+          <div class="perf-bar-wrap"><div class="perf-bar" style="width:25%;background:var(--blue)"></div></div>
+          <span class="perf-val">1× baseline</span>
+        </div>
+        <div class="perf-row">
+          <span class="perf-label">H200 SXM5</span>
+          <div class="perf-bar-wrap"><div class="perf-bar" style="width:27%;background:var(--blue)"></div></div>
+          <span class="perf-val">~1.1× (mem)</span>
+        </div>
+        <div class="perf-row">
+          <span class="perf-label">B200 (Blackwell)</span>
+          <div class="perf-bar-wrap"><div class="perf-bar" style="width:55%;background:var(--amber)"></div></div>
+          <span class="perf-val">~2.25×</span>
+        </div>
+        <div class="perf-row">
+          <span class="perf-label">B300 (Blackwell Ultra)</span>
+          <div class="perf-bar-wrap"><div class="perf-bar" style="width:80%;background:var(--green-bright)"></div></div>
+          <span class="perf-val">~3.75×</span>
+        </div>
+        <div class="perf-row">
+          <span class="perf-label">GB300 NVL72 (rack)</span>
+          <div class="perf-bar-wrap"><div class="perf-bar" style="width:100%;background:linear-gradient(90deg,var(--green-bright),var(--green))"></div></div>
+          <span class="perf-val">~270× (72 GPU)</span>
+        </div>
+      </div>
+      <p style="font-size:11px;color:var(--muted-2);margin-top:14px">Performance normalized for inference (FP8/FP4). Training performance differs. MLPerf v4.1 benchmarks, NVIDIA published specs, and SemiAnalysis estimates.</p>
+    </div>
+
+    <!-- GPU Cards -->
+    <div class="gpu-grid">
+
+      <!-- A100 -->
+      <div class="gpu-card">
+        <div class="gpu-head">
+          <div class="gpu-name">NVIDIA A100</div>
+          <span class="gpu-arch arch-ampere">Ampere · 2020</span>
+        </div>
+        <p class="gpu-desc">The predecessor to Hopper. Still widely deployed in enterprise and research environments due to pricing and software maturity. Many existing HPC clusters run A100s. Buyers on A100s are prime upgrade targets — they understand GPU compute and are feeling performance pressure.</p>
+        <div class="spec-grid">
+          <div class="spec-item"><div class="sk">Memory</div><div class="sv blue">80 GB HBM2e</div></div>
+          <div class="spec-item"><div class="sk">Bandwidth</div><div class="sv">2.0 TB/s</div></div>
+          <div class="spec-item"><div class="sk">FP16 Tensor</div><div class="sv">312 TFLOPS</div></div>
+          <div class="spec-item"><div class="sk">FP8</div><div class="sv amber">Not supported</div></div>
+          <div class="spec-item"><div class="sk">NVLink</div><div class="sv">NVLink 3.0</div></div>
+          <div class="spec-item"><div class="sk">TDP</div><div class="sv">400 W</div></div>
+          <div class="spec-item"><div class="sk">Process</div><div class="sv">TSMC 7nm</div></div>
+          <div class="spec-item"><div class="sk">Cloud Price</div><div class="sv amber">~$1.50–2.50/hr</div></div>
+        </div>
+        <div class="gpu-use">
+          <div class="gpu-use-label">Best for</div>
+          <div class="gpu-use-tags">
+            <span class="use-tag">Fine-tuning</span>
+            <span class="use-tag">Inference (small models)</span>
+            <span class="use-tag">Research</span>
+            <span class="use-tag">Legacy workloads</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- H100 -->
+      <div class="gpu-card">
+        <div class="gpu-head">
+          <div class="gpu-name">NVIDIA H100 SXM5</div>
+          <span class="gpu-arch arch-hopper">Hopper · 2022</span>
+        </div>
+        <p class="gpu-desc">The current market standard for AI training and inference. The H100 is what all neocloud GPU pricing benchmarks against and what most enterprise AI teams use today. Native FP8 support enabled the LLM inference revolution. 3.35 TB/s memory bandwidth enables high-throughput KV cache management for large context windows.</p>
+        <div class="spec-grid">
+          <div class="spec-item"><div class="sk">Memory</div><div class="sv blue">80 GB HBM3</div></div>
+          <div class="spec-item"><div class="sk">Bandwidth</div><div class="sv">3.35 TB/s</div></div>
+          <div class="spec-item"><div class="sk">FP8 Dense</div><div class="sv green">3,958 TFLOPS</div></div>
+          <div class="spec-item"><div class="sk">FP16 Tensor</div><div class="sv">989 TFLOPS</div></div>
+          <div class="spec-item"><div class="sk">NVLink</div><div class="sv">NVLink 4.0</div></div>
+          <div class="spec-item"><div class="sk">TDP</div><div class="sv">700 W</div></div>
+          <div class="spec-item"><div class="sk">Process</div><div class="sv">TSMC 4N</div></div>
+          <div class="spec-item"><div class="sk">Cloud Price</div><div class="sv amber">$1.49–$12.29/hr</div></div>
+        </div>
+        <div class="gpu-use">
+          <div class="gpu-use-label">Best for</div>
+          <div class="gpu-use-tags">
+            <span class="use-tag hot">LLM Training</span>
+            <span class="use-tag hot">Inference at scale</span>
+            <span class="use-tag">Fine-tuning</span>
+            <span class="use-tag">Computer vision</span>
+            <span class="use-tag">HPC simulation</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- H200 -->
+      <div class="gpu-card">
+        <div class="gpu-head">
+          <div class="gpu-name">NVIDIA H200 SXM5</div>
+          <span class="gpu-arch arch-hopper">Hopper · 2024</span>
+        </div>
+        <p class="gpu-desc">A memory-focused upgrade to the H100 — same Hopper compute die, but with 141 GB of HBM3e at 4.8 TB/s vs. H100's 3.35 TB/s. The H200's value is almost entirely about larger LLM context windows and inference throughput for memory-bound workloads. Training compute is identical to H100 — so the upgrade story is inference, not training.</p>
+        <div class="spec-grid">
+          <div class="spec-item"><div class="sk">Memory</div><div class="sv green">141 GB HBM3e</div></div>
+          <div class="spec-item"><div class="sk">Bandwidth</div><div class="sv green">4.8 TB/s</div></div>
+          <div class="spec-item"><div class="sk">FP8 Dense</div><div class="sv">3,958 TFLOPS</div></div>
+          <div class="spec-item"><div class="sk">FP16 Tensor</div><div class="sv">989 TFLOPS</div></div>
+          <div class="spec-item"><div class="sk">NVLink</div><div class="sv">NVLink 4.0</div></div>
+          <div class="spec-item"><div class="sk">TDP</div><div class="sv">700 W</div></div>
+          <div class="spec-item"><div class="sk">vs H100</div><div class="sv amber">+76% VRAM · +43% BW</div></div>
+          <div class="spec-item"><div class="sk">Cloud Price</div><div class="sv amber">~$3–5/hr est.</div></div>
+        </div>
+        <div class="gpu-use">
+          <div class="gpu-use-label">Best for</div>
+          <div class="gpu-use-tags">
+            <span class="use-tag hot">LLM Inference (large context)</span>
+            <span class="use-tag hot">Memory-bound workloads</span>
+            <span class="use-tag">Mixture-of-Experts models</span>
+            <span class="use-tag">Multi-modal AI</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- B200 -->
+      <div class="gpu-card featured">
+        <div class="gpu-head">
+          <div class="gpu-name">NVIDIA B200</div>
+          <span class="gpu-arch arch-blackwell">Blackwell · 2025</span>
+        </div>
+        <p class="gpu-desc">Full generational leap. The B200 introduces a new dual-die design, native FP4 precision (the standard for next-gen LLM inference), 5th-gen Tensor Cores, NVLink 5.0 at 1.8 TB/s per GPU, and double the compute of the H100. 2× training speed vs. H100, up to 4× inference throughput for memory-bound LLM workloads. The B200 is what Nodestream's GPUaaS reserved capacity is built on.</p>
+        <div class="spec-grid">
+          <div class="spec-item"><div class="sk">Memory</div><div class="sv green">192 GB HBM3e</div></div>
+          <div class="spec-item"><div class="sk">Bandwidth</div><div class="sv green">8.0 TB/s</div></div>
+          <div class="spec-item"><div class="sk">FP4 Dense</div><div class="sv green">9 PFLOPS</div></div>
+          <div class="spec-item"><div class="sk">FP8 Dense</div><div class="sv green">4.5 PFLOPS</div></div>
+          <div class="spec-item"><div class="sk">NVLink</div><div class="sv amber">NVLink 5.0</div></div>
+          <div class="spec-item"><div class="sk">TDP</div><div class="sv amber">1,000 W</div></div>
+          <div class="spec-item"><div class="sk">vs H100</div><div class="sv green">~2× train · ~4× infer</div></div>
+          <div class="spec-item"><div class="sk">Process</div><div class="sv">TSMC 4NP</div></div>
+        </div>
+        <div class="gpu-use">
+          <div class="gpu-use-label">Best for</div>
+          <div class="gpu-use-tags">
+            <span class="use-tag hot">Frontier model training</span>
+            <span class="use-tag hot">High-throughput inference</span>
+            <span class="use-tag hot">Agentic AI workloads</span>
+            <span class="use-tag">RAG pipelines</span>
+            <span class="use-tag">Video generation</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- B300 -->
+      <div class="gpu-card featured">
+        <div class="gpu-head">
+          <div class="gpu-name">NVIDIA B300 (Blackwell Ultra)</div>
+          <span class="gpu-arch arch-blackwell-ultra">Blackwell Ultra · Jan 2026</span>
+        </div>
+        <p class="gpu-desc">NVIDIA's most powerful single GPU as of 2026. The B300 ships with 288 GB HBM3e — 3.6× H100 memory — and 15 PFLOPS of dense FP4 compute. PCIe Gen 6 and enhanced NVLink 5.0 interconnects. The 1,400W TDP requires liquid cooling infrastructure. Nodestream's GPUaaS reserved capacity includes GB300 systems — this is the hardware your buyers' competitors are fighting to access.</p>
+        <div class="spec-grid">
+          <div class="spec-item"><div class="sk">Memory</div><div class="sv green">288 GB HBM3e</div></div>
+          <div class="spec-item"><div class="sk">Bandwidth</div><div class="sv green">8.0 TB/s</div></div>
+          <div class="spec-item"><div class="sk">FP4 Dense</div><div class="sv green">15 PFLOPS</div></div>
+          <div class="spec-item"><div class="sk">FP8 Dense</div><div class="sv green">7.5 PFLOPS</div></div>
+          <div class="spec-item"><div class="sk">NVLink</div><div class="sv amber">NVLink 5.0</div></div>
+          <div class="spec-item"><div class="sk">TDP</div><div class="sv amber">1,400 W</div></div>
+          <div class="spec-item"><div class="sk">vs H100</div><div class="sv green">~3.75× compute</div></div>
+          <div class="spec-item"><div class="sk">vs B200</div><div class="sv green">+67% compute · +50% VRAM</div></div>
+        </div>
+        <div class="gpu-use">
+          <div class="gpu-use-label">Best for</div>
+          <div class="gpu-use-tags">
+            <span class="use-tag hot">Frontier training runs</span>
+            <span class="use-tag hot">Massive context inference</span>
+            <span class="use-tag hot">Multi-modal generation</span>
+            <span class="use-tag">Scientific simulation</span>
+            <span class="use-tag">Robotics training</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- GB200 NVL72 -->
+      <div class="gpu-card">
+        <div class="gpu-head">
+          <div class="gpu-name">GB200 NVL72</div>
+          <span class="gpu-arch arch-rack">Rack-Scale · 2025</span>
+        </div>
+        <p class="gpu-desc">NVIDIA's rack-scale system — 36 Grace ARM CPUs + 72 B200 GPU dies in a single NVLink 5.0 fabric spanning a full liquid-cooled rack. Sold as a complete system, not individual GPUs. 130 TB/s total NVLink bisection bandwidth eliminates the memory bottleneck that limits multi-node GPU clusters. The reference architecture for frontier AI data centers.</p>
+        <div class="spec-grid">
+          <div class="spec-item"><div class="sk">GPUs per rack</div><div class="sv amber">72× B200</div></div>
+          <div class="spec-item"><div class="sk">CPUs per rack</div><div class="sv">36× Grace ARM</div></div>
+          <div class="spec-item"><div class="sk">Total HBM3e</div><div class="sv green">13.5 TB</div></div>
+          <div class="spec-item"><div class="sk">NVLink BW</div><div class="sv green">130 TB/s</div></div>
+          <div class="spec-item"><div class="sk">FP4 (rack)</div><div class="sv green">~720 PFLOPS</div></div>
+          <div class="spec-item"><div class="sk">Rack Power</div><div class="sv amber">~120 kW+</div></div>
+          <div class="spec-item"><div class="sk">Cooling</div><div class="sv amber">Direct liquid required</div></div>
+          <div class="spec-item"><div class="sk">vs H100 8×</div><div class="sv green">~9× per GPU pair</div></div>
+        </div>
+        <div class="gpu-use">
+          <div class="gpu-use-label">Best for</div>
+          <div class="gpu-use-tags">
+            <span class="use-tag hot">Frontier model pre-training</span>
+            <span class="use-tag hot">Hyperscaler AI factories</span>
+            <span class="use-tag">Sovereign AI infrastructure</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- GB300 NVL72 -->
+      <div class="gpu-card featured">
+        <div class="gpu-head">
+          <div class="gpu-name">GB300 NVL72</div>
+          <span class="gpu-arch arch-rack">Rack-Scale · 2026</span>
+        </div>
+        <p class="gpu-desc">The GB300 NVL72 succeeds the GB200 NVL72, swapping B200 dies for B300 (Blackwell Ultra) — delivering 50% more FP4 compute and 48% more HBM3e per rack. 20 TB of total GPU memory across the rack fabric. The system Nodestream's GB300 GPUaaS reserved capacity is built on. Buyers accessing GB300 clusters are accessing the most powerful commercially available AI infrastructure in the world.</p>
+        <div class="spec-grid">
+          <div class="spec-item"><div class="sk">GPUs per rack</div><div class="sv green">72× B300</div></div>
+          <div class="spec-item"><div class="sk">Total HBM3e</div><div class="sv green">20 TB</div></div>
+          <div class="spec-item"><div class="sk">FP4 Dense</div><div class="sv green">1.08 ExaFLOPS</div></div>
+          <div class="spec-item"><div class="sk">FP4 Sparse</div><div class="sv green">1.44 ExaFLOPS</div></div>
+          <div class="spec-item"><div class="sk">NVLink BW/GPU</div><div class="sv green">1.8 TB/s</div></div>
+          <div class="spec-item"><div class="sk">vs GB200 NVL72</div><div class="sv green">+50% compute</div></div>
+          <div class="spec-item"><div class="sk">Cooling</div><div class="sv amber">Direct liquid required</div></div>
+          <div class="spec-item"><div class="sk">Nodestream</div><div class="sv green">Reserved capacity available</div></div>
+        </div>
+        <div class="gpu-use">
+          <div class="gpu-use-label">Best for</div>
+          <div class="gpu-use-tags">
+            <span class="use-tag hot">AGI-scale training</span>
+            <span class="use-tag hot">Inference at hyperscale</span>
+            <span class="use-tag hot">AI factory deployments</span>
+            <span class="use-tag">Robotics foundation models</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Vera Rubin -->
+      <div class="gpu-card">
+        <div class="gpu-head">
+          <div class="gpu-name">Vera Rubin (NVL144)</div>
+          <span class="gpu-arch arch-roadmap">Roadmap · H2 2026+</span>
+        </div>
+        <p class="gpu-desc">NVIDIA's next architecture after Blackwell. Vera Rubin uses TSMC 3nm, HBM4 memory at 13 TB/s per GPU, and doubles the per-rack GPU count to 144 via the NVL144 system. The NVL144 rack delivers 3.6 ExaFLOPS of FP4 — 3.3× a GB300 NVL72. Use this to frame future-proofing conversations with buyers evaluating 3–5 year infrastructure commitments.</p>
+        <div class="spec-grid">
+          <div class="spec-item"><div class="sk">Memory / GPU</div><div class="sv purple">288 GB HBM4</div></div>
+          <div class="spec-item"><div class="sk">BW / GPU</div><div class="sv purple">13 TB/s</div></div>
+          <div class="spec-item"><div class="sk">Process</div><div class="sv purple">TSMC 3nm</div></div>
+          <div class="spec-item"><div class="sk">NVL144 FP4</div><div class="sv purple">3.6 ExaFLOPS</div></div>
+          <div class="spec-item"><div class="sk">GPUs per rack</div><div class="sv purple">144</div></div>
+          <div class="spec-item"><div class="sk">vs GB300 NVL72</div><div class="sv purple">~3.3× per rack</div></div>
+          <div class="spec-item"><div class="sk">Expected</div><div class="sv purple">H2 2026+</div></div>
+          <div class="spec-item"><div class="sk">Memory type</div><div class="sv purple">HBM4 (first gen)</div></div>
+        </div>
+        <div class="gpu-use">
+          <div class="gpu-use-label">Best for</div>
+          <div class="gpu-use-tags">
+            <span class="use-tag">Future-proofing conversations</span>
+            <span class="use-tag">Multi-year planning</span>
+            <span class="use-tag">AGI infrastructure roadmap</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Quick Spec Comparison Table -->
+    <div class="panel" style="overflow-x:auto;margin-bottom:20px">
+      <div class="ph"><span class="t">Quick Reference — Spec Comparison Table</span></div>
+      <table class="price-table" style="margin-top:4px">
+        <thead>
+          <tr>
+            <th>GPU</th>
+            <th>Arch</th>
+            <th>VRAM</th>
+            <th>Mem BW</th>
+            <th>FP8 Compute</th>
+            <th>NVLink</th>
+            <th>TDP</th>
+            <th>Cooling</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="co">A100 SXM4</td>
+            <td class="tier-cell">Ampere</td>
+            <td>80 GB HBM2e</td>
+            <td class="num amber">2.0 TB/s</td>
+            <td class="tier-cell">N/A (FP16: 312 T)</td>
+            <td class="tier-cell">NVLink 3.0</td>
+            <td class="tier-cell">400 W</td>
+            <td class="tier-cell">Air / Liquid</td>
+          </tr>
+          <tr>
+            <td class="co">H100 SXM5</td>
+            <td class="tier-cell">Hopper</td>
+            <td>80 GB HBM3</td>
+            <td class="num">3.35 TB/s</td>
+            <td class="num">3,958 TFLOPS</td>
+            <td class="tier-cell">NVLink 4.0</td>
+            <td class="tier-cell">700 W</td>
+            <td class="tier-cell">Air / Liquid</td>
+          </tr>
+          <tr>
+            <td class="co">H200 SXM5</td>
+            <td class="tier-cell">Hopper</td>
+            <td style="color:var(--green-bright);font-weight:600">141 GB HBM3e</td>
+            <td class="num green">4.8 TB/s</td>
+            <td class="num">3,958 TFLOPS</td>
+            <td class="tier-cell">NVLink 4.0</td>
+            <td class="tier-cell">700 W</td>
+            <td class="tier-cell">Air / Liquid</td>
+          </tr>
+          <tr>
+            <td class="co">B200</td>
+            <td class="tier-cell">Blackwell</td>
+            <td style="color:var(--green-bright);font-weight:600">192 GB HBM3e</td>
+            <td class="num green">8.0 TB/s</td>
+            <td class="num green">4,500 TFLOPS</td>
+            <td class="tier-cell">NVLink 5.0</td>
+            <td class="tier-cell amber">1,000 W</td>
+            <td class="tier-cell" style="color:var(--amber)">Liquid preferred</td>
+          </tr>
+          <tr>
+            <td class="co">B300 (Ultra)</td>
+            <td class="tier-cell">Blk Ultra</td>
+            <td style="color:var(--green-bright);font-weight:600">288 GB HBM3e</td>
+            <td class="num green">8.0 TB/s</td>
+            <td class="num green">7,500 TFLOPS</td>
+            <td class="tier-cell">NVLink 5.0</td>
+            <td class="tier-cell amber">1,400 W</td>
+            <td class="tier-cell" style="color:var(--red)">Liquid required</td>
+          </tr>
+          <tr>
+            <td class="co">GB200 NVL72 <span style="font-weight:400;font-size:11px;color:var(--muted-2)">(72 GPUs)</span></td>
+            <td class="tier-cell">Blackwell</td>
+            <td style="color:var(--green-bright);font-weight:600">13.5 TB total</td>
+            <td class="num green">130 TB/s NVLink</td>
+            <td class="num green">~720 PFLOPS</td>
+            <td class="tier-cell">NVLink 5.0</td>
+            <td class="tier-cell amber">~120 kW rack</td>
+            <td class="tier-cell" style="color:var(--red)">Direct liquid</td>
+          </tr>
+          <tr>
+            <td class="co">GB300 NVL72 <span style="font-weight:400;font-size:11px;color:var(--muted-2)">(72 GPUs)</span></td>
+            <td class="tier-cell">Blk Ultra</td>
+            <td style="color:var(--green-bright);font-weight:600">20 TB total</td>
+            <td class="num green">1.8 TB/s per GPU</td>
+            <td class="num green">1.08 ExaFLOPS</td>
+            <td class="tier-cell">NVLink 5.0</td>
+            <td class="tier-cell amber">~130 kW+ rack</td>
+            <td class="tier-cell" style="color:var(--red)">Direct liquid</td>
+          </tr>
+          <tr>
+            <td class="co">Vera Rubin NVL144 <span style="font-weight:400;font-size:11px;color:var(--muted-2)">(roadmap)</span></td>
+            <td class="tier-cell" style="color:#c080ff">Rubin</td>
+            <td style="color:#c080ff;font-weight:600">~40 TB est.</td>
+            <td class="num" style="color:#c080ff">13 TB/s per GPU</td>
+            <td class="num" style="color:#c080ff">3.6 ExaFLOPS</td>
+            <td class="tier-cell" style="color:#c080ff">NVLink 6.0 est.</td>
+            <td class="tier-cell" style="color:#c080ff">TBD</td>
+            <td class="tier-cell" style="color:#c080ff">Direct liquid</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout">
+      <b>Rep insight:</b> When a buyer says "we need H100s" — ask whether they're training or inferencing. If inferencing at scale, H200 or B200 may deliver better economics per token. If training a frontier model, B300 / GB300 is the conversation. <b>Nodestream's reserved GB300 capacity is the product</b> — position it as accessing hardware most buyers can't get anywhere else on a dedicated basis with financing available at close.
     </div>
   </section>
 
