@@ -957,6 +957,7 @@
   function mountPlaybook(){
     var el=$("#refMount"); if(!el) return;
     var refs=[
+      {t:"GPUaaS Market Intelligence", d:"Full industry landscape \u2014 hyperscalers, neocloud giants, mid-market providers, pricing & Nodestream positioning", x:"Doc", href:"tools/market-intelligence.html"},
       {t:"Battlecards",             d:"30-sec pitch, objection handling, discovery Qs per line",  x:"PDF",  href:"tools/battlecards.pdf"},
       {t:"Buyer Personas",          d:"Frontier Lab \u00b7 Neocloud \u00b7 Enterprise/Sovereign \u2014 who they are, pain points, objections, pitch", x:"Doc", href:"tools/personas.html"},
       {t:"Deal Qualification Template", d:"Fillable scorecard for prospect meetings or to send prospects \u2014 10-dimension GPUaaS qualification", x:"PDF", href:"tools/deal-qual-template.pdf"},
