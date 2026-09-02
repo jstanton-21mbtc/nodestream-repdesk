@@ -17,8 +17,8 @@
     --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  html{scroll-behavior:smooth}
-  body{background:var(--ink);color:var(--text);font-family:var(--sans);line-height:1.6;font-size:14px}
+  html{scroll-behavior:smooth;height:auto}
+  body{background:var(--ink);color:var(--text);font-family:var(--sans);line-height:1.6;font-size:14px;height:auto;overflow-x:hidden}
   a{color:var(--green);text-decoration:none}
   a:hover{color:var(--green-bright)}
 
@@ -212,13 +212,47 @@
   .perf-bar{height:100%;border-radius:4px;transition:width .4s ease}
   .perf-val{font-family:var(--mono);font-size:11px;color:var(--muted);width:90px;flex:none;text-align:right}
 
-  @media(max-width:700px){
+  /* ── Tablet ── */
+  @media(max-width:900px){
+    .dashgrid{grid-template-columns:1fr}
+    .kpi-row{grid-template-columns:repeat(3,1fr)}
+    .bc-grid{grid-template-columns:1fr}
     .player-grid{grid-template-columns:1fr}
     .gpu-grid{grid-template-columns:1fr}
+    .ns-pillars{grid-template-columns:repeat(2,1fr)}
+    .landscape{padding:18px}
+    .ls-row{flex-direction:column;gap:4px;margin-bottom:14px}
+    .ls-label{width:auto;padding-bottom:4px;border-bottom:1px solid var(--line)}
+    .ls-bar{flex-wrap:wrap}
+  }
+
+  /* ── Mobile ── */
+  @media(max-width:600px){
+    .wrap{padding:20px 14px 60px}
+    .mi-title{font-size:20px}
     .kpi-row{grid-template-columns:repeat(2,1fr)}
+    .kpi .v{font-size:18px}
     .spec-grid{grid-template-columns:1fr 1fr}
-    .wrap{padding:24px 16px 60px}
-    .mi-title{font-size:22px}
+    .ns-pillars{grid-template-columns:1fr}
+    .toc{min-width:0;width:100%}
+    .bc-grid{grid-template-columns:1fr}
+    .perf-row{flex-wrap:wrap;gap:6px}
+    .perf-label{width:100%;font-size:11px}
+    .perf-val{width:auto;text-align:left}
+    .gpu-name{font-size:14px}
+    .tier-label{font-size:13px}
+    .price-table{font-size:11px}
+    .price-table th,.price-table td{padding:7px 8px}
+    .mi-meta{flex-direction:column;gap:6px}
+    .sec-title{font-size:16px}
+    .landscape{padding:14px}
+  }
+
+  /* ── Very small ── */
+  @media(max-width:400px){
+    .kpi-row{grid-template-columns:1fr}
+    .spec-grid{grid-template-columns:1fr}
+    .wrap{padding:16px 12px 60px}
   }
 </style>
 </head>

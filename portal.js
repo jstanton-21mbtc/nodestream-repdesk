@@ -206,7 +206,15 @@
   // Always reload — fresh every time
   function loadFrame(name){
     var f = $("#frame-"+name);
-    if(f && f.dataset.src) f.src = f.dataset.src;
+    if(!f || !f.dataset.src) return;
+    f.src = f.dataset.src;
+    // Auto-resize iframe to full content height (no cut-off)
+    f.onload = function(){
+      try {
+        var h = f.contentDocument.documentElement.scrollHeight || f.contentDocument.body.scrollHeight;
+        if(h > 200) { f.style.height = h + 'px'; f.parentElement.style.minHeight = h + 'px'; }
+      } catch(e){}
+    };
   }
 
   // Nav click delegation (skip detail-body tool buttons — handled separately)
