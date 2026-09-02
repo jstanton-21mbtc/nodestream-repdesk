@@ -964,13 +964,17 @@
       {t:"Creditworthy Qualification Sheet", d:"Prospect credit & financial readiness checklist \u2014 use before submitting financing applications", x:"Doc", href:"tools/creditworthy-qualification-sheet.docx"}
     ];
     var icon='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+    var dlIcon='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
     var html='<div class="panel"><div class="ref-list">';
     refs.forEach(function(r){
-      html+='<a class="ref-item" href="'+r.href+'" target="_blank" rel="noopener">'+
-        '<span class="ri-ic">'+icon+'</span>'+
-        '<span><span class="ri-t">'+r.t+'</span><br><span class="ri-d">'+r.d+'</span></span>'+
-        '<span class="ri-x">'+r.x+'</span>'+
-        '</a>';
+      html+='<div class="ref-item">'+
+        '<a class="ri-link" href="'+r.href+'" target="_blank" rel="noopener">'+
+          '<span class="ri-ic">'+icon+'</span>'+
+          '<span><span class="ri-t">'+r.t+'</span><br><span class="ri-d">'+r.d+'</span></span>'+
+          '<span class="ri-x">'+r.x+'</span>'+
+        '</a>'+
+        '<a class="ri-dl" href="'+r.href+'" download title="Download '+r.t+'">'+dlIcon+' DL</a>'+
+      '</div>';
     });
     html+='</div></div>';
     el.innerHTML=html;

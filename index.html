@@ -137,13 +137,17 @@
   .toolcard .go{font-family:var(--mono);font-size:11px;color:var(--green);margin-top:14px;display:flex;align-items:center;gap:6px}
 
   .ref-list{display:flex;flex-direction:column;gap:2px}
-  .ref-item{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;text-decoration:none;transition:.13s;border:1px solid transparent}
+  .ref-item{display:flex;align-items:center;border-radius:10px;transition:.13s;border:1px solid transparent}
   .ref-item:hover{background:var(--panel-2);border-color:var(--line)}
+  .ri-link{display:flex;align-items:center;gap:12px;padding:12px 14px;flex:1;text-decoration:none;min-width:0}
   .ref-item .ri-ic{width:34px;height:34px;border-radius:8px;background:var(--panel-2);display:grid;place-items:center;flex:none;color:var(--green)}
   .ref-item:hover .ri-ic{background:var(--panel-3)}
   .ref-item .ri-t{font-size:14px;font-weight:600}
   .ref-item .ri-d{font-size:12px;color:var(--muted-2)}
   .ref-item .ri-x{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--muted-2);text-transform:uppercase;letter-spacing:1px}
+  .ri-dl{display:flex;align-items:center;justify-content:center;padding:0 14px 0 12px;color:var(--muted-2);text-decoration:none;border-left:1px solid transparent;transition:.13s;flex:none;gap:4px;font-family:var(--mono);font-size:10px;letter-spacing:.5px}
+  .ri-dl:hover{color:var(--green)}
+  .ref-item:hover .ri-dl{border-left-color:var(--line)}
 
   .banner{background:rgba(224,167,60,.08);border:1px solid rgba(224,167,60,.3);border-radius:10px;padding:12px 16px;
     font-size:12px;color:var(--amber);margin-bottom:22px;display:flex;gap:10px;align-items:flex-start}
