@@ -208,14 +208,17 @@
     var f = $("#frame-"+name);
     if(!f || !f.dataset.src) return;
     f.src = f.dataset.src;
-    // Auto-resize iframe to full content height (no cut-off)
-    f.onload = function(){
-      try {
-        var h = f.contentDocument.documentElement.scrollHeight || f.contentDocument.body.scrollHeight;
-        if(h > 200) { f.style.height = h + 'px'; f.parentElement.style.minHeight = h + 'px'; }
-      } catch(e){}
-    };
   }
+
+  // Resize market intel iframe to full content height via postMessage
+  window.addEventListener('message', function(e){
+    if(!e.data || e.data.type !== 'mi-height') return;
+    var f = document.getElementById('frame-marketintel');
+    if(!f) return;
+    var h = e.data.height + 40;
+    f.style.height = h + 'px';
+    if(f.parentElement) f.parentElement.style.minHeight = h + 'px';
+  });
 
   // Nav click delegation (skip detail-body tool buttons — handled separately)
   document.addEventListener("click", function(e){

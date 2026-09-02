@@ -1355,5 +1355,13 @@
   </div>
 
 </div>
+<script>
+  function sendHeight(){
+    var h = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
+    window.parent.postMessage({type:'mi-height', height: h}, '*');
+  }
+  window.addEventListener('load', function(){ sendHeight(); setTimeout(sendHeight, 300); setTimeout(sendHeight, 1000); });
+  window.addEventListener('resize', sendHeight);
+</script>
 </body>
 </html>
