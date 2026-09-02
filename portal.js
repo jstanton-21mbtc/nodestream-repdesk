@@ -145,12 +145,27 @@
   };
 
   window.nsLogout = function(){
+    // Clear AI conversation history so it doesn't bleed into next session
+    _aiHistory = [];
+    // Clear session flags
     localStorage.removeItem(NS_STAY_KEY);
     sessionStorage.removeItem(NS_SESS_KEY);
-    // Reset login form state
-    document.getElementById('loginPw').value = '';
+    // Clear Google OAuth credentials so next user starts disconnected
+    localStorage.removeItem(NS_GTOKEN_KEY);
+    localStorage.removeItem(NS_GEXPIRY_KEY);
+    // Note: intentionally keep NS_GCLIENT_KEY (Google Client ID is a portal-level config, not user data)
+    // Reset mounted view cache so next user gets fresh renders
+    mounted = {};
+    // Clear all login form fields and errors
+    var fields = ['loginPw','loginName','loginConfirm'];
+    fields.forEach(function(id){ var el=document.getElementById(id); if(el) el.value=''; });
     var errEl = document.getElementById('loginError');
     if(errEl) errEl.style.display = 'none';
+    // Reset heading/sub in case they were customised for the previous user
+    var hEl = document.getElementById('loginHeading');
+    var sEl = document.getElementById('loginSub');
+    if(hEl) hEl.textContent = 'Sign in';
+    if(sEl) sEl.textContent = '';
     nsShowLogin();
   };
 
@@ -162,18 +177,20 @@
     var _ov = document.getElementById('loginOverlay');
     if(_ov) _ov.style.display = 'none';
     nsApplyRepName(localStorage.getItem(NS_NAME_KEY));
-    // Recovery: if the user closed the browser mid-demo, restore their real pipeline backup
-    var _demoBak = sessionStorage.getItem('ns_demo_bak_pipeline');
-    if(_demoBak){
-      localStorage.setItem('ns_pipeline_v1', _demoBak);
-      sessionStorage.removeItem('ns_demo_bak_pipeline');
+    // Recovery: restore real pipeline/task data if demo was interrupted mid-session
+    // Guard: only restore if the backup belongs to the current logged-in user
+    var _demoBakUser = sessionStorage.getItem('ns_demo_bak_user');
+    var _currentUser = localStorage.getItem(NS_NAME_KEY);
+    if(_demoBakUser && _currentUser && _demoBakUser === _currentUser){
+      var _demoBak = sessionStorage.getItem('ns_demo_bak_pipeline');
+      if(_demoBak) localStorage.setItem('ns_pipeline_v1', _demoBak);
+      var _taskBak = sessionStorage.getItem('ns_demo_bak_tasks');
+      if(_taskBak) localStorage.setItem('ns_tasks_v1', _taskBak);
     }
-    var _taskBak = sessionStorage.getItem('ns_demo_bak_tasks');
-    if(_taskBak){
-      localStorage.setItem('ns_tasks_v1', _taskBak);
-      sessionStorage.removeItem('ns_demo_bak_tasks');
-    }
-    sessionStorage.removeItem('ns_demo_v1');
+    // Always clean up demo sessionStorage on login
+    ['ns_demo_bak_pipeline','ns_demo_bak_tasks','ns_demo_bak_user','ns_demo_v1'].forEach(function(k){
+      sessionStorage.removeItem(k);
+    });
   }
 
   var VIEW_LABEL = {
@@ -682,7 +699,7 @@
         '<span class="stage '+deal.stage+'">'+esc(STAGES[deal.stage]||deal.stage)+'</span>'+
         '<span class="persona-tag">'+esc(deal.persona)+'</span>'+
         (deal.amt?'<span style="font-family:var(--mono);font-size:13px;color:var(--green-bright)">'+esc(deal.amt)+'</span>':'')+
-        '<span style="font-family:var(--mono);font-size:10px;color:var(--muted-2);margin-left:auto">Added '+esc(deal.dateAdded||'—')+'</span>'+
+        '<span style="font-family:var(--mono);font-size:10px;color:var(--muted-2);margin-left:auto">Added '+fmtDate(deal.dateAdded)+'</span>'+
       '</div>'+
 
       '<div class="detail-section">'+
@@ -1072,6 +1089,7 @@
   var KEY_ANTHROPIC = 'ns_anthropic_key_v1';
   var KEY_OPENAI    = 'ns_openai_key_v1';
   var KEY_GEMINI    = 'ns_gemini_key_v1';
+  var _settingsBound = false;
 
   function getKey(k){ return localStorage.getItem(k)||''; }
   function setKey(k,v){ if(v) localStorage.setItem(k,v); else localStorage.removeItem(k); }
@@ -1219,8 +1237,10 @@
       mountSettings();
     });
 
-    // Settings event delegation
-    el.addEventListener('click', function(e){
+    // Settings event delegation — bind once only to prevent listener stacking
+    if(!_settingsBound){
+      _settingsBound = true;
+      el.addEventListener('click', function(e){
       var saveBtn=e.target.closest('[data-save-key]');
       var clearBtn=e.target.closest('[data-clear-key]');
       if(saveBtn){
@@ -1239,6 +1259,7 @@
         return;
       }
     });
+    } // end _settingsBound guard
   }
 
   // ============================================================
@@ -1470,7 +1491,7 @@
   var AI_SYSTEM = 'You are an expert AI deal analyst for Nodestream, a verified AI compute marketplace specializing in HPC GPU-as-a-service (GPUaaS). Help sales reps with:\n'+
     '- Deal strategy, stage advancement, and close tactics\n'+
     '- GPU SKU guidance: H100 SXM5, A100 80GB, H200, B200, B300, MI300X — specs, use cases, pricing context\n'+
-    '- Market pricing context: ~$1.80–$3.20/GPU-hr depending on GPU and contract term\n'+
+    '- Market pricing context: B300 ~$5.63–$17.80/GPU-hr spot; contracted rates lower depending on GPU SKU and term length\n'+
     '- Contract structuring: 36/48/60-month terms, downpayment options, amortization schedules\n'+
     '- Persona-specific selling: Frontier Labs (research-focused, performance-first), Neoclouds (resellers, economics-driven), Enterprise/Sovereign (compliance, SLA, procurement-heavy)\n'+
     '- Objection handling, competitive positioning, and qualification coaching\n'+
@@ -1585,7 +1606,7 @@
     // Prepend system as first user turn if history starts with assistant
     var fullContents=[{role:'user',parts:[{text:AI_SYSTEM+'\n\n---\nUnderstood. Ready to help.'}]},{role:'model',parts:[{text:'Understood. Ready to help.'}]}].concat(contents);
     var body={contents:fullContents,generationConfig:{maxOutputTokens:1024}};
-    var url='https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+    var url='/api/gemini/v1beta/models/gemini-2.0-flash:generateContent';
     var r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},body:JSON.stringify(body)});
     if(!r.ok){ var e=await r.text(); throw new Error('Gemini '+r.status+': '+e.slice(0,200)); }
     var j=await r.json();
@@ -1766,6 +1787,8 @@
     sessionStorage.setItem(NS_DEMO_KEY, '1');
     sessionStorage.setItem('ns_demo_pipeline', JSON.stringify(DEMO_DEALS));
     sessionStorage.setItem('ns_demo_tasks', JSON.stringify(DEMO_TASKS));
+    // Tag the demo backup with the current user so recovery only restores to the right account
+    sessionStorage.setItem('ns_demo_bak_user', localStorage.getItem(NS_NAME_KEY)||'');
     // Set demo rep name (DOM only, not in localStorage)
     var rn = document.getElementById('repName'), ri = document.getElementById('repInit');
     if(rn) rn.textContent = 'Jordan Mitchell';
@@ -1782,6 +1805,8 @@
   };
 
   window.nsExitDemo = function(){
+    // Clear AI conversation history so demo context doesn't bleed into real session
+    _aiHistory = [];
     // Clean up demo session data — real localStorage was never modified
     sessionStorage.removeItem(NS_DEMO_KEY);
     sessionStorage.removeItem('ns_demo_pipeline');
