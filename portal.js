@@ -961,11 +961,7 @@
       {t:"Buyer Personas",          d:"Frontier Lab \u00b7 Neocloud \u00b7 Enterprise/Sovereign \u2014 who they are, pain points, objections, pitch", x:"Doc", href:"tools/personas.html"},
       {t:"Deal Qualification Template", d:"Fillable scorecard for prospect meetings or to send prospects \u2014 10-dimension GPUaaS qualification", x:"PDF", href:"tools/deal-qual-template.pdf"},
       {t:"Fillable Quote (current)",d:"36/48/60-mo \u00b7 256-GPU default \u00b7 downpayment",   x:"PDF",  href:"tools/quote.pdf"},
-      {t:"Creditworthy Qualification Sheet", d:"Prospect credit & financial readiness checklist \u2014 use before submitting financing applications", x:"Doc", href:"tools/creditworthy-qualification-sheet.docx"},
-      {t:"Data Center Attestation",          d:"Attestation form for data center facility compliance and verification", x:"PDF", href:"tools/data-center-attestation.pdf"},
-      {t:"Blockware \u2014 End Use Statement",     d:"End use statement required for Blockware financing applications", x:"Doc", href:"tools/blockware-end-use-statement.docx"},
-      {t:"Blockware \u2014 Advanced IC End User Certification", d:"Advanced IC end user certification form for Blockware deals", x:"Doc", href:"tools/blockware-advanced-ic-end-user-certification.docx"},
-      {t:"Blockware \u2014 Additional Assurances", d:"Additional assurances document for Blockware Solutions LLC transactions", x:"Doc", href:"tools/blockware-additional-assurances.docx"}
+      {t:"Creditworthy Qualification Sheet", d:"Prospect credit & financial readiness checklist \u2014 use before submitting financing applications", x:"Doc", href:"tools/creditworthy-qualification-sheet.docx"}
     ];
     var icon='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
     var dlIcon='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
