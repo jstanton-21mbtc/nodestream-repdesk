@@ -179,7 +179,7 @@
   var VIEW_LABEL = {
     dash:"Dashboard", pipeline:"Pipeline",
     discovery:"Discovery & Scoring", configurator:"Deal Configurator",
-    quote:"Quote Builder", ornn:"Compute Index", playbook:"Docs",
+    quote:"Quote Builder", ornn:"Compute Index", marketintel:"Market Intelligence", playbook:"Docs",
     settings:"Settings"
   };
   var mounted = {};
@@ -194,6 +194,7 @@
     if(view==="discovery")    loadFrame("discovery");
     if(view==="configurator") loadFrame("configurator");
     if(view==="ornn")         loadFrame("ornn");
+    if(view==="marketintel")  loadFrame("marketintel");
     if(view==="quote"    && !mounted.quote)    { mountQuote();    mounted.quote=true; }
     if(view==="playbook" && !mounted.playbook) { mountPlaybook(); mounted.playbook=true; }
     if(view==="dash")     { loadDailyBrief(); renderDashKPIs(); renderDashPipeline(); }
