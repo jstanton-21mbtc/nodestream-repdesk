@@ -230,6 +230,55 @@
     <div id="tcoBody"></div>
   </div>
 
+  <!-- ============ REFERRAL FEE CALCULATOR ============ -->
+  <div class="card">
+    <h2>Referral fee calculator</h2>
+    <p class="sub">Calculate partner or broker referral commission based on the deal above. All figures are indicative — confirm with management before committing to a partner.</p>
+    <div class="cfg-grid">
+      <div>
+        <div class="field">
+          <label>Referring partner / broker</label>
+          <input type="text" id="referralName" placeholder="e.g. Acme Capital Partners">
+        </div>
+        <div class="field">
+          <label>Commission rate</label>
+          <select id="referralRate">
+            <option value="0.01">1% of contract total</option>
+            <option value="0.02" selected>2% of contract total</option>
+            <option value="0.03">3% of contract total</option>
+            <option value="0.04">4% of contract total</option>
+            <option value="0.05">5% of contract total</option>
+            <option value="custom_ref">Custom %&hellip;</option>
+          </select>
+        </div>
+        <div class="field" id="customRefWrap" style="display:none">
+          <label>Custom commission %</label>
+          <input type="number" id="customRefPct" min="0.1" max="15" step="0.1" placeholder="e.g. 2.5" value="2.5">
+        </div>
+      </div>
+      <div>
+        <div class="field">
+          <label>Payment structure</label>
+          <select id="referralStructure">
+            <option value="upfront">100% on contract signature</option>
+            <option value="split" selected>50% on signature / 50% at 6 months</option>
+            <option value="monthly">Pro-rated monthly over term</option>
+            <option value="annual">Annual installments</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Referral notes</label>
+          <input type="text" id="referralNotes" placeholder="e.g. NDA on file, warm intro via CEO">
+        </div>
+      </div>
+    </div>
+    <div class="output-panel" id="referralOutput" style="margin-top:4px;margin-bottom:0">
+      <div class="op-title">Referral fee breakdown</div>
+      <div class="kv-grid" id="referralKvGrid"></div>
+      <div id="referralSchedule"></div>
+    </div>
+  </div>
+
   <!-- ============ NOTES ============ -->
   <div class="card">
     <h2>Deal notes</h2>
@@ -270,7 +319,13 @@ var GPUS = [
     rates:{12:2.20, 24:1.90, 36:1.65, 48:1.45, 60:1.30} },
   { id:'mi300x', name:'MI300X', mem:'192 GB', tier:'AMD · InfiniBand',
     watt:750, cloud:8.00,
-    rates:{12:2.80, 24:2.50, 36:2.20, 48:1.95, 60:1.75} }
+    rates:{12:2.80, 24:2.50, 36:2.20, 48:1.95, 60:1.75} },
+  { id:'b300', name:'B300 SXM6', mem:'288 GB', tier:'Blackwell Ultra · NVLink',
+    watt:1200, cloud:18.00,
+    rates:{12:5.50, 24:4.90, 36:4.25, 48:3.75, 60:3.35} },
+  { id:'gb300', name:'GB300 NVL72', mem:'288 GB + Grace', tier:'Grace Blackwell · NVL72 rack',
+    watt:1400, cloud:22.00,
+    rates:{12:6.80, 24:6.10, 36:5.30, 48:4.70, 60:4.20} }
 ];
 
 var TERMS = [12, 24, 36, 48, 60];
@@ -323,6 +378,16 @@ $('utilization').addEventListener('change', calc);
 $('downpayment').addEventListener('change', calc);
 $('persona').addEventListener('change', calc);
 $('notes').addEventListener('input', calc);
+
+// ---- Referral listeners ----
+$('referralRate').addEventListener('change', function(){
+  $('customRefWrap').style.display = this.value==='custom_ref' ? 'block' : 'none';
+  calcReferral();
+});
+$('customRefPct').addEventListener('input', calcReferral);
+$('referralStructure').addEventListener('change', calcReferral);
+$('referralName').addEventListener('input', calcReferral);
+$('referralNotes').addEventListener('input', calcReferral);
 
 // ---- Helpers ----
 function getGpuCount(){
@@ -463,6 +528,75 @@ function calc(){
 
   if(notes){ lines.push(''); lines.push('Notes: '+notes); }
   window.__summary = lines.join('\n');
+
+  calcReferral();
+}
+
+// ---- Referral fee calculator ----
+function calcReferral(){
+  var contractTotal = (function(){
+    var gpuCount = getGpuCount();
+    var rate = _gpu.rates[_term] || 2.40;
+    var util = parseFloat($('utilization').value)||0.85;
+    var effectiveHours = HOURS_PER_MONTH * util;
+    return gpuCount * rate * effectiveHours * _term;
+  })();
+
+  var refRateSel = $('referralRate').value;
+  var refPct = refRateSel === 'custom_ref'
+    ? (parseFloat($('customRefPct').value)||2.5) / 100
+    : parseFloat(refRateSel)||0.02;
+  var totalFee = contractTotal * refPct;
+  var structure = $('referralStructure').value;
+
+  var kv = $('referralKvGrid');
+  kv.innerHTML = '';
+
+  var kvItems = [
+    {k:'Commission rate', v: (refPct*100).toFixed(refPct*100 % 1 === 0 ? 0 : 1)+'%', cls:'green', d:'of contract total'},
+    {k:'Total referral fee', v: fmt$(totalFee), cls:'amber', d:'based on '+fmt$(contractTotal)+' contract'}
+  ];
+  kvItems.forEach(function(item){
+    var div = document.createElement('div');
+    div.className = 'kv';
+    div.innerHTML = '<div class="kk">'+item.k+'</div><div class="vv '+item.cls+'">'+item.v+'</div><div class="dd">'+item.d+'</div>';
+    kv.appendChild(div);
+  });
+
+  var sched = $('referralSchedule');
+  sched.innerHTML = '<div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted-2);margin:14px 0 10px">Payment schedule</div>';
+
+  var rows = [];
+  if(structure === 'upfront'){
+    rows = [{when:'On signature', amt:totalFee, note:'100% upfront'}];
+  } else if(structure === 'split'){
+    rows = [
+      {when:'On signature', amt:totalFee*0.5, note:'50% at signing'},
+      {when:'Month 6', amt:totalFee*0.5, note:'50% milestone'}
+    ];
+  } else if(structure === 'monthly'){
+    var monthly = totalFee / _term;
+    rows = [
+      {when:'Monthly (×'+_term+')', amt:monthly, note:'pro-rated over '+_term+'-mo term'},
+      {when:'Total', amt:totalFee, note:'full commission'}
+    ];
+  } else if(structure === 'annual'){
+    var years = Math.ceil(_term/12);
+    var perYear = totalFee / years;
+    rows = [];
+    for(var y=1;y<=years;y++){ rows.push({when:'Year '+y, amt:perYear, note:'annual installment'}); }
+    rows.push({when:'Total', amt:totalFee, note:'full commission'});
+  }
+
+  rows.forEach(function(r){
+    var row = document.createElement('div');
+    row.className = 'rate-row';
+    row.innerHTML =
+      '<span class="rk">'+r.when+'</span>'+
+      '<span class="rv green">'+fmt$(r.amt)+'</span>'+
+      '<span style="font-family:var(--mono);font-size:10px;color:var(--muted-2)">'+r.note+'</span>';
+    sched.appendChild(row);
+  });
 }
 
 // ---- Copy button ----
