@@ -237,7 +237,7 @@
   function loadFrame(name){
     var f = $("#frame-"+name);
     if(!f || !f.dataset.src) return;
-    f.src = f.dataset.src;
+    f.src = f.dataset.src + '?v=' + Date.now();
   }
 
   // Resize market intel iframe to full content height via postMessage
