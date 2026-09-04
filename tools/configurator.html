@@ -112,7 +112,29 @@
     margin-bottom:20px;line-height:1.7}
   .disclaimer b{color:var(--amber)}
 
-  @media print{body{background:#fff;color:#111}.card,.output-panel{border-color:#ccc}.btn{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+  /* Pricing editor */
+  .pe-toggle{font-family:var(--mono);font-size:10px;letter-spacing:.5px;background:transparent;
+    border:1px solid var(--line);color:var(--muted);padding:6px 14px;border-radius:7px;cursor:pointer;transition:.13s}
+  .pe-toggle:hover{border-color:var(--amber);color:var(--amber)}
+  .pe-card{display:none}
+  .pe-card.open{display:block}
+  .pe-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px}
+  .pe-table th{font-family:var(--mono);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;
+    color:var(--muted-2);padding:6px 8px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+  .pe-table td{padding:6px 6px;border-bottom:1px solid rgba(42,53,47,.5);vertical-align:middle}
+  .pe-table tr:last-child td{border-bottom:none}
+  .pe-table .gpu-label{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--text);white-space:nowrap}
+  .pe-table .gpu-mem{font-size:10px;color:var(--muted-2)}
+  .pe-input{background:var(--panel-2);border:1px solid var(--line);color:var(--text);
+    border-radius:6px;padding:5px 7px;font-family:var(--mono);font-size:12px;
+    width:72px;outline:none;transition:.13s;text-align:right}
+  .pe-input:focus{border-color:var(--green-dim)}
+  .pe-input.cloud{border-color:rgba(224,167,60,.3)}
+  .pe-input.cloud:focus{border-color:var(--amber)}
+  .pe-actions{display:flex;gap:10px;margin-top:16px;align-items:center;flex-wrap:wrap}
+  .pe-saved{font-family:var(--mono);font-size:11px;color:var(--green-bright);display:none}
+
+  @media print{body{background:#fff;color:#111}.card,.output-panel{border-color:#ccc}.btn{-webkit-print-color-adjust:exact;print-color-adjust:exact}.pe-card{display:none!important}}
 </style>
 </head>
 <body>
@@ -123,6 +145,34 @@
       <div class="tag">Verified AI Compute Marketplace</div>
     </div>
     <h1>Deal Configurator &amp; ROI Calculator &middot; Internal AE Tool</h1>
+    <button class="pe-toggle" onclick="togglePricingEditor()">&#9998; Edit pricing</button>
+  </div>
+
+  <!-- ============ PRICING EDITOR ============ -->
+  <div class="card pe-card" id="pricingEditor">
+    <h2>Pricing manager</h2>
+    <p class="sub">Edit indicative $/GPU·hr rates per term and cloud benchmark. Changes are saved locally and reflected immediately in the calculator. Confirm all figures with the HPC Division before external use.</p>
+    <div style="overflow-x:auto">
+      <table class="pe-table" id="peTable">
+        <thead>
+          <tr>
+            <th>GPU</th>
+            <th>12 mo</th>
+            <th>24 mo</th>
+            <th>36 mo</th>
+            <th>48 mo</th>
+            <th>60 mo</th>
+            <th style="color:var(--amber)">Cloud $/hr</th>
+          </tr>
+        </thead>
+        <tbody id="peBody"></tbody>
+      </table>
+    </div>
+    <div class="pe-actions">
+      <button class="btn" onclick="applyPricing()">Apply changes</button>
+      <button class="btn ghost" onclick="resetPricing()">Reset to defaults</button>
+      <span class="pe-saved" id="peSaved">&#10003; Saved</span>
+    </div>
   </div>
 
   <div class="disclaimer">
@@ -327,6 +377,25 @@ var GPUS = [
     watt:1400, cloud:22.00,
     rates:{12:6.80, 24:6.10, 36:5.30, 48:4.70, 60:4.20} }
 ];
+
+// Store originals for reset
+var GPU_DEFAULTS = GPUS.map(function(g){
+  return { id: g.id, rates: Object.assign({}, g.rates), cloud: g.cloud };
+});
+
+// Load saved pricing from localStorage
+var PRICING_KEY = 'ns_custom_pricing_v1';
+(function(){
+  try {
+    var saved = JSON.parse(localStorage.getItem(PRICING_KEY)||'null');
+    if(saved) GPUS.forEach(function(g){
+      if(saved[g.id]){
+        if(saved[g.id].rates) Object.assign(g.rates, saved[g.id].rates);
+        if(saved[g.id].cloud != null) g.cloud = saved[g.id].cloud;
+      }
+    });
+  } catch(e){}
+})();
 
 var TERMS = [12, 24, 36, 48, 60];
 var HOURS_PER_MONTH = 730;
@@ -607,6 +676,73 @@ $('copyBtn').addEventListener('click', function(){
     setTimeout(function(){ $('copyBtn').textContent = 'Copy summary'; }, 1600);
   });
 });
+
+// ---- Pricing editor ----
+function togglePricingEditor(){
+  var card = $('pricingEditor');
+  card.classList.toggle('open');
+  if(card.classList.contains('open')) renderPricingEditor();
+}
+
+function renderPricingEditor(){
+  var body = $('peBody');
+  body.innerHTML = '';
+  GPUS.forEach(function(g){
+    var tr = document.createElement('tr');
+    var termCells = TERMS.map(function(t){
+      return '<td><input class="pe-input" data-gpu="'+g.id+'" data-term="'+t+'" type="number" min="0.01" step="0.01" value="'+g.rates[t].toFixed(2)+'"></td>';
+    }).join('');
+    tr.innerHTML =
+      '<td><div class="gpu-label">'+g.name+'</div><div class="gpu-mem">'+g.mem+'</div></td>'+
+      termCells+
+      '<td><input class="pe-input cloud" data-gpu="'+g.id+'" data-cloud="1" type="number" min="0.01" step="0.01" value="'+g.cloud.toFixed(2)+'"></td>';
+    body.appendChild(tr);
+  });
+}
+
+function applyPricing(){
+  var inputs = document.querySelectorAll('.pe-input');
+  var patch = {};
+  inputs.forEach(function(inp){
+    var gid = inp.dataset.gpu;
+    var val = parseFloat(inp.value);
+    if(!val || val <= 0) return;
+    if(!patch[gid]) patch[gid] = { rates:{} };
+    if(inp.dataset.cloud){
+      patch[gid].cloud = val;
+    } else {
+      patch[gid].rates[inp.dataset.term] = val;
+    }
+  });
+  // Apply to live GPUS array
+  GPUS.forEach(function(g){
+    if(patch[g.id]){
+      if(patch[g.id].rates) Object.assign(g.rates, patch[g.id].rates);
+      if(patch[g.id].cloud != null) g.cloud = patch[g.id].cloud;
+    }
+  });
+  // Persist
+  try { localStorage.setItem(PRICING_KEY, JSON.stringify(patch)); } catch(e){}
+  // Update GPU grid tooltips if any, then recalc
+  calc();
+  var saved = $('peSaved');
+  saved.style.display = 'inline';
+  setTimeout(function(){ saved.style.display = 'none'; }, 2000);
+}
+
+function resetPricing(){
+  GPU_DEFAULTS.forEach(function(def){
+    var g = GPUS.find(function(x){ return x.id === def.id; });
+    if(g){ Object.assign(g.rates, def.rates); g.cloud = def.cloud; }
+  });
+  try { localStorage.removeItem(PRICING_KEY); } catch(e){}
+  renderPricingEditor();
+  calc();
+  var saved = $('peSaved');
+  saved.textContent = '↺ Reset';
+  saved.style.display = 'inline';
+  setTimeout(function(){ saved.style.display = 'none'; saved.textContent = '✓ Saved'; }, 1800);
+}
 
 // ---- Init ----
 calc();
