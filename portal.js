@@ -6,6 +6,19 @@
   try{ DATA = JSON.parse($("#portal-data").textContent); }catch(e){ DATA = {}; }
 
   // ============================================================
+  // PER-USER KEY HELPER
+  // Returns a storage key suffix unique to the logged-in rep so
+  // each user's pipeline and tasks are fully isolated.
+  // Demo mode always uses sessionStorage, so it is unaffected.
+  // ============================================================
+  var NS_NAME_KEY_EARLY = 'ns_repname_v1'; // forward-declare so helper can read it
+  function nsUserSuffix(){
+    var name = localStorage.getItem(NS_NAME_KEY_EARLY) || '';
+    if(!name) return '';
+    return '_u_' + name.toLowerCase().replace(/[^a-z0-9]/g,'_');
+  }
+
+  // ============================================================
   // AUTH + THEME
   // ============================================================
   var NS_PW_KEY    = 'ns_pw_v1';
@@ -183,9 +196,9 @@
     var _currentUser = localStorage.getItem(NS_NAME_KEY);
     if(_demoBakUser && _currentUser && _demoBakUser === _currentUser){
       var _demoBak = sessionStorage.getItem('ns_demo_bak_pipeline');
-      if(_demoBak) localStorage.setItem('ns_pipeline_v1', _demoBak);
+      if(_demoBak) localStorage.setItem('ns_pipeline_v1' + nsUserSuffix(), _demoBak);
       var _taskBak = sessionStorage.getItem('ns_demo_bak_tasks');
-      if(_taskBak) localStorage.setItem('ns_tasks_v1', _taskBak);
+      if(_taskBak) localStorage.setItem('ns_tasks_v1' + nsUserSuffix(), _taskBak);
     }
     // Always clean up demo sessionStorage on login
     ['ns_demo_bak_pipeline','ns_demo_bak_tasks','ns_demo_bak_user','ns_demo_v1'].forEach(function(k){
@@ -263,15 +276,14 @@
   // Dashboard pipeline preview — rendered after pipeline section defines loadDeals/STAGES
 
   // ---- Tasks (localStorage-backed, full CRUD) ----
-  var NS_TASKS_KEY = 'ns_tasks_v1';
   (function(){
     var list = $("#taskList"); if(!list) return;
 
-    // Load tasks — demo reads from sessionStorage, real users from localStorage
+    // Load tasks — demo reads from sessionStorage, real users from per-user localStorage key
     var tasks;
     try{
       var _demoTasks = sessionStorage.getItem('ns_demo_v1');
-      tasks = JSON.parse((_demoTasks ? sessionStorage.getItem('ns_demo_tasks') : localStorage.getItem(NS_TASKS_KEY))||'null');
+      tasks = JSON.parse((_demoTasks ? sessionStorage.getItem('ns_demo_tasks') : localStorage.getItem('ns_tasks_v1' + nsUserSuffix()))||'null');
     }catch(e){ tasks=null; }
     if(!tasks){ tasks = []; }
 
@@ -279,7 +291,7 @@
       if(sessionStorage.getItem('ns_demo_v1'))
         sessionStorage.setItem('ns_demo_tasks', JSON.stringify(tasks));
       else
-        localStorage.setItem(NS_TASKS_KEY, JSON.stringify(tasks));
+        localStorage.setItem('ns_tasks_v1' + nsUserSuffix(), JSON.stringify(tasks));
     }
 
     var isAdding = false;
@@ -430,7 +442,6 @@
   // ============================================================
   // PIPELINE
   // ============================================================
-  var PIPELINE_KEY = 'ns_pipeline_v1';
   var STAGES = {
     disc:"Discovery", qual:"Qualifying", quote:"Quote Out",
     nego:"Negotiation", won:"Closed Won", lost:"Closed Lost"
@@ -444,14 +455,14 @@
   function loadDeals(){
     var isDemo = sessionStorage.getItem('ns_demo_v1');
     var store = isDemo ? sessionStorage : localStorage;
-    var key   = isDemo ? 'ns_demo_pipeline' : PIPELINE_KEY;
+    var key   = isDemo ? 'ns_demo_pipeline' : 'ns_pipeline_v1' + nsUserSuffix();
     try{ return JSON.parse(store.getItem(key)||'null')||[]; }catch(e){ return []; }
   }
   function saveDeals(d){
     if(sessionStorage.getItem('ns_demo_v1'))
       sessionStorage.setItem('ns_demo_pipeline', JSON.stringify(d));
     else
-      localStorage.setItem(PIPELINE_KEY, JSON.stringify(d));
+      localStorage.setItem('ns_pipeline_v1' + nsUserSuffix(), JSON.stringify(d));
   }
 
   var STAGE_WEIGHTS = {disc:0.10, qual:0.25, quote:0.50, nego:0.75, won:1.0, lost:0.0};
