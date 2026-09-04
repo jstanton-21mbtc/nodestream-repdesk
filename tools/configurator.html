@@ -744,6 +744,11 @@ function resetPricing(){
   setTimeout(function(){ saved.style.display = 'none'; saved.textContent = '✓ Saved'; }, 1800);
 }
 
+// ---- Expose editor functions to global scope for onclick handlers ----
+window.togglePricingEditor = togglePricingEditor;
+window.applyPricing = applyPricing;
+window.resetPricing = resetPricing;
+
 // ---- Init ----
 calc();
 })();
