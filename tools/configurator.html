@@ -70,7 +70,7 @@
   .output-panel{background:linear-gradient(160deg,var(--panel-2),rgba(14,19,17,.7));
     border:1px solid var(--green-dim);border-radius:14px;padding:22px;margin-bottom:20px}
   .output-panel .op-title{font-family:var(--mono);font-size:10px;letter-spacing:2px;text-transform:uppercase;
-    color:var(--green);margin-bottom:18px;display:flex;align-items:center;gap:8px}
+    color:var(--green);margin-bottom:18px;display:flex;align-items:center;gap:8px;width:100%}
   .output-panel .op-title::before{content:"";width:6px;height:6px;background:var(--green);border-radius:50%;box-shadow:0 0 8px var(--green)}
   .kv-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px}
   @media(max-width:600px){.kv-grid{grid-template-columns:1fr}}
@@ -145,35 +145,6 @@
       <div class="tag">Verified AI Compute Marketplace</div>
     </div>
     <h1>Deal Configurator &amp; ROI Calculator &middot; Internal AE Tool</h1>
-    <button class="pe-toggle" onclick="togglePricingEditor()">&#9998; Edit pricing</button>
-  </div>
-
-  <!-- ============ PRICING EDITOR ============ -->
-  <div class="card pe-card" id="pricingEditor">
-    <h2>Pricing manager</h2>
-    <p class="sub">Edit indicative $/GPU·hr rates per term and cloud benchmark. Changes are saved locally and reflected immediately in the calculator. Confirm all figures with the HPC Division before external use.</p>
-    <div style="overflow-x:auto">
-      <table class="pe-table" id="peTable">
-        <thead>
-          <tr>
-            <th>GPU</th>
-            <th>12 mo</th>
-            <th>24 mo</th>
-            <th>36 mo</th>
-            <th>48 mo</th>
-            <th>60 mo</th>
-            <th style="color:var(--amber)">Cloud $/hr</th>
-            <th>Notes / context</th>
-          </tr>
-        </thead>
-        <tbody id="peBody"></tbody>
-      </table>
-    </div>
-    <div class="pe-actions">
-      <button class="btn" onclick="applyPricing()">Apply changes</button>
-      <button class="btn ghost" onclick="resetPricing()">Reset to defaults</button>
-      <span class="pe-saved" id="peSaved">&#10003; Saved</span>
-    </div>
   </div>
 
   <div class="disclaimer">
@@ -269,9 +240,37 @@
 
   <!-- ============ PRICING OUTPUT ============ -->
   <div class="output-panel" id="outputPanel">
-    <div class="op-title">Pricing summary</div>
+    <div class="op-title">Pricing summary <button class="pe-toggle" onclick="togglePricingEditor()" id="pricingToggleBtn" style="margin-left:auto">&#9998; Edit pricing</button></div>
     <div class="kv-grid" id="kvGrid"></div>
     <div id="rateTable"></div>
+  </div>
+
+  <!-- ============ PRICING EDITOR ============ -->
+  <div class="card pe-card" id="pricingEditor">
+    <h2>Pricing manager</h2>
+    <p class="sub">Edit indicative $/GPU·hr rates per term and cloud benchmark. Changes are saved locally and reflected immediately in the calculator. Confirm all figures with the HPC Division before external use.</p>
+    <div style="overflow-x:auto">
+      <table class="pe-table" id="peTable">
+        <thead>
+          <tr>
+            <th>GPU</th>
+            <th>12 mo</th>
+            <th>24 mo</th>
+            <th>36 mo</th>
+            <th>48 mo</th>
+            <th>60 mo</th>
+            <th style="color:var(--amber)">Cloud $/hr</th>
+            <th>Notes / context</th>
+          </tr>
+        </thead>
+        <tbody id="peBody"></tbody>
+      </table>
+    </div>
+    <div class="pe-actions">
+      <button class="btn" onclick="applyPricing()">Apply changes</button>
+      <button class="btn ghost" onclick="resetPricing()">Reset to defaults</button>
+      <span class="pe-saved" id="peSaved">&#10003; Saved</span>
+    </div>
   </div>
 
   <!-- ============ TCO COMPARISON ============ -->
@@ -522,17 +521,72 @@ function calc(){
 
   // ---- Rate table ----
   var rt = $('rateTable');
-  rt.innerHTML = '<div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted-2);margin:18px 0 10px">Rate ladder — all terms</div>';
+  rt.innerHTML = '<div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted-2);margin:18px 0 10px">Rate ladder — all terms <span style="font-size:9px;opacity:.55;text-transform:none;letter-spacing:0">(click rate to edit)</span></div>';
   TERMS.forEach(function(t){
     var r = _gpu.rates[t];
     var row = document.createElement('div');
     row.className = 'rate-row';
     var active = t === _term;
     var savings_vs_12 = ((_gpu.rates[12] - r) / _gpu.rates[12] * 100);
-    row.innerHTML =
-      '<span class="rk" style="'+(active?'color:var(--green-bright)':'')+'">'+(active?'&#9654; ':'')+t+'-month</span>'+
-      '<span class="rv '+(active?'green':'dim')+'" style="font-size:'+(active?'15':'13')+'px">$'+r.toFixed(2)+'/GPU·hr</span>'+
-      (t>12?'<span style="font-family:var(--mono);font-size:10px;color:var(--green-dim)">-'+savings_vs_12.toFixed(0)+'% vs 12-mo</span>':'<span></span>');
+
+    var termSpan = document.createElement('span');
+    termSpan.className = 'rk';
+    if(active) termSpan.style.color = 'var(--green-bright)';
+    termSpan.textContent = (active ? '\u25B6 ' : '') + t + '-month';
+
+    var rateSpan = document.createElement('span');
+    rateSpan.className = 'rv ' + (active ? 'green' : 'dim');
+    rateSpan.style.fontSize = active ? '15px' : '13px';
+    rateSpan.style.cursor = 'pointer';
+    rateSpan.style.borderBottom = '1px dashed currentColor';
+    rateSpan.style.paddingBottom = '1px';
+    rateSpan.title = 'Click to edit rate';
+    rateSpan.textContent = '$' + r.toFixed(2) + '/GPU\u00B7hr';
+    (function(term){
+      rateSpan.addEventListener('click', function(){
+        var inp = document.createElement('input');
+        inp.type = 'number';
+        inp.className = 'pe-input';
+        inp.value = _gpu.rates[term].toFixed(2);
+        inp.min = '0.01';
+        inp.step = '0.01';
+        inp.style.width = '90px';
+        inp.style.verticalAlign = 'middle';
+        rateSpan.replaceWith(inp);
+        inp.focus();
+        inp.select();
+        var saved = false;
+        function saveRate(){
+          if(saved) return;
+          saved = true;
+          var val = parseFloat(inp.value);
+          if(val > 0){
+            _gpu.rates[term] = val;
+            var patch = {};
+            GPUS.forEach(function(g){
+              patch[g.id] = { rates: Object.assign({}, g.rates), cloud: g.cloud };
+            });
+            try { localStorage.setItem(PRICING_KEY, JSON.stringify(patch)); } catch(e){}
+          }
+          calc();
+        }
+        inp.addEventListener('blur', saveRate);
+        inp.addEventListener('keydown', function(e){
+          if(e.key === 'Enter'){ inp.blur(); }
+          if(e.key === 'Escape'){ saved = true; calc(); }
+        });
+      });
+    })(t);
+
+    var savingSpan = document.createElement('span');
+    savingSpan.style.fontFamily = 'var(--mono)';
+    savingSpan.style.fontSize = '10px';
+    savingSpan.style.color = 'var(--green-dim)';
+    if(t > 12) savingSpan.textContent = '-' + savings_vs_12.toFixed(0) + '% vs 12-mo';
+
+    row.appendChild(termSpan);
+    row.appendChild(rateSpan);
+    row.appendChild(savingSpan);
     rt.appendChild(row);
   });
 
@@ -682,7 +736,13 @@ $('copyBtn').addEventListener('click', function(){
 function togglePricingEditor(){
   var card = $('pricingEditor');
   card.classList.toggle('open');
-  if(card.classList.contains('open')) renderPricingEditor();
+  var btn = $('pricingToggleBtn');
+  if(card.classList.contains('open')){
+    renderPricingEditor();
+    if(btn){ btn.textContent = '\u2715 Close editor'; btn.style.borderColor='var(--amber)'; btn.style.color='var(--amber)'; }
+  } else {
+    if(btn){ btn.innerHTML='&#9998; Edit pricing'; btn.style.borderColor=''; btn.style.color=''; }
+  }
 }
 
 function renderPricingEditor(){
