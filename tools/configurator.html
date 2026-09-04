@@ -163,6 +163,7 @@
             <th>48 mo</th>
             <th>60 mo</th>
             <th style="color:var(--amber)">Cloud $/hr</th>
+            <th>Notes / context</th>
           </tr>
         </thead>
         <tbody id="peBody"></tbody>
@@ -687,15 +688,19 @@ function togglePricingEditor(){
 function renderPricingEditor(){
   var body = $('peBody');
   body.innerHTML = '';
+  var savedNotes = {};
+  try { savedNotes = JSON.parse(localStorage.getItem(PRICING_KEY+'_notes')||'{}'); } catch(e){}
   GPUS.forEach(function(g){
     var tr = document.createElement('tr');
     var termCells = TERMS.map(function(t){
       return '<td><input class="pe-input" data-gpu="'+g.id+'" data-term="'+t+'" type="number" min="0.01" step="0.01" value="'+g.rates[t].toFixed(2)+'"></td>';
     }).join('');
+    var noteVal = (savedNotes[g.id]||'').replace(/"/g,'&quot;');
     tr.innerHTML =
       '<td><div class="gpu-label">'+g.name+'</div><div class="gpu-mem">'+g.mem+'</div></td>'+
       termCells+
-      '<td><input class="pe-input cloud" data-gpu="'+g.id+'" data-cloud="1" type="number" min="0.01" step="0.01" value="'+g.cloud.toFixed(2)+'"></td>';
+      '<td><input class="pe-input cloud" data-gpu="'+g.id+'" data-cloud="1" type="number" min="0.01" step="0.01" value="'+g.cloud.toFixed(2)+'"></td>'+
+      '<td><input class="pe-input pe-note" data-gpu="'+g.id+'" data-note="1" type="text" placeholder="e.g. confirmed 9/1, promo rate…" value="'+noteVal+'" style="width:200px"></td>';
     body.appendChild(tr);
   });
 }
@@ -721,8 +726,14 @@ function applyPricing(){
       if(patch[g.id].cloud != null) g.cloud = patch[g.id].cloud;
     }
   });
-  // Persist
+  // Persist rates
   try { localStorage.setItem(PRICING_KEY, JSON.stringify(patch)); } catch(e){}
+  // Persist notes separately
+  var notes = {};
+  document.querySelectorAll('.pe-note').forEach(function(inp){
+    if(inp.value.trim()) notes[inp.dataset.gpu] = inp.value.trim();
+  });
+  try { localStorage.setItem(PRICING_KEY+'_notes', JSON.stringify(notes)); } catch(e){}
   // Update GPU grid tooltips if any, then recalc
   calc();
   var saved = $('peSaved');
@@ -735,7 +746,7 @@ function resetPricing(){
     var g = GPUS.find(function(x){ return x.id === def.id; });
     if(g){ Object.assign(g.rates, def.rates); g.cloud = def.cloud; }
   });
-  try { localStorage.removeItem(PRICING_KEY); } catch(e){}
+  try { localStorage.removeItem(PRICING_KEY); localStorage.removeItem(PRICING_KEY+'_notes'); } catch(e){}
   renderPricingEditor();
   calc();
   var saved = $('peSaved');
