@@ -107,15 +107,21 @@ body{
   font-size:15px;line-height:1;border-radius:4px;transition:.1s;flex:none}
 .del-row:hover{color:var(--red);background:rgba(217,88,74,.1)}
 
-/* Move up/down */
-.mv-col{display:flex;flex-direction:column;gap:2px;align-items:center}
-.mv-btn{background:transparent;border:none;color:var(--muted-2);cursor:pointer;padding:1px 5px;
-  font-size:10px;line-height:1;border-radius:3px;transition:.1s;flex:none}
-.mv-btn:hover:not(:disabled){color:var(--green-bright);background:rgba(60,160,40,.1)}
-.mv-btn:disabled{opacity:.2;cursor:default}
+/* Drag handle */
+.drag-handle{color:var(--muted-2);cursor:grab;padding:2px 6px;font-size:14px;line-height:1;
+  user-select:none;-webkit-user-select:none;flex:none;opacity:.5;transition:.1s}
+.drag-handle:hover{opacity:1;color:var(--green)}
+.drag-handle:active{cursor:grabbing}
+
+/* Drag states */
+.dragging{opacity:.35}
+tr.drag-over-top td{border-top:2px solid var(--green) !important}
+tr.drag-over-bottom td{border-bottom:2px solid var(--green) !important}
+.issue-item.drag-over-top{border-top:2px solid var(--green)}
+.issue-item.drag-over-bottom{border-bottom:2px solid var(--green)}
 
 /* IDS */
-.issue-item{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:14px 15px;margin-bottom:10px;transition:.2s}
+.issue-item{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:14px 15px;margin-bottom:10px;transition:border .1s,opacity .2s}
 .issue-item.resolved{opacity:.45}
 .issue-row{display:flex;align-items:flex-start;gap:10px}
 .issue-num{font-family:var(--mono);font-size:10px;font-weight:700;color:var(--amber);min-width:20px;padding-top:4px;flex:none}
@@ -125,15 +131,6 @@ body{
 .resolve-btn{font-family:var(--mono);font-size:9px;padding:4px 8px;border-radius:5px;cursor:pointer;
   border:1px solid var(--line);background:var(--panel);color:var(--muted-2);white-space:nowrap;transition:.13s}
 .resolve-btn.done{background:rgba(60,160,40,.15);border-color:var(--green-dim);color:var(--green-bright)}
-
-/* Rating */
-.rating-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
-.r-btn{width:36px;height:36px;border-radius:8px;border:1px solid var(--line);
-  background:var(--panel-2);color:var(--muted);font-family:var(--mono);font-size:13px;font-weight:600;
-  cursor:pointer;transition:.13s;display:flex;align-items:center;justify-content:center}
-.r-btn:hover{border-color:var(--green-dim);color:var(--text)}
-.r-btn.sel{background:rgba(60,160,40,.18);border-color:var(--green);color:var(--green-bright)}
-.r-btn.sel.high{background:rgba(60,160,40,.28);box-shadow:0 0 0 1px var(--green),0 0 10px rgba(60,160,40,.2)}
 
 /* History dropdown */
 .hist-wrap{position:relative}
@@ -161,8 +158,7 @@ body{
 @media print{
   body{background:#fff;color:#111;padding:16px}
   .card,.issue-item{border-color:#ccc;background:#fff}
-  .panel-2{background:#f8f8f8}
-  .nav-btn,.btn,.del-row,.mv-btn,.hist-wrap,.controls,.save-status{display:none!important}
+  .nav-btn,.btn,.del-row,.drag-handle,.hist-wrap,.controls,.save-status{display:none!important}
   .ot-btn.on{color:#1a7a00;border-color:#1a7a00}
   .ot-btn.off{color:#b42c20;border-color:#b42c20}
 }
@@ -207,12 +203,12 @@ body{
       <table class="tbl">
         <thead>
           <tr>
-            <th style="width:36%">Metric</th>
+            <th style="width:22px"></th>
+            <th style="width:34%">Metric</th>
             <th>Owner</th>
             <th>Goal</th>
             <th>Actual</th>
             <th>On Track</th>
-            <th style="width:28px"></th>
             <th style="width:28px"></th>
           </tr>
         </thead>
@@ -233,11 +229,11 @@ body{
       <table class="tbl">
         <thead>
           <tr>
-            <th style="width:42%">Rock (90-day priority)</th>
+            <th style="width:22px"></th>
+            <th style="width:40%">Rock (90-day priority)</th>
             <th>Owner</th>
             <th>Quarter</th>
             <th>Status</th>
-            <th style="width:28px"></th>
             <th style="width:28px"></th>
           </tr>
         </thead>
@@ -295,7 +291,7 @@ body{
       <h2>IDS &mdash; Issues &middot; Identify &middot; Discuss &middot; Solve</h2>
       <span class="timer-badge">60 min</span>
     </div>
-    <p style="font-size:12px;color:var(--muted-2);margin-bottom:14px">List all issues, then IDS the most impactful. Mark resolved when solved.</p>
+    <p style="font-size:12px;color:var(--muted-2);margin-bottom:14px">List all issues, then IDS the most impactful. Drag to reprioritize. Mark resolved when solved.</p>
     <div id="issuesList"></div>
     <button class="btn ghost sm" id="addIssue" style="margin-top:6px">+ Add issue</button>
   </div>
@@ -357,20 +353,16 @@ var ROCK_DEFAULTS=[
 ];
 
 function freshRecord(key, prev){
-  // Carry unfinished todos
   var carried = prev && prev.todos
     ? prev.todos.filter(function(t){ return !t.done && (t.task||'').trim(); })
         .map(function(t){ return {id:uid(),task:t.task,owner:t.owner||'',note:'',done:false,carried:true}; })
     : [];
-  // Carry rocks (quarterly, persist)
   var rocks = prev && prev.rocks && prev.rocks.length
     ? prev.rocks.map(function(r){ return {id:uid(),rock:r.rock||'',owner:r.owner||'',quarter:r.quarter||'Q4 26',on:r.on}; })
     : ROCK_DEFAULTS.map(function(r){ return {id:uid(),rock:'',owner:'',quarter:r.quarter,on:null}; });
-  // Carry scorecard structure, clear actuals
   var sc = prev && prev.scorecard && prev.scorecard.length
     ? prev.scorecard.map(function(s){ return {id:uid(),metric:s.metric||'',owner:s.owner||'',goal:s.goal||'',actual:'',on:null}; })
     : SC_DEFAULTS.map(function(s){ return {id:uid(),metric:s.metric,owner:s.owner,goal:s.goal,actual:'',on:null}; });
-
   return {
     weekKey:key,
     scorecard:sc,
@@ -387,13 +379,17 @@ var _key = toKey(weekStart(new Date()));
 var _rec = null;
 var _saveTimer = null;
 
+// ---- Drag state ----
+var _dragId = null;
+var _dragArr = null;
+var _dragRender = null;
+
 // ---- Load a week ----
 function loadWeek(key){
   _key = key;
   var all = loadAll();
   if(all[key]){
     _rec = all[key];
-    // backfill missing IDs
     [_rec.scorecard,_rec.rocks,_rec.todos,_rec.issues].forEach(function(arr){
       (arr||[]).forEach(function(r){ if(!r.id) r.id=uid(); });
     });
@@ -459,26 +455,94 @@ function renderAll(){
   }
 }
 
-// ---- Move helper ----
-function moveItem(arr, id, dir){
-  var idx=arr.findIndex(function(x){return x.id===id;});
-  if(idx<0) return;
-  var swap=idx+dir;
-  if(swap<0||swap>=arr.length) return;
-  var tmp=arr[idx]; arr[idx]=arr[swap]; arr[swap]=tmp;
+// ---- Drag-and-drop for table rows ----
+function bindRowDrag(tr, arr, id, renderFn){
+  tr.draggable = true;
+  tr.style.cursor = 'default';
+
+  tr.addEventListener('dragstart',function(e){
+    _dragId = id; _dragArr = arr; _dragRender = renderFn;
+    tr.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(id));
+  });
+  tr.addEventListener('dragend',function(){
+    tr.classList.remove('dragging');
+    _dragId = null; _dragArr = null; _dragRender = null;
+    clearDragClasses();
+  });
+  tr.addEventListener('dragover',function(e){
+    if(_dragArr !== arr || _dragId === id) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    clearDragClasses();
+    var rect = tr.getBoundingClientRect();
+    tr.classList.add(e.clientY < rect.top + rect.height/2 ? 'drag-over-top' : 'drag-over-bottom');
+  });
+  tr.addEventListener('dragleave',function(e){
+    if(!tr.contains(e.relatedTarget)) tr.classList.remove('drag-over-top','drag-over-bottom');
+  });
+  tr.addEventListener('drop',function(e){
+    e.preventDefault();
+    var overTop = tr.classList.contains('drag-over-top');
+    tr.classList.remove('drag-over-top','drag-over-bottom');
+    if(_dragArr !== arr || !_dragId || _dragId === id) return;
+    var fromIdx = arr.findIndex(function(x){ return x.id===_dragId; });
+    var toIdx   = arr.findIndex(function(x){ return x.id===id; });
+    if(fromIdx<0||toIdx<0) return;
+    var item = arr.splice(fromIdx,1)[0];
+    var newTo = arr.findIndex(function(x){ return x.id===id; });
+    arr.splice(overTop ? newTo : newTo+1, 0, item);
+    renderFn(); scheduleSave();
+  });
 }
-function mvBtns(arr, id, renderFn){
-  var idx=arr.findIndex(function(x){return x.id===id;});
-  var cell=document.createElement('td');
-  var wrap=document.createElement('div'); wrap.className='mv-col';
-  var up=document.createElement('button'); up.className='mv-btn'; up.textContent='\u25B2'; up.title='Move up';
-  var dn=document.createElement('button'); dn.className='mv-btn'; dn.textContent='\u25BC'; dn.title='Move down';
-  if(idx===0) up.disabled=true;
-  if(idx===arr.length-1) dn.disabled=true;
-  up.addEventListener('click',function(){ moveItem(arr,id,-1); renderFn(); scheduleSave(); });
-  dn.addEventListener('click',function(){ moveItem(arr,id,1); renderFn(); scheduleSave(); });
-  wrap.appendChild(up); wrap.appendChild(dn); cell.appendChild(wrap);
-  return cell;
+
+// ---- Drag-and-drop for issue divs ----
+function bindIssueDrag(div, id){
+  div.draggable = true;
+
+  div.addEventListener('dragstart',function(e){
+    _dragId = id; _dragArr = _rec.issues; _dragRender = renderIssues;
+    div.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(id));
+  });
+  div.addEventListener('dragend',function(){
+    div.classList.remove('dragging');
+    _dragId = null; _dragArr = null; _dragRender = null;
+    clearDragClasses();
+  });
+  div.addEventListener('dragover',function(e){
+    if(_dragArr !== _rec.issues || _dragId === id) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    clearDragClasses();
+    var rect = div.getBoundingClientRect();
+    div.classList.add(e.clientY < rect.top + rect.height/2 ? 'drag-over-top' : 'drag-over-bottom');
+  });
+  div.addEventListener('dragleave',function(e){
+    if(!div.contains(e.relatedTarget)) div.classList.remove('drag-over-top','drag-over-bottom');
+  });
+  div.addEventListener('drop',function(e){
+    e.preventDefault();
+    var overTop = div.classList.contains('drag-over-top');
+    div.classList.remove('drag-over-top','drag-over-bottom');
+    if(_dragArr !== _rec.issues || !_dragId || _dragId === id) return;
+    var arr = _rec.issues;
+    var fromIdx = arr.findIndex(function(x){ return x.id===_dragId; });
+    var toIdx   = arr.findIndex(function(x){ return x.id===id; });
+    if(fromIdx<0||toIdx<0) return;
+    var item = arr.splice(fromIdx,1)[0];
+    var newTo = arr.findIndex(function(x){ return x.id===id; });
+    arr.splice(overTop ? newTo : newTo+1, 0, item);
+    renderIssues(); scheduleSave();
+  });
+}
+
+function clearDragClasses(){
+  document.querySelectorAll('.drag-over-top,.drag-over-bottom').forEach(function(el){
+    el.classList.remove('drag-over-top','drag-over-bottom');
+  });
 }
 
 // ---- SCORECARD ----
@@ -491,14 +555,16 @@ function mkScRow(row){
   var onC=row.on===true?'on':row.on===false?'off':'';
   var onT=row.on===true?'On Track':row.on===false?'Off Track':'\u2014';
   tr.innerHTML=
+    '<td><span class="drag-handle" title="Drag to reorder">&#8942;&#8942;</span></td>'+
     '<td><input class="ti" type="text" placeholder="Metric name" value="'+esc(row.metric)+'" data-f="metric"></td>'+
     '<td><input class="ti med" type="text" placeholder="Owner" value="'+esc(row.owner)+'" data-f="owner"></td>'+
     '<td><input class="ti sm" type="text" placeholder="Goal" value="'+esc(row.goal)+'" data-f="goal"></td>'+
     '<td><input class="ti sm" type="text" placeholder="Actual" value="'+esc(row.actual)+'" data-f="actual"></td>'+
     '<td><button class="ot-btn '+onC+'" data-ot>'+onT+'</button></td>'+
     '<td><button class="del-row" data-del>&times;</button></td>';
-  tr.appendChild(mvBtns(_rec.scorecard, row.id, renderScorecard));
+  bindRowDrag(tr, _rec.scorecard, row.id, renderScorecard);
   tr.querySelectorAll('.ti').forEach(function(inp){
+    inp.addEventListener('mousedown',function(e){ e.stopPropagation(); });
     inp.addEventListener('input',function(){
       var r=_rec.scorecard.find(function(x){return x.id===row.id;});
       if(r) r[inp.dataset.f]=inp.value;
@@ -519,10 +585,9 @@ function mkScRow(row){
 }
 $('addScorecard').addEventListener('click',function(){
   _rec.scorecard.push({id:uid(),metric:'',owner:'',goal:'',actual:'',on:null});
-  renderScorecard();
-  scheduleSave();
+  renderScorecard(); scheduleSave();
   var rows=$('scorecardBody').querySelectorAll('tr');
-  if(rows.length){ var i=rows[rows.length-1].querySelector('.ti'); if(i) i.focus(); }
+  if(rows.length){ var i=rows[rows.length-1].querySelector('.ti[data-f="metric"]'); if(i) i.focus(); }
 });
 
 // ---- ROCKS ----
@@ -535,13 +600,15 @@ function mkRockRow(row){
   var onC=row.on===true?'on':row.on===false?'off':'';
   var onT=row.on===true?'On Track':row.on===false?'Off Track':'\u2014';
   tr.innerHTML=
+    '<td><span class="drag-handle" title="Drag to reorder">&#8942;&#8942;</span></td>'+
     '<td><input class="ti" type="text" placeholder="Describe the rock..." value="'+esc(row.rock)+'" data-f="rock"></td>'+
     '<td><input class="ti med" type="text" placeholder="Owner" value="'+esc(row.owner)+'" data-f="owner"></td>'+
     '<td><input class="ti sm" type="text" placeholder="Q4 26" value="'+esc(row.quarter)+'" data-f="quarter"></td>'+
     '<td><button class="ot-btn '+onC+'" data-ot>'+onT+'</button></td>'+
     '<td><button class="del-row" data-del>&times;</button></td>';
-  tr.appendChild(mvBtns(_rec.rocks, row.id, renderRocks));
+  bindRowDrag(tr, _rec.rocks, row.id, renderRocks);
   tr.querySelectorAll('.ti').forEach(function(inp){
+    inp.addEventListener('mousedown',function(e){ e.stopPropagation(); });
     inp.addEventListener('input',function(){
       var r=_rec.rocks.find(function(x){return x.id===row.id;});
       if(r) r[inp.dataset.f]=inp.value;
@@ -562,10 +629,9 @@ function mkRockRow(row){
 }
 $('addRock').addEventListener('click',function(){
   _rec.rocks.push({id:uid(),rock:'',owner:'',quarter:'Q4 26',on:null});
-  renderRocks();
-  scheduleSave();
+  renderRocks(); scheduleSave();
   var rows=$('rocksBody').querySelectorAll('tr');
-  if(rows.length){ var i=rows[rows.length-1].querySelector('.ti'); if(i) i.focus(); }
+  if(rows.length){ var i=rows[rows.length-1].querySelector('.ti[data-f="rock"]'); if(i) i.focus(); }
 });
 
 // ---- TODOS ----
@@ -581,7 +647,7 @@ function mkTodoRow(row){
     : '<td><input class="ti" type="text" placeholder="Note" value="'+esc(row.note||'')+'" data-f="note"></td>';
   tr.innerHTML=
     '<td style="text-align:center"><input type="checkbox" class="cb" '+(row.done?'checked':'')+' data-done></td>'+
-    '<td><input class="ti" type="text" placeholder="Action item..." value="'+esc(row.task)+'" data-f="task" style="'+(row.done?'text-decoration:line-through':'')+'"</td>'+
+    '<td><input class="ti" type="text" placeholder="Action item..." value="'+esc(row.task)+'" data-f="task" style="'+(row.done?'text-decoration:line-through':'')+'"></td>'+
     '<td><input class="ti med" type="text" placeholder="Owner" value="'+esc(row.owner)+'" data-f="owner"></td>'+
     noteCell+
     '<td><button class="del-row" data-del>&times;</button></td>';
@@ -605,10 +671,9 @@ function mkTodoRow(row){
 }
 $('addTodo').addEventListener('click',function(){
   _rec.todos.push({id:uid(),task:'',owner:'',note:'',done:false,carried:false});
-  renderTodos();
-  scheduleSave();
+  renderTodos(); scheduleSave();
   var rows=$('todosBody').querySelectorAll('tr');
-  if(rows.length){ var i=rows[rows.length-1].querySelector('.ti'); if(i) i.focus(); }
+  if(rows.length){ var i=rows[rows.length-1].querySelector('.ti[data-f="task"]'); if(i) i.focus(); }
 });
 
 // ---- IDS ISSUES ----
@@ -621,6 +686,7 @@ function mkIssue(item,num){
   div.className='issue-item'+(item.done?' resolved':'');
   div.innerHTML=
     '<div class="issue-row">'+
+      '<div class="drag-handle" title="Drag to reorder" style="padding-top:4px;font-size:16px">&#8942;&#8942;</div>'+
       '<div class="issue-num">#'+num+'</div>'+
       '<div class="issue-fields">'+
         '<div class="field" style="grid-column:1/-1;margin-bottom:8px">'+
@@ -638,11 +704,14 @@ function mkIssue(item,num){
       '</div>'+
       '<div class="issue-actions">'+
         '<button class="del-row ii-del" title="Remove">&times;</button>'+
-        '<button class="mv-btn ii-up" title="Move up">\u25B2</button>'+
-        '<button class="mv-btn ii-dn" title="Move down">\u25BC</button>'+
         '<button class="resolve-btn'+(item.done?' done':'')+' ii-res">'+(item.done?'\u2713 Resolved':'Resolve')+'</button>'+
       '</div>'+
     '</div>';
+  bindIssueDrag(div, item.id);
+  // Prevent drag from firing when clicking inside inputs/textareas
+  div.querySelectorAll('input,textarea,button').forEach(function(el){
+    el.addEventListener('mousedown',function(e){ e.stopPropagation(); });
+  });
   div.querySelector('.ii-issue').addEventListener('input',function(){
     var r=_rec.issues.find(function(x){return x.id===item.id;});
     if(r) r.issue=this.value; scheduleSave();
@@ -659,13 +728,6 @@ function mkIssue(item,num){
     _rec.issues=_rec.issues.filter(function(x){return x.id!==item.id;});
     renderIssues(); scheduleSave();
   });
-  var upBtn=div.querySelector('.ii-up');
-  var dnBtn=div.querySelector('.ii-dn');
-  var idx=_rec.issues.findIndex(function(x){return x.id===item.id;});
-  if(idx===0) upBtn.disabled=true;
-  if(idx===_rec.issues.length-1) dnBtn.disabled=true;
-  upBtn.addEventListener('click',function(){ moveItem(_rec.issues,item.id,-1); renderIssues(); scheduleSave(); });
-  dnBtn.addEventListener('click',function(){ moveItem(_rec.issues,item.id,1); renderIssues(); scheduleSave(); });
   div.querySelector('.ii-res').addEventListener('click',function(){
     var r=_rec.issues.find(function(x){return x.id===item.id;});
     if(r) r.done=!r.done; renderIssues(); scheduleSave();
@@ -674,8 +736,7 @@ function mkIssue(item,num){
 }
 $('addIssue').addEventListener('click',function(){
   _rec.issues.push({id:uid(),issue:'',solution:'',owner:'',done:false});
-  renderIssues();
-  scheduleSave();
+  renderIssues(); scheduleSave();
   var items=$('issuesList').querySelectorAll('.issue-item');
   if(items.length){ var ta=items[items.length-1].querySelector('textarea'); if(ta) ta.focus(); }
 });
@@ -740,12 +801,10 @@ function populateHistory(){
 $('copyBtn').addEventListener('click',function(){
   collect();
   var start=new Date(_key+'T12:00:00');
-  var end=addDays(start,4);
   var lines=[
     'NODESTREAM \u00B7 EOS L10 WEEKLY MEETING',
     fmtRange(start),
-    '',
-    'SCORECARD'
+    '','SCORECARD'
   ];
   (_rec.scorecard||[]).forEach(function(r){
     if(r.metric) lines.push('  '+r.metric+(r.owner?' ['+r.owner+']':'')
