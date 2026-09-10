@@ -107,6 +107,13 @@ body{
   font-size:15px;line-height:1;border-radius:4px;transition:.1s;flex:none}
 .del-row:hover{color:var(--red);background:rgba(217,88,74,.1)}
 
+/* Move up/down */
+.mv-col{display:flex;flex-direction:column;gap:2px;align-items:center}
+.mv-btn{background:transparent;border:none;color:var(--muted-2);cursor:pointer;padding:1px 5px;
+  font-size:10px;line-height:1;border-radius:3px;transition:.1s;flex:none}
+.mv-btn:hover:not(:disabled){color:var(--green-bright);background:rgba(60,160,40,.1)}
+.mv-btn:disabled{opacity:.2;cursor:default}
+
 /* IDS */
 .issue-item{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:14px 15px;margin-bottom:10px;transition:.2s}
 .issue-item.resolved{opacity:.45}
@@ -155,7 +162,7 @@ body{
   body{background:#fff;color:#111;padding:16px}
   .card,.issue-item{border-color:#ccc;background:#fff}
   .panel-2{background:#f8f8f8}
-  .nav-btn,.btn,.del-row,.hist-wrap,.controls,.save-status{display:none!important}
+  .nav-btn,.btn,.del-row,.mv-btn,.hist-wrap,.controls,.save-status{display:none!important}
   .ot-btn.on{color:#1a7a00;border-color:#1a7a00}
   .ot-btn.off{color:#b42c20;border-color:#b42c20}
 }
@@ -206,6 +213,7 @@ body{
             <th>Actual</th>
             <th>On Track</th>
             <th style="width:28px"></th>
+            <th style="width:28px"></th>
           </tr>
         </thead>
         <tbody id="scorecardBody"></tbody>
@@ -229,6 +237,7 @@ body{
             <th>Owner</th>
             <th>Quarter</th>
             <th>Status</th>
+            <th style="width:28px"></th>
             <th style="width:28px"></th>
           </tr>
         </thead>
@@ -450,6 +459,28 @@ function renderAll(){
   }
 }
 
+// ---- Move helper ----
+function moveItem(arr, id, dir){
+  var idx=arr.findIndex(function(x){return x.id===id;});
+  if(idx<0) return;
+  var swap=idx+dir;
+  if(swap<0||swap>=arr.length) return;
+  var tmp=arr[idx]; arr[idx]=arr[swap]; arr[swap]=tmp;
+}
+function mvBtns(arr, id, renderFn){
+  var idx=arr.findIndex(function(x){return x.id===id;});
+  var cell=document.createElement('td');
+  var wrap=document.createElement('div'); wrap.className='mv-col';
+  var up=document.createElement('button'); up.className='mv-btn'; up.textContent='\u25B2'; up.title='Move up';
+  var dn=document.createElement('button'); dn.className='mv-btn'; dn.textContent='\u25BC'; dn.title='Move down';
+  if(idx===0) up.disabled=true;
+  if(idx===arr.length-1) dn.disabled=true;
+  up.addEventListener('click',function(){ moveItem(arr,id,-1); renderFn(); scheduleSave(); });
+  dn.addEventListener('click',function(){ moveItem(arr,id,1); renderFn(); scheduleSave(); });
+  wrap.appendChild(up); wrap.appendChild(dn); cell.appendChild(wrap);
+  return cell;
+}
+
 // ---- SCORECARD ----
 function renderScorecard(){
   var body=$('scorecardBody'); body.innerHTML='';
@@ -466,6 +497,7 @@ function mkScRow(row){
     '<td><input class="ti sm" type="text" placeholder="Actual" value="'+esc(row.actual)+'" data-f="actual"></td>'+
     '<td><button class="ot-btn '+onC+'" data-ot>'+onT+'</button></td>'+
     '<td><button class="del-row" data-del>&times;</button></td>';
+  tr.appendChild(mvBtns(_rec.scorecard, row.id, renderScorecard));
   tr.querySelectorAll('.ti').forEach(function(inp){
     inp.addEventListener('input',function(){
       var r=_rec.scorecard.find(function(x){return x.id===row.id;});
@@ -507,6 +539,7 @@ function mkRockRow(row){
     '<td><input class="ti sm" type="text" placeholder="Q4 26" value="'+esc(row.quarter)+'" data-f="quarter"></td>'+
     '<td><button class="ot-btn '+onC+'" data-ot>'+onT+'</button></td>'+
     '<td><button class="del-row" data-del>&times;</button></td>';
+  tr.appendChild(mvBtns(_rec.rocks, row.id, renderRocks));
   tr.querySelectorAll('.ti').forEach(function(inp){
     inp.addEventListener('input',function(){
       var r=_rec.rocks.find(function(x){return x.id===row.id;});
@@ -602,6 +635,8 @@ function mkIssue(item,num){
       '</div>'+
       '<div class="issue-actions">'+
         '<button class="del-row ii-del" title="Remove">&times;</button>'+
+        '<button class="mv-btn ii-up" title="Move up">\u25B2</button>'+
+        '<button class="mv-btn ii-dn" title="Move down">\u25BC</button>'+
         '<button class="resolve-btn'+(item.done?' done':'')+' ii-res">'+(item.done?'\u2713 Resolved':'Resolve')+'</button>'+
       '</div>'+
     '</div>';
@@ -621,6 +656,13 @@ function mkIssue(item,num){
     _rec.issues=_rec.issues.filter(function(x){return x.id!==item.id;});
     renderIssues(); scheduleSave();
   });
+  var upBtn=div.querySelector('.ii-up');
+  var dnBtn=div.querySelector('.ii-dn');
+  var idx=_rec.issues.findIndex(function(x){return x.id===item.id;});
+  if(idx===0) upBtn.disabled=true;
+  if(idx===_rec.issues.length-1) dnBtn.disabled=true;
+  upBtn.addEventListener('click',function(){ moveItem(_rec.issues,item.id,-1); renderIssues(); scheduleSave(); });
+  dnBtn.addEventListener('click',function(){ moveItem(_rec.issues,item.id,1); renderIssues(); scheduleSave(); });
   div.querySelector('.ii-res').addEventListener('click',function(){
     var r=_rec.issues.find(function(x){return x.id===item.id;});
     if(r) r.done=!r.done; renderIssues(); scheduleSave();
