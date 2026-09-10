@@ -457,16 +457,23 @@ function renderAll(){
 
 // ---- Drag-and-drop for table rows ----
 function bindRowDrag(tr, arr, id, renderFn){
-  tr.draggable = true;
-  tr.style.cursor = 'default';
+  tr.draggable = false; // only enabled while handle is held
+
+  var handle = tr.querySelector('.drag-handle');
+  if(handle){
+    handle.addEventListener('mousedown', function(){ tr.draggable = true; });
+    handle.addEventListener('mouseup',   function(){ tr.draggable = false; });
+  }
 
   tr.addEventListener('dragstart',function(e){
+    if(!tr.draggable){ e.preventDefault(); return; }
     _dragId = id; _dragArr = arr; _dragRender = renderFn;
     tr.classList.add('dragging');
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', String(id));
   });
   tr.addEventListener('dragend',function(){
+    tr.draggable = false;
     tr.classList.remove('dragging');
     _dragId = null; _dragArr = null; _dragRender = null;
     clearDragClasses();
@@ -499,15 +506,23 @@ function bindRowDrag(tr, arr, id, renderFn){
 
 // ---- Drag-and-drop for issue divs ----
 function bindIssueDrag(div, id){
-  div.draggable = true;
+  div.draggable = false; // only enabled while handle is held
+
+  var handle = div.querySelector('.drag-handle');
+  if(handle){
+    handle.addEventListener('mousedown', function(){ div.draggable = true; });
+    handle.addEventListener('mouseup',   function(){ div.draggable = false; });
+  }
 
   div.addEventListener('dragstart',function(e){
+    if(!div.draggable){ e.preventDefault(); return; }
     _dragId = id; _dragArr = _rec.issues; _dragRender = renderIssues;
     div.classList.add('dragging');
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', String(id));
   });
   div.addEventListener('dragend',function(){
+    div.draggable = false;
     div.classList.remove('dragging');
     _dragId = null; _dragArr = null; _dragRender = null;
     clearDragClasses();
@@ -582,7 +597,6 @@ function mkScRow(row){
     });
   }
   tr.querySelectorAll('.ti').forEach(function(inp){
-    inp.addEventListener('mousedown',function(e){ e.stopPropagation(); });
     inp.addEventListener('input',function(){
       var r=_rec.scorecard.find(function(x){return x.id===row.id;});
       if(r) r[inp.dataset.f]=inp.value;
@@ -633,7 +647,6 @@ function mkRockRow(row){
     });
   }
   tr.querySelectorAll('.ti').forEach(function(inp){
-    inp.addEventListener('mousedown',function(e){ e.stopPropagation(); });
     inp.addEventListener('input',function(){
       var r=_rec.rocks.find(function(x){return x.id===row.id;});
       if(r) r[inp.dataset.f]=inp.value;
@@ -733,10 +746,6 @@ function mkIssue(item,num){
       '</div>'+
     '</div>';
   bindIssueDrag(div, item.id);
-  // Prevent drag from firing when clicking inside inputs/textareas
-  div.querySelectorAll('input,textarea,button').forEach(function(el){
-    el.addEventListener('mousedown',function(e){ e.stopPropagation(); });
-  });
   div.querySelector('.ii-issue').addEventListener('input',function(){
     var r=_rec.issues.find(function(x){return x.id===item.id;});
     if(r) r.issue=this.value; scheduleSave();
