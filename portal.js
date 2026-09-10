@@ -1006,7 +1006,9 @@
       {t:"Data Centre Attestation",                 d:"Nodestream data centre facility attestation form", x:"PDF", href:"tools/nodestream-data-centre-attestation.pdf"},
       {t:"Advanced IC End User Certification",      d:"Advanced IC end user certification form for Nodestream deals", x:"Doc", href:"tools/nodestream-advanced-ic-certification.docx"},
       {t:"Additional Assurances",                   d:"Additional assurances document for Nodestream transactions", x:"Doc", href:"tools/nodestream-additional-assurances.docx"},
-      {t:"End Use Statement",                       d:"End use statement required for Nodestream financing applications", x:"Doc", href:"tools/nodestream-end-use-statement.docx"}
+      {t:"End Use Statement",                       d:"End use statement required for Nodestream financing applications", x:"Doc", href:"tools/nodestream-end-use-statement.docx"},
+      {t:"Mutual NDA (3Q26)",                       d:"Blockware Solutions mutual non-disclosure agreement \u2014 current form, 3Q26", x:"PDF", href:"tools/blockware-mutual-nda-3q26.pdf"},
+      {t:"Broker Referral Fee Agreement",           d:"Compute Services broker/referral fee agreement for channel and referral partners", x:"Doc", href:"tools/broker-referral-fee-agreement.docx"}
     ];
     var icon='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
     var dlIcon='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
