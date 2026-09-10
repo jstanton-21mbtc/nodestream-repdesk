@@ -545,6 +545,17 @@ function clearDragClasses(){
   });
 }
 
+// ---- Add off-track item to Issues ----
+function addToIssues(label){
+  var already = _rec.issues.some(function(x){ return x.issue===label && !x.done; });
+  if(already){ scrollToIssues(); return; }
+  _rec.issues.push({id:uid(),issue:label,solution:'',owner:'',done:false});
+  renderIssues(); scheduleSave(); scrollToIssues();
+}
+function scrollToIssues(){
+  var el=$('issuesList'); if(el) el.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
 // ---- SCORECARD ----
 function renderScorecard(){
   var body=$('scorecardBody'); body.innerHTML='';
@@ -560,9 +571,16 @@ function mkScRow(row){
     '<td><input class="ti med" type="text" placeholder="Owner" value="'+esc(row.owner)+'" data-f="owner"></td>'+
     '<td><input class="ti sm" type="text" placeholder="Goal" value="'+esc(row.goal)+'" data-f="goal"></td>'+
     '<td><input class="ti sm" type="text" placeholder="Actual" value="'+esc(row.actual)+'" data-f="actual"></td>'+
-    '<td><button class="ot-btn '+onC+'" data-ot>'+onT+'</button></td>'+
+    '<td style="white-space:nowrap"><button class="ot-btn '+onC+'" data-ot>'+onT+'</button>'+(row.on===false?'<button class="ot-btn" data-addiss style="margin-left:6px;font-size:9px;color:var(--amber);border-color:rgba(224,167,60,.4)">+ Issues</button>':'')+'</td>'+
     '<td><button class="del-row" data-del>&times;</button></td>';
   bindRowDrag(tr, _rec.scorecard, row.id, renderScorecard);
+  if(row.on===false){
+    var addIssBtn=tr.querySelector('[data-addiss]');
+    if(addIssBtn) addIssBtn.addEventListener('click',function(){
+      var r=_rec.scorecard.find(function(x){return x.id===row.id;});
+      addToIssues(r?r.metric:'Off-track metric');
+    });
+  }
   tr.querySelectorAll('.ti').forEach(function(inp){
     inp.addEventListener('mousedown',function(e){ e.stopPropagation(); });
     inp.addEventListener('input',function(){
@@ -604,9 +622,16 @@ function mkRockRow(row){
     '<td><input class="ti" type="text" placeholder="Describe the rock..." value="'+esc(row.rock)+'" data-f="rock"></td>'+
     '<td><input class="ti med" type="text" placeholder="Owner" value="'+esc(row.owner)+'" data-f="owner"></td>'+
     '<td><input class="ti sm" type="text" placeholder="Q4 26" value="'+esc(row.quarter)+'" data-f="quarter"></td>'+
-    '<td><button class="ot-btn '+onC+'" data-ot>'+onT+'</button></td>'+
+    '<td style="white-space:nowrap"><button class="ot-btn '+onC+'" data-ot>'+onT+'</button>'+(row.on===false?'<button class="ot-btn" data-addiss style="margin-left:6px;font-size:9px;color:var(--amber);border-color:rgba(224,167,60,.4)">+ Issues</button>':'')+'</td>'+
     '<td><button class="del-row" data-del>&times;</button></td>';
   bindRowDrag(tr, _rec.rocks, row.id, renderRocks);
+  if(row.on===false){
+    var addIssBtn=tr.querySelector('[data-addiss]');
+    if(addIssBtn) addIssBtn.addEventListener('click',function(){
+      var r=_rec.rocks.find(function(x){return x.id===row.id;});
+      addToIssues(r?r.rock:'Off-track rock');
+    });
+  }
   tr.querySelectorAll('.ti').forEach(function(inp){
     inp.addEventListener('mousedown',function(e){ e.stopPropagation(); });
     inp.addEventListener('input',function(){
