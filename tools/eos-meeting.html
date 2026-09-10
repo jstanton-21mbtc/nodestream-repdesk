@@ -520,6 +520,7 @@ function mkScRow(row){
 $('addScorecard').addEventListener('click',function(){
   _rec.scorecard.push({id:uid(),metric:'',owner:'',goal:'',actual:'',on:null});
   renderScorecard();
+  scheduleSave();
   var rows=$('scorecardBody').querySelectorAll('tr');
   if(rows.length){ var i=rows[rows.length-1].querySelector('.ti'); if(i) i.focus(); }
 });
@@ -562,6 +563,7 @@ function mkRockRow(row){
 $('addRock').addEventListener('click',function(){
   _rec.rocks.push({id:uid(),rock:'',owner:'',quarter:'Q4 26',on:null});
   renderRocks();
+  scheduleSave();
   var rows=$('rocksBody').querySelectorAll('tr');
   if(rows.length){ var i=rows[rows.length-1].querySelector('.ti'); if(i) i.focus(); }
 });
@@ -604,6 +606,7 @@ function mkTodoRow(row){
 $('addTodo').addEventListener('click',function(){
   _rec.todos.push({id:uid(),task:'',owner:'',note:'',done:false,carried:false});
   renderTodos();
+  scheduleSave();
   var rows=$('todosBody').querySelectorAll('tr');
   if(rows.length){ var i=rows[rows.length-1].querySelector('.ti'); if(i) i.focus(); }
 });
@@ -672,6 +675,7 @@ function mkIssue(item,num){
 $('addIssue').addEventListener('click',function(){
   _rec.issues.push({id:uid(),issue:'',solution:'',owner:'',done:false});
   renderIssues();
+  scheduleSave();
   var items=$('issuesList').querySelectorAll('.issue-item');
   if(items.length){ var ta=items[items.length-1].querySelector('textarea'); if(ta) ta.focus(); }
 });
