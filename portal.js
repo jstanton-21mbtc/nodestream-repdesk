@@ -845,10 +845,10 @@
   var PIPE_SUBTITLES = {
     gpuaas:   'Drag cards between stages to advance deals. Click any card for details, scorecard &amp; quote notes.',
     hardware: 'Track hardware deals — servers, GPUs, and custom builds. Drag cards to advance, click for details.',
-    dc:       'Track open MW by quarter. Drag offtaker cards between quarters as timelines shift.'
+    dc:       'Track data center capacity by quarter. Drag cards between quarters as timelines shift.'
   };
   var PIPE_BTN_LABELS = {
-    gpuaas: '+ Add Deal', hardware: '+ Add HW Deal', dc: '+ Add Offtaker'
+    gpuaas: '+ Add Deal', hardware: '+ Add HW Deal', dc: '+ Add Data Center'
   };
 
   function switchPipeline(type){
@@ -1148,9 +1148,9 @@
       } else {
         var empty=document.createElement('div');
         empty.style.cssText='text-align:center;padding:22px 8px;font-family:var(--mono);font-size:9.5px;color:var(--muted-2);letter-spacing:.5px;line-height:2';
-        empty.textContent='No offtakers'; body.appendChild(empty);
+        empty.textContent='No data centers'; body.appendChild(empty);
       }
-      var addBtn=document.createElement('button'); addBtn.className='kancol-add'; addBtn.textContent='+ Add offtaker';
+      var addBtn=document.createElement('button'); addBtn.className='kancol-add'; addBtn.textContent='+ Add data center';
       addBtn.addEventListener('click',function(){ openAddDCEntry(qk); });
       body.appendChild(addBtn); col.appendChild(body); wrap.appendChild(col);
     });
@@ -1159,7 +1159,7 @@
 
   function openAddDCEntry(quarter){
     populateDCQuarterSelect(quarter||getDCQuarters()[0]);
-    $("#dcEntryModalTitle").textContent='Add Offtaker';
+    $("#dcEntryModalTitle").textContent='Add Data Center';
     $("#dcEntryId").value=''; $("#dc-offtaker").value=''; $("#dc-mw").value='';
     $("#dc-status").value='prospect'; $("#dc-campus").value=''; $("#dc-notes").value='';
     var delBtn=$("#dcEntryDeleteBtn"); if(delBtn) delBtn.style.display='none';
