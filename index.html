@@ -315,6 +315,21 @@
   .g-btn.connected{border-color:rgba(60,160,40,.4);color:var(--green-bright);background:rgba(60,160,40,.07)}
   .brief-connect-bar{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:0}
 
+  /* ---- Pipeline Switcher ---- */
+  .pipe-switcher{display:flex;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:4px;width:fit-content;margin-bottom:20px}
+  .pipe-tab{font-family:var(--mono);font-size:11px;letter-spacing:.5px;text-transform:uppercase;padding:7px 18px;border-radius:7px;border:none;background:none;color:var(--muted);cursor:pointer;transition:.13s;font-weight:600;white-space:nowrap}
+  .pipe-tab:hover{color:var(--text)}
+  .pipe-tab.active{background:var(--green-dim);color:#fff;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+  /* DC Capacity status badges */
+  .dc-status-badge{font-family:var(--mono);font-size:9px;padding:2px 8px;border-radius:4px;letter-spacing:.5px;text-transform:uppercase;font-weight:700;white-space:nowrap}
+  .dc-status-badge.prospect{background:rgba(138,154,144,.1);border:1px solid rgba(138,154,144,.3);color:var(--muted)}
+  .dc-status-badge.loi{background:rgba(224,167,60,.1);border:1px solid rgba(224,167,60,.3);color:var(--amber)}
+  .dc-status-badge.contracted{background:rgba(46,122,31,.12);border:1px solid rgba(46,122,31,.35);color:var(--green-bright)}
+  .dc-status-badge.live{background:rgba(79,209,53,.12);border:1px solid rgba(79,209,53,.4);color:var(--green-bright)}
+  .dc-status-badge.churned{background:rgba(217,88,74,.08);border:1px solid rgba(217,88,74,.25);color:var(--red)}
+  .kc-mw{font-family:var(--mono);font-size:12px;color:var(--amber);font-weight:600}
+  .kc-sku{font-family:var(--mono);font-size:10px;color:var(--muted-2);margin-bottom:4px;letter-spacing:.3px}
+
   /* ---- Demo Mode Banner ---- */
   #nsDemoBanner{display:none;align-items:center;gap:12px;padding:10px 24px;background:rgba(60,160,40,.06);border-bottom:1px solid rgba(60,160,40,.18);font-family:var(--mono);font-size:11px;color:var(--green);flex-shrink:0}
   #nsDemoBanner strong{color:var(--green-bright)}
@@ -464,14 +479,21 @@
 
     <!-- ============ PIPELINE (KANBAN) ============ -->
     <section class="view hidden" id="view-pipeline">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:14px;margin-bottom:22px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:14px;margin-bottom:16px">
         <div>
           <div class="h">Pipeline</div>
-          <p class="lede" style="margin:0">Drag cards between stages to advance deals. Click any card for details, scorecard &amp; quote notes.</p>
+          <p class="lede" id="pipeSubtitle" style="margin:0">Drag cards between stages to advance deals. Click any card for details, scorecard &amp; quote notes.</p>
         </div>
         <button class="add-btn" id="addDealBtn">+ Add Deal</button>
       </div>
+      <div class="pipe-switcher">
+        <button class="pipe-tab active" data-pipe="gpuaas">GPUaaS</button>
+        <button class="pipe-tab" data-pipe="hardware">Hardware</button>
+        <button class="pipe-tab" data-pipe="dc">DC Capacity</button>
+      </div>
       <div class="kanban" id="kanbanBoard"></div>
+      <div class="kanban hidden" id="kanbanBoardHW"></div>
+      <div id="dcCapacityBoard" class="hidden" style="overflow-x:auto;padding-bottom:20px"></div>
     </section>
 
     <!-- ============ ORNN COMPUTE INDEX ============ -->
@@ -634,6 +656,132 @@
       <span style="flex:1"></span>
       <button class="btn-ghost" id="detailCloseBtn">Close</button>
       <button class="btn-primary" id="detailSaveBtn">Save Notes</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ ADD / EDIT HARDWARE DEAL MODAL ============ -->
+<div class="modal-overlay hidden" id="hwDealModal">
+  <div class="modal">
+    <div class="modal-head">
+      <span class="modal-title" id="hwDealModalTitle">Add Hardware Deal</span>
+      <button class="modal-x" id="hwDealModalClose">&#10005;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="hwDealId">
+      <div class="form-field">
+        <span class="form-label">Customer / Account</span>
+        <input class="form-input" type="text" id="hw-deal-co" placeholder="Company name">
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <span class="form-label">Hardware SKU</span>
+          <input class="form-input" type="text" id="hw-deal-sku" placeholder="e.g. B300 GPU">
+        </div>
+        <div class="form-field">
+          <span class="form-label">Quantity</span>
+          <input class="form-input" type="text" id="hw-deal-qty" placeholder="e.g. 30">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <span class="form-label">Unit Price</span>
+          <input class="form-input" type="text" id="hw-deal-unit" placeholder="e.g. $600K">
+        </div>
+        <div class="form-field">
+          <span class="form-label">Stage</span>
+          <select class="form-input" id="hw-deal-stage">
+            <option value="disc">Discovery</option>
+            <option value="qual">Qualifying</option>
+            <option value="quote">Quote Out</option>
+            <option value="nego">Negotiation</option>
+            <option value="won">Closed Won</option>
+            <option value="lost">Closed Lost</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-field">
+        <span class="form-label">Notes</span>
+        <textarea class="form-input" id="hw-deal-notes" rows="3" style="resize:vertical" placeholder="Key contacts, delivery timeline, special requirements..."></textarea>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-ghost" id="hwDealModalCancel">Cancel</button>
+      <span style="flex:1"></span>
+      <button class="btn-primary" id="hwDealModalSave">Save Deal</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ HARDWARE DEAL DETAIL MODAL ============ -->
+<div class="modal-overlay hidden" id="hwDealDetail">
+  <div class="modal">
+    <div class="modal-head">
+      <span class="modal-title" id="hwDetailTitle">&#8212;</span>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn-ghost" style="padding:5px 14px;font-size:12px" id="hwDetailEditBtn">Edit</button>
+        <button class="modal-x" id="hwDealDetailClose">&#10005;</button>
+      </div>
+    </div>
+    <div class="modal-body" id="hwDetailBody"></div>
+    <div class="modal-foot">
+      <button class="btn-danger" id="hwDetailDeleteBtn">Delete Deal</button>
+      <span style="flex:1"></span>
+      <button class="btn-ghost" id="hwDetailCloseBtn">Close</button>
+      <button class="btn-primary" id="hwDetailSaveBtn">Save Notes</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ ADD / EDIT DC CAPACITY ENTRY MODAL ============ -->
+<div class="modal-overlay hidden" id="dcEntryModal">
+  <div class="modal">
+    <div class="modal-head">
+      <span class="modal-title" id="dcEntryModalTitle">Add Offtaker</span>
+      <button class="modal-x" id="dcEntryModalClose">&#10005;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="dcEntryId">
+      <div class="form-field">
+        <span class="form-label">Offtaker / Customer</span>
+        <input class="form-input" type="text" id="dc-offtaker" placeholder="Company or entity name">
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <span class="form-label">MW Requested</span>
+          <input class="form-input" type="text" id="dc-mw" placeholder="e.g. 20">
+        </div>
+        <div class="form-field">
+          <span class="form-label">Target Quarter</span>
+          <select class="form-input" id="dc-quarter"></select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <span class="form-label">Status</span>
+          <select class="form-input" id="dc-status">
+            <option value="prospect">Prospecting</option>
+            <option value="loi">LOI Signed</option>
+            <option value="contracted">Contracted</option>
+            <option value="live">Live</option>
+            <option value="churned">Churned</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <span class="form-label">Campus / Location</span>
+          <input class="form-input" type="text" id="dc-campus" placeholder="e.g. Phoenix AZ">
+        </div>
+      </div>
+      <div class="form-field">
+        <span class="form-label">Notes</span>
+        <textarea class="form-input" id="dc-notes" rows="3" style="resize:vertical" placeholder="Contract terms, PPA details, key contacts..."></textarea>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-danger" id="dcEntryDeleteBtn" style="display:none">Delete Entry</button>
+      <span style="flex:1"></span>
+      <button class="btn-ghost" id="dcEntryModalCancel">Cancel</button>
+      <button class="btn-primary" id="dcEntryModalSave">Save Entry</button>
     </div>
   </div>
 </div>

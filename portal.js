@@ -229,7 +229,7 @@
     if(view==="quote"    && !mounted.quote)    { mountQuote();    mounted.quote=true; }
     if(view==="playbook" && !mounted.playbook) { mountPlaybook(); mounted.playbook=true; }
     if(view==="dash")     { loadDailyBrief(); renderDashKPIs(); renderDashPipeline(); }
-    if(view==="pipeline") renderKanban();
+    if(view==="pipeline") switchPipeline(_activePipeline);
     if(view==="settings") mountSettings();
     window.scrollTo(0,0);
   }
@@ -448,6 +448,7 @@
     nego:"Negotiation", won:"Closed Won", lost:"Closed Lost"
   };
   var _pipeFilter    = 'all';
+  var _activePipeline = 'gpuaas'; // 'gpuaas' | 'hardware' | 'dc'
   var _viewingDealId = null;
 
   function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -839,6 +840,378 @@
   }
 
   // ============================================================
+  // PIPELINE SWITCHER
+  // ============================================================
+  var PIPE_SUBTITLES = {
+    gpuaas:   'Drag cards between stages to advance deals. Click any card for details, scorecard &amp; quote notes.',
+    hardware: 'Track hardware deals — servers, GPUs, and custom builds. Drag cards to advance, click for details.',
+    dc:       'Track open MW by quarter. Drag offtaker cards between quarters as timelines shift.'
+  };
+  var PIPE_BTN_LABELS = {
+    gpuaas: '+ Add Deal', hardware: '+ Add HW Deal', dc: '+ Add Offtaker'
+  };
+
+  function switchPipeline(type){
+    _activePipeline = type || 'gpuaas';
+    $$('.pipe-tab').forEach(function(t){ t.classList.toggle('active', t.dataset.pipe===_activePipeline); });
+    var sub = $("#pipeSubtitle"); if(sub) sub.innerHTML = PIPE_SUBTITLES[_activePipeline]||'';
+    var addBtn = $("#addDealBtn"); if(addBtn) addBtn.textContent = PIPE_BTN_LABELS[_activePipeline]||'+ Add';
+    var gpuBoard = $("#kanbanBoard");
+    var hwBoard  = $("#kanbanBoardHW");
+    var dcBoard  = $("#dcCapacityBoard");
+    if(gpuBoard) gpuBoard.classList.toggle('hidden', _activePipeline!=='gpuaas');
+    if(hwBoard)  hwBoard.classList.toggle('hidden',  _activePipeline!=='hardware');
+    if(dcBoard)  dcBoard.classList.toggle('hidden',  _activePipeline!=='dc');
+    if(_activePipeline==='gpuaas')   renderKanban();
+    else if(_activePipeline==='hardware') renderKanbanHW();
+    else if(_activePipeline==='dc')       renderDCBoard();
+  }
+
+  // ============================================================
+  // HARDWARE PIPELINE
+  // ============================================================
+  var HW_STAGES = {
+    disc:'Discovery', qual:'Qualifying', quote:'Quote Out',
+    nego:'Negotiation', won:'Closed Won', lost:'Closed Lost'
+  };
+  var HW_STAGE_CFG = {
+    disc:  {accent:'var(--muted)',       accentBg:'var(--panel-2)'},
+    qual:  {accent:'var(--amber)',        accentBg:'rgba(224,167,60,.07)'},
+    quote: {accent:'var(--green-bright)', accentBg:'rgba(46,122,31,.08)'},
+    nego:  {accent:'var(--green-bright)', accentBg:'rgba(79,209,53,.09)'},
+    won:   {accent:'var(--green-bright)', accentBg:'rgba(79,209,53,.09)'},
+    lost:  {accent:'var(--red)',          accentBg:'rgba(217,88,74,.07)'}
+  };
+  var _viewingHWDealId = null;
+  var _hwDragId = null;
+
+  function loadHWDeals(){
+    var isDemo = sessionStorage.getItem('ns_demo_v1');
+    var store  = isDemo ? sessionStorage : localStorage;
+    var key    = isDemo ? 'ns_demo_hw_pipeline' : 'ns_hw_pipeline_v1' + nsUserSuffix();
+    try{ return JSON.parse(store.getItem(key)||'null')||[]; }catch(e){ return []; }
+  }
+  function saveHWDeals(d){
+    if(sessionStorage.getItem('ns_demo_v1'))
+      sessionStorage.setItem('ns_demo_hw_pipeline', JSON.stringify(d));
+    else
+      localStorage.setItem('ns_hw_pipeline_v1' + nsUserSuffix(), JSON.stringify(d));
+  }
+
+  function fmtHWCard(deal){
+    var qty = deal.qty ? String(deal.qty)+'× ' : '';
+    return (qty + (deal.sku||'')).trim();
+  }
+
+  function renderKanbanHW(){
+    var board = document.getElementById('kanbanBoardHW'); if(!board) return;
+    var deals = loadHWDeals();
+    board.innerHTML = '';
+    Object.keys(HW_STAGES).forEach(function(sk){
+      var cfg = HW_STAGE_CFG[sk]||HW_STAGE_CFG.disc;
+      var stageDeals = deals.filter(function(d){ return d.stage===sk; });
+      var total = fmtTotal(stageDeals);
+      var col = document.createElement('div'); col.className='kancol';
+      var head = document.createElement('div'); head.className='kancol-head';
+      head.style.cssText='border-color:'+cfg.accent+';background:'+cfg.accentBg+';border-left:3px solid '+cfg.accent;
+      head.innerHTML=
+        '<div>'+
+          '<div style="font-family:var(--mono);font-size:9.5px;letter-spacing:1.5px;text-transform:uppercase;color:'+cfg.accent+';font-weight:700">'+esc(HW_STAGES[sk])+'</div>'+
+          (total?'<div style="font-family:var(--mono);font-size:9px;color:var(--muted-2);margin-top:3px">'+total+'</div>':'')+
+        '</div>'+
+        '<span style="font-family:var(--mono);font-size:11px;background:var(--panel-3);border:1px solid var(--line);border-radius:5px;padding:2px 8px;color:var(--muted-2);flex:none">'+stageDeals.length+'</span>';
+      col.appendChild(head);
+      var body = document.createElement('div'); body.className='kancol-body';
+      body.addEventListener('dragover',function(e){ e.preventDefault(); e.dataTransfer.dropEffect='move'; body.classList.add('drag-over'); });
+      body.addEventListener('dragleave',function(e){ if(!body.contains(e.relatedTarget)) body.classList.remove('drag-over'); });
+      body.addEventListener('drop',function(e){
+        e.preventDefault(); body.classList.remove('drag-over');
+        if(!_hwDragId) return;
+        var all=loadHWDeals(); var deal=all.find(function(d){ return d.id===_hwDragId; });
+        if(deal && deal.stage!==sk){ deal.stage=sk; saveHWDeals(all); renderKanbanHW(); }
+      });
+      if(stageDeals.length){
+        stageDeals.forEach(function(d){
+          var hwDesc = fmtHWCard(d);
+          var card = document.createElement('div'); card.className='kancard'; card.draggable=true; card.dataset.dealId=d.id;
+          card.innerHTML=
+            '<div class="kc-co">'+esc(d.co)+'</div>'+
+            (hwDesc?'<div class="kc-sku">'+esc(hwDesc)+'</div>':'')+
+            (d.amt?'<div class="kc-amt">'+esc(d.amt)+'</div>':'')+
+            '<div class="kc-date">'+esc(d.dateAdded?fmtDate(d.dateAdded):'')+'</div>';
+          card.addEventListener('dragstart',function(e){ _hwDragId=d.id; card.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain',d.id); });
+          card.addEventListener('dragend',function(){ card.classList.remove('dragging'); _hwDragId=null; });
+          card.addEventListener('click',function(){ openHWDealDetail(d.id); });
+          body.appendChild(card);
+        });
+      } else {
+        var empty=document.createElement('div');
+        empty.style.cssText='text-align:center;padding:22px 8px;font-family:var(--mono);font-size:9.5px;color:var(--muted-2);letter-spacing:.5px;line-height:2';
+        empty.textContent='No deals'; body.appendChild(empty);
+      }
+      var addBtn=document.createElement('button'); addBtn.className='kancol-add'; addBtn.textContent='+ Add deal';
+      addBtn.addEventListener('click',function(){ openAddHWDeal(sk); });
+      body.appendChild(addBtn); col.appendChild(body); board.appendChild(col);
+    });
+  }
+
+  function openHWDealDetail(id){
+    var deals=loadHWDeals(); var deal=deals.find(function(d){ return d.id===id; }); if(!deal) return;
+    _viewingHWDealId=id;
+    $("#hwDetailTitle").textContent=deal.co;
+    var hwDesc=fmtHWCard(deal);
+    var body=$("#hwDetailBody");
+    body.innerHTML=
+      '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">'+
+        '<span class="stage '+deal.stage+'">'+esc(HW_STAGES[deal.stage]||deal.stage)+'</span>'+
+        (hwDesc?'<span style="font-family:var(--mono);font-size:12px;color:var(--muted-2)">'+esc(hwDesc)+'</span>':'')+
+        (deal.amt?'<span style="font-family:var(--mono);font-size:13px;color:var(--green-bright)">'+esc(deal.amt)+'</span>':'')+
+        '<span style="font-family:var(--mono);font-size:10px;color:var(--muted-2);margin-left:auto">Added '+fmtDate(deal.dateAdded)+'</span>'+
+      '</div>'+
+      '<div class="detail-section">'+
+        '<div class="ds-label">Deal Notes</div>'+
+        '<textarea id="hw-detail-notes" style="width:100%;background:transparent;border:none;color:var(--text);font-family:var(--sans);font-size:13px;resize:vertical;min-height:90px;outline:none" placeholder="Key contacts, delivery timeline, special requirements...">'+esc(deal.notes||'')+'</textarea>'+
+      '</div>';
+    $("#hwDealDetail").classList.remove('hidden');
+  }
+
+  function saveHWDetailNotes(){
+    if(!_viewingHWDealId) return;
+    var deals=loadHWDeals(); var deal=deals.find(function(d){ return d.id===_viewingHWDealId; }); if(!deal) return;
+    deal.notes=($("#hw-detail-notes").value||'').trim();
+    saveHWDeals(deals);
+    var btn=$("#hwDetailSaveBtn"); btn.textContent='Saved \u2713';
+    setTimeout(function(){ btn.textContent='Save Notes'; },1600);
+  }
+
+  function closeHWDetail(){ $("#hwDealDetail").classList.add('hidden'); _viewingHWDealId=null; }
+
+  function openAddHWDeal(stage){
+    $("#hwDealModalTitle").textContent='Add Hardware Deal';
+    $("#hwDealId").value=''; $("#hw-deal-co").value=''; $("#hw-deal-sku").value='';
+    $("#hw-deal-qty").value=''; $("#hw-deal-unit").value=''; $("#hw-deal-notes").value='';
+    $("#hw-deal-stage").value=stage||'disc';
+    $("#hwDealModal").classList.remove('hidden');
+    setTimeout(function(){ $("#hw-deal-co").focus(); },50);
+  }
+
+  function openEditHWDeal(){
+    if(!_viewingHWDealId) return;
+    var deals=loadHWDeals(); var deal=deals.find(function(d){ return d.id===_viewingHWDealId; }); if(!deal) return;
+    closeHWDetail();
+    $("#hwDealModalTitle").textContent='Edit Hardware Deal';
+    $("#hwDealId").value=deal.id; $("#hw-deal-co").value=deal.co||'';
+    $("#hw-deal-sku").value=deal.sku||''; $("#hw-deal-qty").value=deal.qty||'';
+    $("#hw-deal-unit").value=deal.unitAmt||''; $("#hw-deal-stage").value=deal.stage||'disc';
+    $("#hw-deal-notes").value=deal.notes||'';
+    $("#hwDealModal").classList.remove('hidden');
+    setTimeout(function(){ $("#hw-deal-co").focus(); },50);
+  }
+
+  function saveHWDealForm(){
+    var co=($("#hw-deal-co").value||'').trim(); if(!co){ $("#hw-deal-co").focus(); return; }
+    var qty=parseFloat(($("#hw-deal-qty").value||'').trim())||0;
+    var unitAmtStr=($("#hw-deal-unit").value||'').trim();
+    var unitAmtVal=parseAmt(unitAmtStr);
+    var totalAmt = qty && unitAmtVal ? fmtAmt(qty*unitAmtVal) : unitAmtStr;
+    var deals=loadHWDeals(); var id=$("#hwDealId").value;
+    if(id){
+      var idx=deals.findIndex(function(d){ return d.id===id; });
+      if(idx>-1){
+        deals[idx].co=co; deals[idx].sku=($("#hw-deal-sku").value||'').trim();
+        deals[idx].qty=qty||''; deals[idx].unitAmt=unitAmtStr; deals[idx].amt=totalAmt;
+        deals[idx].stage=$("#hw-deal-stage").value; deals[idx].notes=($("#hw-deal-notes").value||'').trim();
+      }
+    } else {
+      deals.unshift({ id:'hw_'+Date.now(), co:co, sku:($("#hw-deal-sku").value||'').trim(),
+        qty:qty||'', unitAmt:unitAmtStr, amt:totalAmt, stage:$("#hw-deal-stage").value,
+        notes:($("#hw-deal-notes").value||'').trim(), dateAdded:new Date().toISOString().slice(0,10) });
+    }
+    saveHWDeals(deals); $("#hwDealModal").classList.add('hidden'); renderKanbanHW();
+  }
+
+  function deleteHWDeal(){
+    if(!_viewingHWDealId) return;
+    var deals=loadHWDeals(); var deal=deals.find(function(d){ return d.id===_viewingHWDealId; }); if(!deal) return;
+    if(!confirm('Delete "'+deal.co+'"? This cannot be undone.')) return;
+    saveHWDeals(deals.filter(function(d){ return d.id!==_viewingHWDealId; }));
+    closeHWDetail(); renderKanbanHW();
+  }
+
+  // ============================================================
+  // DC CAPACITY PIPELINE
+  // ============================================================
+  var DC_STATUS = {
+    prospect:'Prospecting', loi:'LOI Signed', contracted:'Contracted', live:'Live', churned:'Churned'
+  };
+  var DC_STATUS_CFG = {
+    prospect:  {accent:'var(--muted)',       accentBg:'var(--panel-2)'},
+    loi:       {accent:'var(--amber)',        accentBg:'rgba(224,167,60,.07)'},
+    contracted:{accent:'var(--green-bright)', accentBg:'rgba(46,122,31,.08)'},
+    live:      {accent:'var(--green-bright)', accentBg:'rgba(79,209,53,.09)'},
+    churned:   {accent:'var(--red)',          accentBg:'rgba(217,88,74,.07)'}
+  };
+  var _viewingDCEntryId = null;
+  var _dcDragId = null;
+
+  function getDCQuarters(){
+    var now=new Date(); var y=now.getFullYear(); var q=Math.ceil((now.getMonth()+1)/3);
+    var result=[];
+    for(var i=0;i<6;i++){
+      var totalQ=(q-1)+i; var qn=(totalQ%4)+1; var yn=y+Math.floor(totalQ/4);
+      result.push('Q'+qn+' '+yn);
+    }
+    return result;
+  }
+
+  function loadDCEntries(){
+    var isDemo=sessionStorage.getItem('ns_demo_v1');
+    var store=isDemo?sessionStorage:localStorage;
+    var key=isDemo?'ns_demo_dc_capacity':'ns_dc_capacity_v1'+nsUserSuffix();
+    try{ return JSON.parse(store.getItem(key)||'null')||[]; }catch(e){ return []; }
+  }
+  function saveDCEntries(d){
+    if(sessionStorage.getItem('ns_demo_v1'))
+      sessionStorage.setItem('ns_demo_dc_capacity',JSON.stringify(d));
+    else
+      localStorage.setItem('ns_dc_capacity_v1'+nsUserSuffix(),JSON.stringify(d));
+  }
+
+  function populateDCQuarterSelect(selectedVal){
+    var sel=$("#dc-quarter"); if(!sel) return;
+    var quarters=getDCQuarters();
+    // Include any saved quarters not in default range
+    loadDCEntries().forEach(function(e){ if(e.quarter && quarters.indexOf(e.quarter)===-1) quarters.push(e.quarter); });
+    quarters.sort();
+    sel.innerHTML='';
+    quarters.forEach(function(q){
+      var opt=document.createElement('option'); opt.value=q; opt.textContent=q;
+      if(q===selectedVal) opt.selected=true;
+      sel.appendChild(opt);
+    });
+  }
+
+  function parseMW(s){ var n=parseFloat(String(s||'').replace(/[^0-9.]/g,'')); return isNaN(n)?0:n; }
+  function totalMW(arr){ return arr.reduce(function(s,e){ return s+parseMW(e.mw); },0); }
+
+  function renderDCBoard(){
+    var board=document.getElementById('dcCapacityBoard'); if(!board) return;
+    var entries=loadDCEntries();
+    board.innerHTML='';
+    var quarters=getDCQuarters();
+    // Add any quarter in data not yet in the default range
+    entries.forEach(function(e){ if(e.quarter && quarters.indexOf(e.quarter)===-1) quarters.push(e.quarter); });
+    quarters.sort();
+
+    var wrap=document.createElement('div');
+    wrap.style.cssText='display:flex;gap:14px;align-items:flex-start;min-width:max-content';
+
+    quarters.forEach(function(qk){
+      var qEntries=entries.filter(function(e){ return e.quarter===qk; });
+      var mwTotal=totalMW(qEntries);
+      var mwConfirmed=totalMW(qEntries.filter(function(e){ return e.status==='contracted'||e.status==='live'; }));
+      var col=document.createElement('div'); col.className='kancol';
+      var head=document.createElement('div'); head.className='kancol-head';
+      head.style.cssText='border-color:var(--green-dim);background:rgba(46,122,31,.07);border-left:3px solid var(--green-dim)';
+      head.innerHTML=
+        '<div style="min-width:0">'+
+          '<div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--green-bright);font-weight:700">'+esc(qk)+'</div>'+
+          (mwTotal?'<div style="font-family:var(--mono);font-size:9px;color:var(--muted-2);margin-top:3px">'+mwTotal+' MW tracked'+(mwConfirmed?' · '+mwConfirmed+' MW confirmed':'')+'</div>':'')+
+        '</div>'+
+        '<span style="font-family:var(--mono);font-size:11px;background:var(--panel-3);border:1px solid var(--line);border-radius:5px;padding:2px 8px;color:var(--muted-2);flex:none">'+qEntries.length+'</span>';
+      col.appendChild(head);
+      var body=document.createElement('div'); body.className='kancol-body';
+      body.addEventListener('dragover',function(e){ e.preventDefault(); e.dataTransfer.dropEffect='move'; body.classList.add('drag-over'); });
+      body.addEventListener('dragleave',function(e){ if(!body.contains(e.relatedTarget)) body.classList.remove('drag-over'); });
+      body.addEventListener('drop',function(e){
+        e.preventDefault(); body.classList.remove('drag-over');
+        if(!_dcDragId) return;
+        var all=loadDCEntries(); var entry=all.find(function(d){ return d.id===_dcDragId; });
+        if(entry && entry.quarter!==qk){ entry.quarter=qk; saveDCEntries(all); renderDCBoard(); }
+      });
+      if(qEntries.length){
+        qEntries.forEach(function(e){
+          var card=document.createElement('div'); card.className='kancard'; card.draggable=true; card.dataset.entryId=e.id;
+          card.innerHTML=
+            '<div class="kc-co">'+esc(e.offtaker)+'</div>'+
+            '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap">'+
+              (e.mw?'<span class="kc-mw">'+esc(e.mw)+' MW</span>':'')+
+              '<span class="dc-status-badge '+esc(e.status||'prospect')+'">'+esc(DC_STATUS[e.status]||e.status)+'</span>'+
+            '</div>'+
+            (e.campus?'<div style="font-family:var(--mono);font-size:9px;color:var(--muted-2);margin-bottom:4px">'+esc(e.campus)+'</div>':'')+
+            '<div class="kc-date">'+esc(e.dateAdded?fmtDate(e.dateAdded):'')+'</div>';
+          card.addEventListener('dragstart',function(ev){ _dcDragId=e.id; card.classList.add('dragging'); ev.dataTransfer.effectAllowed='move'; ev.dataTransfer.setData('text/plain',e.id); });
+          card.addEventListener('dragend',function(){ card.classList.remove('dragging'); _dcDragId=null; });
+          card.addEventListener('click',function(){ openDCEntryDetail(e.id); });
+          body.appendChild(card);
+        });
+      } else {
+        var empty=document.createElement('div');
+        empty.style.cssText='text-align:center;padding:22px 8px;font-family:var(--mono);font-size:9.5px;color:var(--muted-2);letter-spacing:.5px;line-height:2';
+        empty.textContent='No offtakers'; body.appendChild(empty);
+      }
+      var addBtn=document.createElement('button'); addBtn.className='kancol-add'; addBtn.textContent='+ Add offtaker';
+      addBtn.addEventListener('click',function(){ openAddDCEntry(qk); });
+      body.appendChild(addBtn); col.appendChild(body); wrap.appendChild(col);
+    });
+    board.appendChild(wrap);
+  }
+
+  function openAddDCEntry(quarter){
+    populateDCQuarterSelect(quarter||getDCQuarters()[0]);
+    $("#dcEntryModalTitle").textContent='Add Offtaker';
+    $("#dcEntryId").value=''; $("#dc-offtaker").value=''; $("#dc-mw").value='';
+    $("#dc-status").value='prospect'; $("#dc-campus").value=''; $("#dc-notes").value='';
+    var delBtn=$("#dcEntryDeleteBtn"); if(delBtn) delBtn.style.display='none';
+    _viewingDCEntryId=null;
+    $("#dcEntryModal").classList.remove('hidden');
+    setTimeout(function(){ $("#dc-offtaker").focus(); },50);
+  }
+
+  function openDCEntryDetail(id){
+    var entries=loadDCEntries(); var entry=entries.find(function(e){ return e.id===id; }); if(!entry) return;
+    _viewingDCEntryId=id;
+    populateDCQuarterSelect(entry.quarter);
+    $("#dcEntryModalTitle").textContent='Edit DC Entry';
+    $("#dcEntryId").value=entry.id; $("#dc-offtaker").value=entry.offtaker||'';
+    $("#dc-mw").value=entry.mw||''; $("#dc-status").value=entry.status||'prospect';
+    $("#dc-campus").value=entry.campus||''; $("#dc-notes").value=entry.notes||'';
+    var delBtn=$("#dcEntryDeleteBtn"); if(delBtn) delBtn.style.display='';
+    $("#dcEntryModal").classList.remove('hidden');
+    setTimeout(function(){ $("#dc-offtaker").focus(); },50);
+  }
+
+  function saveDCEntryForm(){
+    var offtaker=($("#dc-offtaker").value||'').trim(); if(!offtaker){ $("#dc-offtaker").focus(); return; }
+    var entries=loadDCEntries(); var id=$("#dcEntryId").value;
+    var quarter=$("#dc-quarter").value||getDCQuarters()[0];
+    if(id){
+      var idx=entries.findIndex(function(e){ return e.id===id; });
+      if(idx>-1){
+        entries[idx].offtaker=offtaker; entries[idx].mw=($("#dc-mw").value||'').trim();
+        entries[idx].quarter=quarter; entries[idx].status=$("#dc-status").value;
+        entries[idx].campus=($("#dc-campus").value||'').trim(); entries[idx].notes=($("#dc-notes").value||'').trim();
+      }
+    } else {
+      entries.unshift({ id:'dc_'+Date.now(), offtaker:offtaker, mw:($("#dc-mw").value||'').trim(),
+        quarter:quarter, status:$("#dc-status").value, campus:($("#dc-campus").value||'').trim(),
+        notes:($("#dc-notes").value||'').trim(), dateAdded:new Date().toISOString().slice(0,10) });
+    }
+    saveDCEntries(entries);
+    $("#dcEntryModal").classList.add('hidden'); _viewingDCEntryId=null;
+    renderDCBoard();
+  }
+
+  function deleteDCEntry(){
+    if(!_viewingDCEntryId) return;
+    var entries=loadDCEntries(); var entry=entries.find(function(e){ return e.id===_viewingDCEntryId; }); if(!entry) return;
+    if(!confirm('Delete "'+entry.offtaker+'"? This cannot be undone.')) return;
+    saveDCEntries(entries.filter(function(e){ return e.id!==_viewingDCEntryId; }));
+    _viewingDCEntryId=null; $("#dcEntryModal").classList.add('hidden');
+    renderDCBoard();
+  }
+
+  // ============================================================
   // SAVE TO DEAL (from tool toolbar)
   // ============================================================
   var _savingTool    = null;
@@ -940,16 +1313,39 @@
     if(e.target.closest('#saveDealClose')||e.target.closest('#saveDealCancel')){ $("#saveDealModal").classList.add('hidden'); return; }
     if(e.target.closest('#saveDealConfirm')){ executeSaveToDeal(); return; }
 
-    // Add deal
-    if(e.target.closest('#addDealBtn')){ openAddDeal(); return; }
-    // Deal form modal
+    // Pipeline switcher tabs
+    var pipeTab=e.target.closest('.pipe-tab');
+    if(pipeTab && pipeTab.dataset.pipe){ switchPipeline(pipeTab.dataset.pipe); return; }
+
+    // Add deal — route to active pipeline
+    if(e.target.closest('#addDealBtn')){
+      if(_activePipeline==='gpuaas')   openAddDeal();
+      else if(_activePipeline==='hardware') openAddHWDeal();
+      else if(_activePipeline==='dc')       openAddDCEntry();
+      return;
+    }
+    // GPUaaS deal form modal
     if(e.target.closest('#dealModalClose')||e.target.closest('#dealModalCancel')){ $("#dealModal").classList.add('hidden'); return; }
     if(e.target.closest('#dealModalSave')){ saveDealForm(); return; }
-    // Deal detail
+    // GPUaaS deal detail
     if(e.target.closest('#dealDetailClose')||e.target.closest('#detailCloseBtn')){ closeDetail(); return; }
     if(e.target.closest('#detailSaveBtn')) { saveDetailNotes(); return; }
     if(e.target.closest('#detailEditBtn')) { openEditDeal();    return; }
     if(e.target.closest('#detailDeleteBtn')){ deleteDeal();     return; }
+
+    // Hardware deal modal
+    if(e.target.closest('#hwDealModalClose')||e.target.closest('#hwDealModalCancel')){ $("#hwDealModal").classList.add('hidden'); return; }
+    if(e.target.closest('#hwDealModalSave')){ saveHWDealForm(); return; }
+    // Hardware deal detail
+    if(e.target.closest('#hwDealDetailClose')||e.target.closest('#hwDetailCloseBtn')){ closeHWDetail(); return; }
+    if(e.target.closest('#hwDetailEditBtn'))  { openEditHWDeal();      return; }
+    if(e.target.closest('#hwDetailSaveBtn'))  { saveHWDetailNotes();   return; }
+    if(e.target.closest('#hwDetailDeleteBtn')){ deleteHWDeal();        return; }
+
+    // DC Capacity modal
+    if(e.target.closest('#dcEntryModalClose')||e.target.closest('#dcEntryModalCancel')){ $("#dcEntryModal").classList.add('hidden'); _viewingDCEntryId=null; return; }
+    if(e.target.closest('#dcEntryModalSave')){ saveDCEntryForm(); return; }
+    if(e.target.closest('#dcEntryDeleteBtn')){ deleteDCEntry();   return; }
 
     // Deal row (dashboard preview table)
     var tr=e.target.closest('tr[data-deal-id]');
@@ -957,7 +1353,7 @@
   });
 
   // Close modals on overlay click (with dirty-state guard for deal form)
-  ['dealModal','dealDetail','saveDealModal'].forEach(function(id){
+  ['dealModal','dealDetail','saveDealModal','hwDealModal','hwDealDetail','dcEntryModal'].forEach(function(id){
     var ol=$("#"+id);
     if(!ol) return;
     ol.addEventListener('click',function(e){
