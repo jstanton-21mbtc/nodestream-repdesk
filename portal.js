@@ -859,9 +859,9 @@
     var gpuBoard = $("#kanbanBoard");
     var hwBoard  = $("#kanbanBoardHW");
     var dcBoard  = $("#dcCapacityBoard");
-    if(gpuBoard) gpuBoard.classList.toggle('hidden', _activePipeline!=='gpuaas');
-    if(hwBoard)  hwBoard.classList.toggle('hidden',  _activePipeline!=='hardware');
-    if(dcBoard)  dcBoard.classList.toggle('hidden',  _activePipeline!=='dc');
+    if(gpuBoard) gpuBoard.style.display = (_activePipeline==='gpuaas')  ? 'flex' : 'none';
+    if(hwBoard)  hwBoard.style.display  = (_activePipeline==='hardware')? 'flex' : 'none';
+    if(dcBoard)  dcBoard.style.display  = (_activePipeline==='dc')      ? ''     : 'none';
     if(_activePipeline==='gpuaas')   renderKanban();
     else if(_activePipeline==='hardware') renderKanbanHW();
     else if(_activePipeline==='dc')       renderDCBoard();
