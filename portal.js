@@ -1495,6 +1495,99 @@
   })();
 
   // ============================================================
+  // DATA BACKUP ENGINE
+  // ============================================================
+  var NS_BACKUP_PREFIX = 'ns_bk_friday_';
+  var NS_BACKUP_MAX    = 4; // keep last 4 Friday snapshots
+
+  function nsBackupSnapshot(){
+    // Collect all rep data into a single object
+    return {
+      version:  1,
+      date:     new Date().toISOString(),
+      label:    (function(){
+        var d=new Date(); var days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+        return days[d.getDay()]+' '+d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})+
+               ' '+d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+      })(),
+      data:{
+        gpuaas:   loadDeals(),
+        hardware: loadHWDeals(),
+        dc:       loadDCEntries(),
+        tasks:    (function(){ try{ return JSON.parse(localStorage.getItem('ns_tasks_v1'+nsUserSuffix())||'null')||[]; }catch(e){ return []; } })()
+      }
+    };
+  }
+
+  function nsBackupList(){
+    // Return all saved backups sorted oldest→newest
+    var keys = Object.keys(localStorage).filter(function(k){ return k.indexOf(NS_BACKUP_PREFIX+nsUserSuffix())===0; }).sort();
+    return keys.map(function(k){
+      try{
+        var b = JSON.parse(localStorage.getItem(k)||'null');
+        return b ? { key:k, label:b.label||k, data:b.data||{} } : null;
+      }catch(e){ return null; }
+    }).filter(Boolean);
+  }
+
+  function nsRunBackup(force){
+    // force=true skips the Friday-only / already-ran-today checks
+    var today = new Date();
+    var isFriday = today.getDay() === 5;
+    if(!force && !isFriday) return;
+
+    // Key format: prefix + userSuffix + '_' + YYYY-MM-DD
+    var dateStr = today.toISOString().slice(0,10);
+    var key = NS_BACKUP_PREFIX + nsUserSuffix() + '_' + dateStr;
+
+    // Already backed up today (and not forced manual)
+    if(!force && localStorage.getItem(key)) return;
+
+    // Save snapshot
+    var snap = nsBackupSnapshot();
+    snap.label = (isFriday ? 'Friday ' : 'Manual ') + today.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})+
+                 ' '+today.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+    localStorage.setItem(key, JSON.stringify(snap));
+
+    // Prune: keep only the most recent NS_BACKUP_MAX backups
+    var allKeys = Object.keys(localStorage)
+      .filter(function(k){ return k.indexOf(NS_BACKUP_PREFIX+nsUserSuffix())===0; })
+      .sort();
+    while(allKeys.length > NS_BACKUP_MAX){
+      localStorage.removeItem(allKeys.shift());
+    }
+  }
+
+  function nsRestoreBackup(key){
+    var raw = localStorage.getItem(key);
+    if(!raw){ alert('Backup not found.'); return; }
+    var b;
+    try{ b = JSON.parse(raw); }catch(e){ alert('Backup file is corrupted.'); return; }
+    if(!confirm('Restore from "'+(b.label||key)+'"?\n\nThis will overwrite your current GPUaaS deals, Hardware deals, DC Capacity entries, and tasks with the backed-up versions. This cannot be undone.\n\nContinue?')) return;
+    var suf = nsUserSuffix();
+    if(b.data.gpuaas)   localStorage.setItem('ns_pipeline_v1'+suf,   JSON.stringify(b.data.gpuaas));
+    if(b.data.hardware) localStorage.setItem('ns_hw_pipeline_v1'+suf, JSON.stringify(b.data.hardware));
+    if(b.data.dc)       localStorage.setItem('ns_dc_capacity_v1'+suf, JSON.stringify(b.data.dc));
+    if(b.data.tasks)    localStorage.setItem('ns_tasks_v1'+suf,       JSON.stringify(b.data.tasks));
+    alert('Restore complete. Refreshing the page now.');
+    window.location.reload();
+  }
+
+  function nsDownloadBackup(snap){
+    var json = JSON.stringify(snap, null, 2);
+    var blob = new Blob([json], { type:'application/json' });
+    var url  = URL.createObjectURL(blob);
+    var a    = document.createElement('a');
+    a.href   = url;
+    a.download = 'repdesk-backup-' + new Date().toISOString().slice(0,10) + '.json';
+    document.body.appendChild(a); a.click();
+    setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
+  }
+
+  // Auto-run on every page load (silently saves on Fridays, skips other days)
+  nsRunBackup(false);
+
+  // ============================================================
   // SETTINGS — API Keys
   // ============================================================
   var KEY_ANTHROPIC = 'ns_anthropic_key_v1';
@@ -1610,6 +1703,63 @@
           accessDiv.querySelector('#ac-confirm').value = '';
           showMsg('Access code updated successfully.', true);
         });
+      });
+    });
+
+    // ---- Data Backup card ----
+    var backupDiv = document.createElement('div');
+    backupDiv.className = 'settings-card';
+    var bkSnap = nsBackupSnapshot();
+    var bkList = nsBackupList();
+    var lastBk = bkList.length ? bkList[bkList.length-1] : null;
+    var lastBkLabel = lastBk ? 'Last backup: '+lastBk.label : 'No backups yet';
+    var bkRowsHtml = bkList.length ? bkList.slice().reverse().map(function(b){
+      return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)">'+
+        '<div>'+
+          '<div style="font-family:var(--mono);font-size:11px;color:var(--text);font-weight:600">'+esc(b.label)+'</div>'+
+          '<div style="font-family:var(--mono);font-size:9.5px;color:var(--muted-2);margin-top:2px">'+
+            (b.data.gpuaas||[]).length+' GPUaaS · '+(b.data.hardware||[]).length+' HW · '+(b.data.dc||[]).length+' DC · '+(b.data.tasks||[]).length+' tasks'+
+          '</div>'+
+        '</div>'+
+        '<div style="display:flex;gap:6px">'+
+          '<button class="btn-ghost" style="padding:4px 10px;font-size:11px" data-bk-restore="'+esc(b.key)+'">Restore</button>'+
+          '<button class="btn-ghost" style="padding:4px 10px;font-size:11px" data-bk-download="'+esc(b.key)+'">&#11015;</button>'+
+        '</div>'+
+      '</div>';
+    }).join('') : '<div style="font-family:var(--mono);font-size:11px;color:var(--muted-2);padding:10px 0">No saved backups yet — click Backup Now to create one.</div>';
+    backupDiv.innerHTML=
+      '<h3>Data Backup</h3>'+
+      '<p class="sc-desc">All pipeline deals and tasks are backed up automatically every Friday. Up to 4 weekly snapshots are kept. You can also trigger a manual backup or download a JSON file at any time.</p>'+
+      '<div class="key-status" style="margin-bottom:16px">'+
+        '<span class="dot'+(lastBk?' set':'')+'"></span>'+
+        '<span class="ksl'+(lastBk?' set':'')+'">'+esc(lastBkLabel)+'</span>'+
+      '</div>'+
+      '<div style="max-height:220px;overflow-y:auto;margin-bottom:14px">'+bkRowsHtml+'</div>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
+        '<button class="btn-primary" id="bk-now-btn" style="padding:7px 16px;font-size:12px">Backup Now</button>'+
+        '<button class="btn-ghost" id="bk-dl-btn" style="padding:7px 16px;font-size:12px">Download JSON</button>'+
+      '</div>';
+    el.appendChild(backupDiv);
+
+    backupDiv.querySelector('#bk-now-btn').addEventListener('click', function(){
+      nsRunBackup(true);
+      mountSettings();
+    });
+    backupDiv.querySelector('#bk-dl-btn').addEventListener('click', function(){
+      nsDownloadBackup(nsBackupSnapshot());
+    });
+    backupDiv.querySelectorAll('[data-bk-restore]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var key = btn.dataset.bkRestore;
+        nsRestoreBackup(key);
+      });
+    });
+    backupDiv.querySelectorAll('[data-bk-download]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var key = btn.dataset.bkDownload;
+        var raw = localStorage.getItem(key);
+        if(!raw) return;
+        try{ nsDownloadBackup(JSON.parse(raw)); }catch(e){}
       });
     });
 
