@@ -76,8 +76,7 @@
 
   .view{padding:28px;max-width:1220px;width:100%;animation:fade .2s ease}
   @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1}}
-  .hidden{display:none!important}
-  .view.hidden{display:none!important}
+  .view.hidden{display:none}
 
   .h{font-family:var(--mono);font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--green);font-weight:600;
     display:flex;align-items:center;gap:8px;margin-bottom:5px}
@@ -493,8 +492,8 @@
         <button class="pipe-tab" data-pipe="dc">DC Capacity</button>
       </div>
       <div class="kanban" id="kanbanBoard"></div>
-      <div class="kanban hidden" id="kanbanBoardHW"></div>
-      <div id="dcCapacityBoard" class="hidden" style="overflow-x:auto;padding-bottom:20px"></div>
+      <div class="kanban" id="kanbanBoardHW" style="display:none"></div>
+      <div id="dcCapacityBoard" style="display:none;overflow-x:auto;padding-bottom:20px"></div>
     </section>
 
     <!-- ============ ORNN COMPUTE INDEX ============ -->
