@@ -2079,6 +2079,7 @@
       '</div>'+
       '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'+
         '<button class="btn-primary" id="sb-save-btn" style="padding:7px 16px;font-size:12px">Save & Connect</button>'+
+        (sbConnected?'<button class="btn-primary" id="sb-push-dc-btn" style="padding:7px 16px;font-size:12px;background:var(--green-dim)">Push DC to All Reps</button>':'')+
         (sbConnected?'<button class="btn-ghost" id="sb-test-btn" style="padding:7px 14px;font-size:12px">Test Connection</button>':'')+
         (sbConnected?'<button class="btn-danger" id="sb-clear-btn" style="padding:7px 14px;font-size:12px">Disconnect</button>':'')+
       '</div>'+
@@ -2108,6 +2109,21 @@
       mountSettings();
     });
     if(sbConnected){
+      sbDiv.querySelector('#sb-push-dc-btn').addEventListener('click',function(){
+        var btn=sbDiv.querySelector('#sb-push-dc-btn');
+        var entries=loadDCEntries();
+        if(!entries.length){ btn.textContent='No DC data to push'; setTimeout(function(){ btn.textContent='Push DC to All Reps'; },2000); return; }
+        btn.textContent='Pushing…'; btn.disabled=true;
+        fetch(sbConfig().url+'/rest/v1/ns_dc_capacity',{
+          method:'POST',
+          headers:{'apikey':sbConfig().key,'Authorization':'Bearer '+sbConfig().key,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
+          body:JSON.stringify({id:'shared', entries:entries, updated_at:new Date().toISOString()})
+        }).then(function(r){
+          btn.disabled=false;
+          if(r.ok){ btn.textContent='✓ Pushed '+entries.length+' sites'; setTimeout(function(){ btn.textContent='Push DC to All Reps'; },3000); }
+          else { btn.textContent='✗ Failed — check connection'; setTimeout(function(){ btn.textContent='Push DC to All Reps'; },3000); }
+        }).catch(function(){ btn.disabled=false; btn.textContent='✗ Network error'; setTimeout(function(){ btn.textContent='Push DC to All Reps'; },3000); });
+      });
       sbDiv.querySelector('#sb-test-btn').addEventListener('click',function(){
         var btn=sbDiv.querySelector('#sb-test-btn');
         btn.textContent='Testing…'; btn.disabled=true;
