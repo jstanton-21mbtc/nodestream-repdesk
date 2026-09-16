@@ -235,6 +235,12 @@
   .tool-toolbar-title{font-family:var(--mono);font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--green);font-weight:600;flex:1;display:flex;align-items:center;gap:8px}
   .tool-toolbar-title::before{content:"";width:6px;height:6px;background:var(--green);border-radius:50%;box-shadow:0 0 8px var(--green);flex:none}
   .saved-badge{font-family:var(--mono);font-size:9px;color:var(--green-bright);background:rgba(60,160,40,.12);border:1px solid rgba(60,160,40,.35);border-radius:5px;padding:2px 8px;white-space:nowrap}
+  .doc-pill{display:flex;align-items:center;gap:8px;background:var(--panel-3);border:1px solid var(--line);border-radius:6px;padding:6px 10px;font-family:var(--mono);font-size:11px}
+  .doc-pill-name{flex:1;color:var(--green-bright);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;min-width:0}
+  .doc-pill-name:hover{text-decoration:underline}
+  .doc-pill-size{color:var(--muted-2);font-size:10px;flex:none;padding:0 4px}
+  .doc-pill-del{cursor:pointer;color:var(--muted-2);flex:none;font-size:15px;line-height:1;background:none;border:none;padding:0 0 0 2px;font-family:inherit}
+  .doc-pill-del:hover{color:var(--red)}
   .saved-pre{font-family:var(--mono);font-size:11px;color:var(--text);white-space:pre-wrap;line-height:1.6;background:var(--ink);border:1px solid var(--line);border-radius:8px;padding:12px;max-height:200px;overflow-y:auto;margin-bottom:10px}
 
   /* ---- Settings ---- */
@@ -631,6 +637,12 @@
         <span class="form-label">Notes</span>
         <textarea class="form-input" id="deal-notes" rows="3" style="resize:vertical" placeholder="Key contacts, context, next steps..."></textarea>
       </div>
+      <div class="form-field">
+        <span class="form-label">Documents</span>
+        <div id="dealDocsList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px"></div>
+        <button type="button" class="btn-ghost" id="dealDocsBtn" style="font-size:12px;padding:5px 12px;width:fit-content">+ Attach File</button>
+        <input type="file" id="dealDocsInput" style="display:none" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.png,.jpg,.jpeg,.csv">
+      </div>
     </div>
     <div class="modal-foot">
       <button class="btn-ghost" id="dealModalCancel">Cancel</button>
@@ -703,6 +715,12 @@
       <div class="form-field">
         <span class="form-label">Notes</span>
         <textarea class="form-input" id="hw-deal-notes" rows="3" style="resize:vertical" placeholder="Key contacts, delivery timeline, special requirements..."></textarea>
+      </div>
+      <div class="form-field">
+        <span class="form-label">Documents</span>
+        <div id="hwDealDocsList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px"></div>
+        <button type="button" class="btn-ghost" id="hwDealDocsBtn" style="font-size:12px;padding:5px 12px;width:fit-content">+ Attach File</button>
+        <input type="file" id="hwDealDocsInput" style="display:none" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.png,.jpg,.jpeg,.csv">
       </div>
     </div>
     <div class="modal-foot">

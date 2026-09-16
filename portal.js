@@ -450,9 +450,68 @@
   var _pipeFilter    = 'all';
   var _activePipeline = 'gpuaas'; // 'gpuaas' | 'hardware' | 'dc'
   var _viewingDealId = null;
+  var _pendingDocs   = [];
+  var _hwPendingDocs = [];
 
   function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
   function fmtDate(iso){ if(!iso) return '—'; try{ return new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }catch(e){ return iso.slice(0,10); } }
+
+  // ---- Document helpers ----
+  function fmtFileSize(bytes){
+    if(bytes<1024) return bytes+'B';
+    if(bytes<1048576) return (bytes/1024).toFixed(1)+'KB';
+    return (bytes/1048576).toFixed(1)+'MB';
+  }
+
+  function renderDocPills(listId, docs, onDelete){
+    var list=document.getElementById(listId); if(!list) return;
+    list.innerHTML='';
+    (docs||[]).forEach(function(doc,i){
+      var pill=document.createElement('div'); pill.className='doc-pill';
+      var nameEl=document.createElement('span'); nameEl.className='doc-pill-name'; nameEl.title=doc.name; nameEl.textContent=doc.name;
+      nameEl.addEventListener('click',function(){
+        if(!doc.data) return;
+        var a=document.createElement('a'); a.href=doc.data; a.download=doc.name; a.click();
+      });
+      var sizeEl=document.createElement('span'); sizeEl.className='doc-pill-size'; sizeEl.textContent=fmtFileSize(doc.size);
+      var delEl=document.createElement('button'); delEl.className='doc-pill-del'; delEl.title='Remove'; delEl.textContent='×';
+      delEl.addEventListener('click',function(){ if(onDelete) onDelete(i); });
+      pill.appendChild(nameEl); pill.appendChild(sizeEl); pill.appendChild(delEl);
+      list.appendChild(pill);
+    });
+  }
+
+  function readFilesIntoDocs(files, docs, onDone){
+    var arr=Array.from(files); var pending=arr.length;
+    if(!pending){ if(onDone) onDone(); return; }
+    arr.forEach(function(file){
+      if(file.size>3*1024*1024){
+        alert('"'+file.name+'" exceeds 3MB and was not attached.');
+        pending--; if(pending===0 && onDone) onDone(); return;
+      }
+      var reader=new FileReader();
+      reader.onload=function(ev){
+        docs.push({id:'doc_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
+          name:file.name, type:file.type, size:file.size,
+          dateAdded:new Date().toISOString().slice(0,10), data:ev.target.result});
+        pending--; if(pending===0 && onDone) onDone();
+      };
+      reader.onerror=function(){ pending--; if(pending===0 && onDone) onDone(); };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function refreshDealDocPills(){
+    renderDocPills('dealDocsList', _pendingDocs, function(i){
+      _pendingDocs.splice(i,1); refreshDealDocPills();
+    });
+  }
+
+  function refreshHWDealDocPills(){
+    renderDocPills('hwDealDocsList', _hwPendingDocs, function(i){
+      _hwPendingDocs.splice(i,1); refreshHWDealDocPills();
+    });
+  }
 
   function loadDeals(){
     var isDemo = sessionStorage.getItem('ns_demo_v1');
@@ -616,7 +675,7 @@
       // Cards
       if(stageDeals.length){
         stageDeals.forEach(function(d){
-          var hasDocs=d.scorecardSavedAt||d.configSavedAt;
+          var hasDocs=d.scorecardSavedAt||d.configSavedAt||(d.docs&&d.docs.length);
           var card=document.createElement('div');
           card.className='kancard';
           card.draggable=true;
@@ -733,6 +792,15 @@
           '<button class="detail-link" data-view="configurator">Configurator \u2192</button>'+
           '<button class="detail-link" data-view="quote">Quote \u2192</button>'+
         '</div>'+
+      '</div>'+
+
+      '<div class="detail-section">'+
+        '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'+
+          '<div class="ds-label" style="margin:0">Documents</div>'+
+          '<button class="btn-ghost" id="detail-docs-btn" style="font-size:11px;padding:4px 10px;margin-left:auto">+ Attach</button>'+
+          '<input type="file" id="detail-docs-input" style="display:none" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.png,.jpg,.jpeg,.csv">'+
+        '</div>'+
+        '<div id="detail-docs-list"></div>'+
       '</div>';
 
     // Wire tool buttons inside detail body
@@ -741,6 +809,31 @@
         closeDetail(); show(btn.dataset.view);
       });
     });
+
+    // Wire docs section
+    deal.docs = deal.docs || [];
+    function refreshDetailDocs(){
+      renderDocPills('detail-docs-list', deal.docs, function(i){
+        deal.docs.splice(i,1);
+        var all2=loadDeals(); var d2=all2.find(function(x){ return x.id===deal.id; });
+        if(d2){ d2.docs=deal.docs.slice(); saveDeals(all2); renderKanban(); }
+        refreshDetailDocs();
+      });
+    }
+    refreshDetailDocs();
+    var dBtn=document.getElementById('detail-docs-btn');
+    var dInp=document.getElementById('detail-docs-input');
+    if(dBtn && dInp){
+      dBtn.addEventListener('click',function(){ dInp.click(); });
+      dInp.addEventListener('change',function(){
+        if(!dInp.files.length) return;
+        readFilesIntoDocs(dInp.files, deal.docs, function(){
+          var all2=loadDeals(); var d2=all2.find(function(x){ return x.id===deal.id; });
+          if(d2){ d2.docs=deal.docs.slice(); saveDeals(all2); renderKanban(); }
+          refreshDetailDocs(); dInp.value='';
+        });
+      });
+    }
 
     $("#dealDetail").classList.remove('hidden');
   }
@@ -780,6 +873,7 @@
     $("#dealId").value=''; $("#deal-co").value='';
     $("#deal-persona").value='Neocloud'; $("#deal-stage").value=stage||'disc';
     $("#deal-amt").value=''; $("#deal-notes").value='';
+    _pendingDocs=[]; refreshDealDocPills();
     $("#dealModal").classList.remove('hidden');
     setTimeout(function(){ $("#deal-co").focus(); },50);
   }
@@ -796,6 +890,7 @@
     $("#deal-stage").value=deal.stage||'disc';
     $("#deal-amt").value=deal.amt||'';
     $("#deal-notes").value=deal.notes||'';
+    _pendingDocs=(deal.docs||[]).map(function(d){ return Object.assign({},d); }); refreshDealDocPills();
     $("#dealModal").classList.remove('hidden');
     setTimeout(function(){ $("#deal-co").focus(); },50);
   }
@@ -812,12 +907,13 @@
         deals[idx].stage=$("#deal-stage").value;
         deals[idx].amt=($("#deal-amt").value||'').trim();
         deals[idx].notes=($("#deal-notes").value||'').trim();
+        deals[idx].docs=_pendingDocs.slice();
       }
     } else {
       deals.unshift({
         id:'deal_'+Date.now(), co:co, persona:$("#deal-persona").value,
         stage:$("#deal-stage").value, amt:($("#deal-amt").value||'').trim(),
-        notes:($("#deal-notes").value||'').trim(),
+        notes:($("#deal-notes").value||'').trim(), docs:_pendingDocs.slice(),
         scorecardNotes:'', scorecardSavedAt:null, scorecardExtra:'',
         quoteNotes:'', configSavedAt:null, quoteExtra:'',
         dateAdded:new Date().toISOString().slice(0,10)
@@ -971,7 +1067,41 @@
       '<div class="detail-section">'+
         '<div class="ds-label">Deal Notes</div>'+
         '<textarea id="hw-detail-notes" style="width:100%;background:transparent;border:none;color:var(--text);font-family:var(--sans);font-size:13px;resize:vertical;min-height:90px;outline:none" placeholder="Key contacts, delivery timeline, special requirements...">'+esc(deal.notes||'')+'</textarea>'+
+      '</div>'+
+      '<div class="detail-section">'+
+        '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'+
+          '<div class="ds-label" style="margin:0">Documents</div>'+
+          '<button class="btn-ghost" id="hw-detail-docs-btn" style="font-size:11px;padding:4px 10px;margin-left:auto">+ Attach</button>'+
+          '<input type="file" id="hw-detail-docs-input" style="display:none" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.png,.jpg,.jpeg,.csv">'+
+        '</div>'+
+        '<div id="hw-detail-docs-list"></div>'+
       '</div>';
+
+    // Wire docs section
+    deal.docs = deal.docs || [];
+    function refreshHWDetailDocs(){
+      renderDocPills('hw-detail-docs-list', deal.docs, function(i){
+        deal.docs.splice(i,1);
+        var all2=loadHWDeals(); var d2=all2.find(function(x){ return x.id===deal.id; });
+        if(d2){ d2.docs=deal.docs.slice(); saveHWDeals(all2); renderKanbanHW(); }
+        refreshHWDetailDocs();
+      });
+    }
+    refreshHWDetailDocs();
+    var hwDBtn=document.getElementById('hw-detail-docs-btn');
+    var hwDInp=document.getElementById('hw-detail-docs-input');
+    if(hwDBtn && hwDInp){
+      hwDBtn.addEventListener('click',function(){ hwDInp.click(); });
+      hwDInp.addEventListener('change',function(){
+        if(!hwDInp.files.length) return;
+        readFilesIntoDocs(hwDInp.files, deal.docs, function(){
+          var all2=loadHWDeals(); var d2=all2.find(function(x){ return x.id===deal.id; });
+          if(d2){ d2.docs=deal.docs.slice(); saveHWDeals(all2); renderKanbanHW(); }
+          refreshHWDetailDocs(); hwDInp.value='';
+        });
+      });
+    }
+
     $("#hwDealDetail").classList.remove('hidden');
   }
 
@@ -991,6 +1121,7 @@
     $("#hwDealId").value=''; $("#hw-deal-co").value=''; $("#hw-deal-sku").value='';
     $("#hw-deal-qty").value=''; $("#hw-deal-unit").value=''; $("#hw-deal-notes").value='';
     $("#hw-deal-stage").value=stage||'disc';
+    _hwPendingDocs=[]; refreshHWDealDocPills();
     $("#hwDealModal").classList.remove('hidden');
     setTimeout(function(){ $("#hw-deal-co").focus(); },50);
   }
@@ -1004,6 +1135,7 @@
     $("#hw-deal-sku").value=deal.sku||''; $("#hw-deal-qty").value=deal.qty||'';
     $("#hw-deal-unit").value=deal.unitAmt||''; $("#hw-deal-stage").value=deal.stage||'disc';
     $("#hw-deal-notes").value=deal.notes||'';
+    _hwPendingDocs=(deal.docs||[]).map(function(d){ return Object.assign({},d); }); refreshHWDealDocPills();
     $("#hwDealModal").classList.remove('hidden');
     setTimeout(function(){ $("#hw-deal-co").focus(); },50);
   }
@@ -1021,11 +1153,13 @@
         deals[idx].co=co; deals[idx].sku=($("#hw-deal-sku").value||'').trim();
         deals[idx].qty=qty||''; deals[idx].unitAmt=unitAmtStr; deals[idx].amt=totalAmt;
         deals[idx].stage=$("#hw-deal-stage").value; deals[idx].notes=($("#hw-deal-notes").value||'').trim();
+        deals[idx].docs=_hwPendingDocs.slice();
       }
     } else {
       deals.unshift({ id:'hw_'+Date.now(), co:co, sku:($("#hw-deal-sku").value||'').trim(),
         qty:qty||'', unitAmt:unitAmtStr, amt:totalAmt, stage:$("#hw-deal-stage").value,
-        notes:($("#hw-deal-notes").value||'').trim(), dateAdded:new Date().toISOString().slice(0,10) });
+        notes:($("#hw-deal-notes").value||'').trim(), docs:_hwPendingDocs.slice(),
+        dateAdded:new Date().toISOString().slice(0,10) });
     }
     saveHWDeals(deals); $("#hwDealModal").classList.add('hidden'); renderKanbanHW();
   }
@@ -1327,6 +1461,8 @@
     // GPUaaS deal form modal
     if(e.target.closest('#dealModalClose')||e.target.closest('#dealModalCancel')){ $("#dealModal").classList.add('hidden'); return; }
     if(e.target.closest('#dealModalSave')){ saveDealForm(); return; }
+    if(e.target.closest('#dealDocsBtn')){ $("#dealDocsInput").click(); return; }
+    if(e.target.closest('#hwDealDocsBtn')){ $("#hwDealDocsInput").click(); return; }
     // GPUaaS deal detail
     if(e.target.closest('#dealDetailClose')||e.target.closest('#detailCloseBtn')){ closeDetail(); return; }
     if(e.target.closest('#detailSaveBtn')) { saveDetailNotes(); return; }
@@ -1351,6 +1487,22 @@
     var tr=e.target.closest('tr[data-deal-id]');
     if(tr){ openDealDetail(tr.dataset.dealId); return; }
   });
+
+  // File input change handlers for deal doc attachments (modal)
+  (function(){
+    var inp=$("#dealDocsInput");
+    if(inp) inp.addEventListener('change',function(){
+      if(!inp.files.length) return;
+      readFilesIntoDocs(inp.files, _pendingDocs, function(){ refreshDealDocPills(); });
+      inp.value='';
+    });
+    var hwInp=$("#hwDealDocsInput");
+    if(hwInp) hwInp.addEventListener('change',function(){
+      if(!hwInp.files.length) return;
+      readFilesIntoDocs(hwInp.files, _hwPendingDocs, function(){ refreshHWDealDocPills(); });
+      hwInp.value='';
+    });
+  })();
 
   // Close modals on overlay click (with dirty-state guard for deal form)
   ['dealModal','dealDetail','saveDealModal','hwDealModal','hwDealDetail','dcEntryModal'].forEach(function(id){
