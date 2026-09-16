@@ -1223,7 +1223,11 @@
     var quarters=getDCQuarters();
     // Include any saved quarters not in default range
     loadDCEntries().forEach(function(e){ if(e.quarter && quarters.indexOf(e.quarter)===-1) quarters.push(e.quarter); });
-    quarters.sort();
+    quarters.sort(function(a,b){
+      var pa=a.match(/Q(\d)\s+(\d+)/); var pb=b.match(/Q(\d)\s+(\d+)/);
+      if(!pa||!pb) return a.localeCompare(b);
+      return (parseInt(pa[2])-parseInt(pb[2]))||( parseInt(pa[1])-parseInt(pb[1]));
+    });
     sel.innerHTML='';
     quarters.forEach(function(q){
       var opt=document.createElement('option'); opt.value=q; opt.textContent=q;
@@ -1242,7 +1246,11 @@
     var quarters=getDCQuarters();
     // Add any quarter in data not yet in the default range
     entries.forEach(function(e){ if(e.quarter && quarters.indexOf(e.quarter)===-1) quarters.push(e.quarter); });
-    quarters.sort();
+    quarters.sort(function(a,b){
+      var pa=a.match(/Q(\d)\s+(\d+)/); var pb=b.match(/Q(\d)\s+(\d+)/);
+      if(!pa||!pb) return a.localeCompare(b);
+      return (parseInt(pa[2])-parseInt(pb[2]))||( parseInt(pa[1])-parseInt(pb[1]));
+    });
 
     var wrap=document.createElement('div');
     wrap.style.cssText='display:flex;gap:14px;align-items:flex-start;min-width:max-content';
