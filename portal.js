@@ -1363,6 +1363,7 @@
       if(qEntries.length){
         qEntries.forEach(function(e){
           var card=document.createElement('div'); card.className='kancard'; card.draggable=true; card.dataset.entryId=e.id;
+          var _assocDeal=e.associatedDealId?loadDeals().find(function(d){ return d.id===e.associatedDealId; }):null;
           card.innerHTML=
             '<div class="kc-co">'+esc(e.offtaker)+'</div>'+
             '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap">'+
@@ -1372,6 +1373,7 @@
               (e.nodeType?'<span style="font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:4px;letter-spacing:.4px;font-weight:700;background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.25);color:#a78bfa">'+esc(e.nodeType)+(e.nodeCount?' ×'+esc(e.nodeCount):'')+'</span>':'')+
             '</div>'+
             (e.campus?'<div style="font-family:var(--mono);font-size:9px;color:var(--muted-2);margin-bottom:4px">'+esc(e.campus)+'</div>':'')+
+            (_assocDeal?'<div style="font-family:var(--mono);font-size:9px;padding:2px 8px;border-radius:4px;margin-bottom:4px;background:rgba(250,189,47,.08);border:1px solid rgba(250,189,47,.28);color:#fabd2f;display:inline-block;letter-spacing:.3px">&#128279; '+esc(_assocDeal.co)+(_assocDeal.amt?' &middot; '+esc(_assocDeal.amt):'')+'</div>':'')+
             '<div class="kc-date">'+esc(e.dateAdded?fmtDate(e.dateAdded):'')+'</div>';
           card.addEventListener('dragstart',function(ev){ _dcDragId=e.id; card.classList.add('dragging'); ev.dataTransfer.effectAllowed='move'; ev.dataTransfer.setData('text/plain',e.id); });
           card.addEventListener('dragend',function(){ card.classList.remove('dragging'); _dcDragId=null; });
@@ -1408,12 +1410,26 @@
     if(!showNode){ var nt=$("#dc-node-type"); if(nt) nt.value=''; var nc=$("#dc-node-count"); if(nc) nc.value=''; }
   }
 
+  function populateDCAssocDealSelect(selectedId){
+    var sel=$("#dc-assoc-deal"); if(!sel) return;
+    var deals=loadDeals();
+    sel.innerHTML='<option value="">— None —</option>';
+    deals.forEach(function(d){
+      var opt=document.createElement('option');
+      opt.value=d.id;
+      opt.textContent=d.co+(d.amt?' · '+d.amt:'')+(d.stage?' ['+( STAGES[d.stage]||d.stage)+']':'');
+      if(d.id===selectedId) opt.selected=true;
+      sel.appendChild(opt);
+    });
+  }
+
   function openAddDCEntry(quarter){
     populateDCQuarterSelect(quarter||getDCQuarters()[0]);
     $("#dcEntryModalTitle").textContent='Add Data Center';
     $("#dcEntryId").value=''; $("#dc-offtaker").value=''; $("#dc-mw").value='';
     $("#dc-status").value='prospect'; $("#dc-campus").value=''; $("#dc-notes").value='';
     setDCServiceType('gpuaas');
+    populateDCAssocDealSelect('');
     var delBtn=$("#dcEntryDeleteBtn"); if(delBtn) delBtn.style.display='none';
     _dcPendingDocs=[]; refreshDCDealDocPills();
     _viewingDCEntryId=null;
@@ -1432,6 +1448,7 @@
     setDCServiceType(entry.serviceType||'gpuaas');
     var nt=$("#dc-node-type"); if(nt) nt.value=entry.nodeType||'';
     var nc=$("#dc-node-count"); if(nc) nc.value=entry.nodeCount||'';
+    populateDCAssocDealSelect(entry.associatedDealId||'');
     var delBtn=$("#dcEntryDeleteBtn"); if(delBtn) delBtn.style.display='';
     _dcPendingDocs=(entry.docs||[]).map(function(d){ return Object.assign({},d); }); refreshDCDealDocPills();
     $("#dcEntryModal").classList.remove('hidden');
@@ -1453,12 +1470,14 @@
         entries[idx].quarter=quarter; entries[idx].status=$("#dc-status").value;
         entries[idx].campus=($("#dc-campus").value||'').trim(); entries[idx].notes=($("#dc-notes").value||'').trim();
         entries[idx].serviceType=serviceType; entries[idx].nodeType=nodeType; entries[idx].nodeCount=nodeCount;
+        entries[idx].associatedDealId=($("#dc-assoc-deal").value||'');
         entries[idx].docs=_dcPendingDocs.slice();
       }
     } else {
       entries.unshift({ id:'dc_'+Date.now(), offtaker:offtaker, mw:($("#dc-mw").value||'').trim(),
         quarter:quarter, status:$("#dc-status").value, campus:($("#dc-campus").value||'').trim(),
         notes:($("#dc-notes").value||'').trim(), serviceType:serviceType, nodeType:nodeType, nodeCount:nodeCount,
+        associatedDealId:($("#dc-assoc-deal").value||''),
         docs:_dcPendingDocs.slice(), dateAdded:new Date().toISOString().slice(0,10) });
     }
     saveDCEntries(entries);
