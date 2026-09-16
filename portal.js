@@ -1369,7 +1369,7 @@
               (e.mw?'<span class="kc-mw">'+esc(e.mw)+' MW</span>':'')+
               '<span class="dc-status-badge '+esc(e.status||'prospect')+'">'+esc(DC_STATUS[e.status]||e.status)+'</span>'+
               '<span style="font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:4px;letter-spacing:.4px;font-weight:700;background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.25);color:var(--accent)">'+esc(DC_SVC_LABELS[e.serviceType||'gpuaas']||e.serviceType||'GPUaaS')+'</span>'+
-              (e.nodeType?'<span style="font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:4px;letter-spacing:.4px;font-weight:700;background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.25);color:#a78bfa">'+esc(e.nodeType)+'</span>':'')+
+              (e.nodeType?'<span style="font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:4px;letter-spacing:.4px;font-weight:700;background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.25);color:#a78bfa">'+esc(e.nodeType)+(e.nodeCount?' ×'+esc(e.nodeCount):'')+'</span>':'')+
             '</div>'+
             (e.campus?'<div style="font-family:var(--mono);font-size:9px;color:var(--muted-2);margin-bottom:4px">'+esc(e.campus)+'</div>':'')+
             '<div class="kc-date">'+esc(e.dateAdded?fmtDate(e.dateAdded):'')+'</div>';
@@ -1402,10 +1402,10 @@
       b.style.background=active?'rgba(96,165,250,.13)':'transparent';
       b.style.color=active?'var(--accent)':'var(--muted)';
     });
-    var ntf=$("#dc-node-type-field");
     var showNode=svc==='gpuaas'||svc==='baremetal';
-    if(ntf) ntf.style.display=showNode?'':'none';
-    if(!showNode){ var nt=$("#dc-node-type"); if(nt) nt.value=''; }
+    var ntf=$("#dc-node-type-field"); if(ntf) ntf.style.display=showNode?'':'none';
+    var ncf=$("#dc-node-count-field"); if(ncf) ncf.style.display=showNode?'':'none';
+    if(!showNode){ var nt=$("#dc-node-type"); if(nt) nt.value=''; var nc=$("#dc-node-count"); if(nc) nc.value=''; }
   }
 
   function openAddDCEntry(quarter){
@@ -1431,6 +1431,7 @@
     $("#dc-campus").value=entry.campus||''; $("#dc-notes").value=entry.notes||'';
     setDCServiceType(entry.serviceType||'gpuaas');
     var nt=$("#dc-node-type"); if(nt) nt.value=entry.nodeType||'';
+    var nc=$("#dc-node-count"); if(nc) nc.value=entry.nodeCount||'';
     var delBtn=$("#dcEntryDeleteBtn"); if(delBtn) delBtn.style.display='';
     _dcPendingDocs=(entry.docs||[]).map(function(d){ return Object.assign({},d); }); refreshDCDealDocPills();
     $("#dcEntryModal").classList.remove('hidden');
@@ -1442,20 +1443,22 @@
     var entries=loadDCEntries(); var id=$("#dcEntryId").value;
     var quarter=$("#dc-quarter").value||getDCQuarters()[0];
     var serviceType=($("#dc-service-type").value)||'gpuaas';
-    var nodeType=(serviceType==='gpuaas'||serviceType==='baremetal')?($("#dc-node-type").value||''):'';
+    var showNode=serviceType==='gpuaas'||serviceType==='baremetal';
+    var nodeType=showNode?($("#dc-node-type").value||''):'';
+    var nodeCount=showNode?($("#dc-node-count").value||''):'';
     if(id){
       var idx=entries.findIndex(function(e){ return e.id===id; });
       if(idx>-1){
         entries[idx].offtaker=offtaker; entries[idx].mw=($("#dc-mw").value||'').trim();
         entries[idx].quarter=quarter; entries[idx].status=$("#dc-status").value;
         entries[idx].campus=($("#dc-campus").value||'').trim(); entries[idx].notes=($("#dc-notes").value||'').trim();
-        entries[idx].serviceType=serviceType; entries[idx].nodeType=nodeType;
+        entries[idx].serviceType=serviceType; entries[idx].nodeType=nodeType; entries[idx].nodeCount=nodeCount;
         entries[idx].docs=_dcPendingDocs.slice();
       }
     } else {
       entries.unshift({ id:'dc_'+Date.now(), offtaker:offtaker, mw:($("#dc-mw").value||'').trim(),
         quarter:quarter, status:$("#dc-status").value, campus:($("#dc-campus").value||'').trim(),
-        notes:($("#dc-notes").value||'').trim(), serviceType:serviceType, nodeType:nodeType,
+        notes:($("#dc-notes").value||'').trim(), serviceType:serviceType, nodeType:nodeType, nodeCount:nodeCount,
         docs:_dcPendingDocs.slice(), dateAdded:new Date().toISOString().slice(0,10) });
     }
     saveDCEntries(entries);
