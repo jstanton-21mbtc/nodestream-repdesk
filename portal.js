@@ -1403,8 +1403,9 @@
       b.style.color=active?'var(--accent)':'var(--muted)';
     });
     var ntf=$("#dc-node-type-field");
-    if(ntf) ntf.style.display=svc==='gpuaas'?'':'none';
-    if(svc!=='gpuaas'){ var nt=$("#dc-node-type"); if(nt) nt.value=''; }
+    var showNode=svc==='gpuaas'||svc==='baremetal';
+    if(ntf) ntf.style.display=showNode?'':'none';
+    if(!showNode){ var nt=$("#dc-node-type"); if(nt) nt.value=''; }
   }
 
   function openAddDCEntry(quarter){
@@ -1441,7 +1442,7 @@
     var entries=loadDCEntries(); var id=$("#dcEntryId").value;
     var quarter=$("#dc-quarter").value||getDCQuarters()[0];
     var serviceType=($("#dc-service-type").value)||'gpuaas';
-    var nodeType=serviceType==='gpuaas'?($("#dc-node-type").value||''):'';
+    var nodeType=(serviceType==='gpuaas'||serviceType==='baremetal')?($("#dc-node-type").value||''):'';
     if(id){
       var idx=entries.findIndex(function(e){ return e.id===id; });
       if(idx>-1){
