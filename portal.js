@@ -23,6 +23,8 @@
   // ============================================================
   var NS_PW_KEY    = 'ns_pw_v1';
   var NS_NAME_KEY  = 'ns_repname_v1';
+  var NS_SB_URL_KEY = 'ns_sb_url';
+  var NS_SB_KEY_KEY = 'ns_sb_anon';
   var NS_THEME_KEY = 'ns_theme_v1';
   var NS_STAY_KEY  = 'ns_stay_v1';
   var NS_SESS_KEY  = 'ns_session_v1';
@@ -125,6 +127,7 @@
         else sessionStorage.setItem(NS_SESS_KEY, '1');
         nsApplyRepName(name);
         nsHideLogin();
+        setTimeout(sbSyncDown, 600);
       });
     } else {
       btn.disabled = true; btn.textContent = 'Verifying\u2026';
@@ -134,6 +137,7 @@
           else { localStorage.removeItem(NS_STAY_KEY); sessionStorage.setItem(NS_SESS_KEY, '1'); }
           btn.disabled = false; btn.textContent = 'Sign In';
           nsHideLogin();
+          setTimeout(sbSyncDown, 600);
         } else {
           btn.disabled = false; btn.textContent = 'Sign In';
           err.textContent = 'Incorrect access code. Please try again.';
@@ -190,6 +194,7 @@
     var _ov = document.getElementById('loginOverlay');
     if(_ov) _ov.style.display = 'none';
     nsApplyRepName(localStorage.getItem(NS_NAME_KEY));
+    setTimeout(sbSyncDown, 800);
     // Recovery: restore real pipeline/task data if demo was interrupted mid-session
     // Guard: only restore if the backup belongs to the current logged-in user
     var _demoBakUser = sessionStorage.getItem('ns_demo_bak_user');
@@ -293,6 +298,8 @@
         sessionStorage.setItem('ns_demo_tasks', JSON.stringify(tasks));
       else
         localStorage.setItem('ns_tasks_v1' + nsUserSuffix(), JSON.stringify(tasks));
+      var _r=localStorage.getItem(NS_NAME_KEY)||'';
+      if(_r) sbUpsert('ns_tasks',{rep:_r, tasks:tasks, updated_at:new Date().toISOString()});
     }
 
     var isAdding = false;
@@ -520,6 +527,70 @@
     });
   }
 
+  // ============================================================
+  // SUPABASE SYNC
+  // ============================================================
+  function sbConfig(){
+    var url=localStorage.getItem(NS_SB_URL_KEY)||'';
+    var key=localStorage.getItem(NS_SB_KEY_KEY)||'';
+    if(!url||!key) return null;
+    return {url:url.replace(/\/$/,''), key:key};
+  }
+
+  function sbUpsert(table, row){
+    var cfg=sbConfig(); if(!cfg) return;
+    fetch(cfg.url+'/rest/v1/'+table,{
+      method:'POST',
+      headers:{
+        'apikey':cfg.key,'Authorization':'Bearer '+cfg.key,
+        'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'
+      },
+      body:JSON.stringify(row)
+    }).catch(function(){});
+  }
+
+  function sbGet(table, col, val){
+    var cfg=sbConfig(); if(!cfg) return Promise.resolve(null);
+    var url=cfg.url+'/rest/v1/'+table+'?select=*'+(col?'&'+col+'=eq.'+encodeURIComponent(val):'');
+    return fetch(url,{headers:{'apikey':cfg.key,'Authorization':'Bearer '+cfg.key}})
+      .then(function(r){ return r.ok?r.json():null; }).catch(function(){ return null; });
+  }
+
+  function sbSyncDown(){
+    var cfg=sbConfig(); if(!cfg) return;
+    var rep=localStorage.getItem(NS_NAME_KEY)||'';
+    // DC capacity — shared across all reps
+    sbGet('ns_dc_capacity','id','shared').then(function(rows){
+      if(!rows||!rows.length||!rows[0].entries) return;
+      if(sessionStorage.getItem('ns_demo_v1')) return;
+      localStorage.setItem('ns_dc_capacity_v1'+nsUserSuffix(), JSON.stringify(rows[0].entries));
+      if(typeof renderDCBoard==='function' && document.getElementById('dcCapacityBoard')) renderDCBoard();
+    });
+    if(!rep) return;
+    // Per-rep GPUaaS pipeline
+    sbGet('ns_pipeline','rep',rep).then(function(rows){
+      if(!rows||!rows.length||!rows[0].deals) return;
+      if(sessionStorage.getItem('ns_demo_v1')) return;
+      localStorage.setItem('ns_pipeline_v1'+nsUserSuffix(), JSON.stringify(rows[0].deals));
+      if(typeof renderKanban==='function') renderKanban();
+      if(typeof renderDashKPIs==='function') renderDashKPIs();
+      if(typeof renderDashPipeline==='function') renderDashPipeline();
+    });
+    // Per-rep hardware pipeline
+    sbGet('ns_hw_pipeline','rep',rep).then(function(rows){
+      if(!rows||!rows.length||!rows[0].deals) return;
+      if(sessionStorage.getItem('ns_demo_v1')) return;
+      localStorage.setItem('ns_hw_pipeline_v1'+nsUserSuffix(), JSON.stringify(rows[0].deals));
+      if(typeof renderKanbanHW==='function') renderKanbanHW();
+    });
+    // Per-rep tasks
+    sbGet('ns_tasks','rep',rep).then(function(rows){
+      if(!rows||!rows.length||!rows[0].tasks) return;
+      if(sessionStorage.getItem('ns_demo_v1')) return;
+      localStorage.setItem('ns_tasks_v1'+nsUserSuffix(), JSON.stringify(rows[0].tasks));
+    });
+  }
+
   function loadDeals(){
     var isDemo = sessionStorage.getItem('ns_demo_v1');
     var store = isDemo ? sessionStorage : localStorage;
@@ -531,6 +602,8 @@
       sessionStorage.setItem('ns_demo_pipeline', JSON.stringify(d));
     else
       localStorage.setItem('ns_pipeline_v1' + nsUserSuffix(), JSON.stringify(d));
+    var _r=localStorage.getItem(NS_NAME_KEY)||'';
+    if(_r) sbUpsert('ns_pipeline',{rep:_r, deals:d, updated_at:new Date().toISOString()});
   }
 
   var STAGE_WEIGHTS = {disc:0.10, qual:0.25, quote:0.50, nego:0.75, won:1.0, lost:0.0};
@@ -999,6 +1072,8 @@
       sessionStorage.setItem('ns_demo_hw_pipeline', JSON.stringify(d));
     else
       localStorage.setItem('ns_hw_pipeline_v1' + nsUserSuffix(), JSON.stringify(d));
+    var _r=localStorage.getItem(NS_NAME_KEY)||'';
+    if(_r) sbUpsert('ns_hw_pipeline',{rep:_r, deals:d, updated_at:new Date().toISOString()});
   }
 
   function fmtHWCard(deal){
@@ -1216,6 +1291,7 @@
       sessionStorage.setItem('ns_demo_dc_capacity',JSON.stringify(d));
     else
       localStorage.setItem('ns_dc_capacity_v1'+nsUserSuffix(),JSON.stringify(d));
+    sbUpsert('ns_dc_capacity',{id:'shared', entries:d, updated_at:new Date().toISOString()});
   }
 
   function populateDCQuarterSelect(selectedVal){
@@ -1975,6 +2051,78 @@
       else    localStorage.removeItem(NS_GCLIENT_KEY);
       mountSettings();
     });
+
+    // ---- Supabase Cloud Sync card ----
+    var sbUrl=localStorage.getItem(NS_SB_URL_KEY)||'';
+    var sbKey=localStorage.getItem(NS_SB_KEY_KEY)||'';
+    var sbConnected=!!(sbUrl&&sbKey);
+    var sbSchema=
+      'create table if not exists ns_pipeline (\n  rep text primary key,\n  deals jsonb not null default \'[]\',\n  updated_at timestamptz default now()\n);\ncreate table if not exists ns_hw_pipeline (\n  rep text primary key,\n  deals jsonb not null default \'[]\',\n  updated_at timestamptz default now()\n);\ncreate table if not exists ns_dc_capacity (\n  id text primary key default \'shared\',\n  entries jsonb not null default \'[]\',\n  updated_at timestamptz default now()\n);\ncreate table if not exists ns_tasks (\n  rep text primary key,\n  tasks jsonb not null default \'[]\',\n  updated_at timestamptz default now()\n);\nalter table ns_pipeline enable row level security;\nalter table ns_hw_pipeline enable row level security;\nalter table ns_dc_capacity enable row level security;\nalter table ns_tasks enable row level security;\ncreate policy "anon_all" on ns_pipeline for all to anon using (true) with check (true);\ncreate policy "anon_all" on ns_hw_pipeline for all to anon using (true) with check (true);\ncreate policy "anon_all" on ns_dc_capacity for all to anon using (true) with check (true);\ncreate policy "anon_all" on ns_tasks for all to anon using (true) with check (true);';
+    var sbDiv=document.createElement('div');
+    sbDiv.className='settings-card';
+    sbDiv.innerHTML=
+      '<h3>Cloud Sync <span class="prov-badge" style="background:rgba(62,180,137,.12);color:#3eb489;border:1px solid rgba(62,180,137,.3)">Supabase</span></h3>'+
+      '<p class="sc-desc">Sync all pipeline data across every rep\'s account in real time. DC Capacity is shared — all reps see the same sites. Personal pipelines and tasks sync per rep. Free Supabase tier covers any team size.</p>'+
+      '<p class="sc-desc" style="margin-top:-4px">1. Create a free project at <strong>supabase.com</strong> &nbsp;2. Run the SQL below in the SQL Editor &nbsp;3. Paste your URL + anon key here.</p>'+
+      '<div class="form-field" style="margin-bottom:10px">'+
+        '<span class="form-label">SQL Schema — run once in Supabase SQL Editor</span>'+
+        '<textarea id="sb-schema-box" rows="6" readonly style="width:100%;background:var(--ink);border:1px solid var(--line);border-radius:8px;color:var(--muted);font-family:var(--mono);font-size:10px;padding:10px;resize:none;outline:none;line-height:1.6">'+esc(sbSchema)+'</textarea>'+
+        '<button class="btn-ghost" id="sb-copy-schema" style="font-size:11px;padding:4px 12px;margin-top:6px">Copy SQL</button>'+
+      '</div>'+
+      '<div class="form-field" style="margin-bottom:10px">'+
+        '<span class="form-label">Project URL</span>'+
+        '<input class="form-input" type="text" id="sb-url" autocomplete="off" placeholder="https://xxxxxxxxxxxx.supabase.co" value="'+esc(sbUrl)+'" style="font-family:var(--mono);font-size:12px">'+
+      '</div>'+
+      '<div class="form-field" style="margin-bottom:14px">'+
+        '<span class="form-label">Anon / Public Key</span>'+
+        '<input class="form-input" type="password" id="sb-key" autocomplete="off" placeholder="eyJhbGci..." value="'+esc(sbKey)+'" style="font-family:var(--mono);font-size:12px">'+
+      '</div>'+
+      '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'+
+        '<button class="btn-primary" id="sb-save-btn" style="padding:7px 16px;font-size:12px">Save & Connect</button>'+
+        (sbConnected?'<button class="btn-ghost" id="sb-test-btn" style="padding:7px 14px;font-size:12px">Test Connection</button>':'')+
+        (sbConnected?'<button class="btn-danger" id="sb-clear-btn" style="padding:7px 14px;font-size:12px">Disconnect</button>':'')+
+      '</div>'+
+      '<div class="key-status" id="sb-status" style="margin-top:12px">'+
+        '<span class="dot'+(sbConnected?' set':'')+'"></span>'+
+        '<span class="ksl'+(sbConnected?' set':'')+'">'+
+          (sbConnected?'Connected — syncing to Supabase':'Not connected — using local storage only')+
+        '</span>'+
+      '</div>';
+    el.appendChild(sbDiv);
+
+    sbDiv.querySelector('#sb-copy-schema').addEventListener('click',function(){
+      navigator.clipboard.writeText(sbSchema).then(function(){
+        var btn=sbDiv.querySelector('#sb-copy-schema');
+        btn.textContent='Copied ✓'; setTimeout(function(){ btn.textContent='Copy SQL'; },2000);
+      }).catch(function(){
+        sbDiv.querySelector('#sb-schema-box').select(); document.execCommand('copy');
+      });
+    });
+    sbDiv.querySelector('#sb-save-btn').addEventListener('click',function(){
+      var url=(sbDiv.querySelector('#sb-url').value||'').trim();
+      var key=(sbDiv.querySelector('#sb-key').value||'').trim();
+      if(!url||!key){ alert('Please enter both the Project URL and Anon Key.'); return; }
+      localStorage.setItem(NS_SB_URL_KEY,url);
+      localStorage.setItem(NS_SB_KEY_KEY,key);
+      sbSyncDown();
+      mountSettings();
+    });
+    if(sbConnected){
+      sbDiv.querySelector('#sb-test-btn').addEventListener('click',function(){
+        var btn=sbDiv.querySelector('#sb-test-btn');
+        btn.textContent='Testing…'; btn.disabled=true;
+        sbGet('ns_dc_capacity','id','shared').then(function(rows){
+          btn.disabled=false;
+          if(rows!==null){ btn.textContent='✓ Connected'; setTimeout(function(){ btn.textContent='Test Connection'; },2500); }
+          else { btn.textContent='✗ Failed — check URL/key'; setTimeout(function(){ btn.textContent='Test Connection'; },3000); }
+        });
+      });
+      sbDiv.querySelector('#sb-clear-btn').addEventListener('click',function(){
+        if(!confirm('Disconnect Supabase? Local data will be kept.')) return;
+        localStorage.removeItem(NS_SB_URL_KEY); localStorage.removeItem(NS_SB_KEY_KEY);
+        mountSettings();
+      });
+    }
 
     // Settings event delegation — bind once only to prevent listener stacking
     if(!_settingsBound){
