@@ -764,6 +764,15 @@
         <span class="form-label">Data Center / Facility Name</span>
         <input class="form-input" type="text" id="dc-offtaker" placeholder="e.g. Phoenix AZ Campus 1">
       </div>
+      <div class="form-field">
+        <span class="form-label">Service Type</span>
+        <input type="hidden" id="dc-service-type" value="gpuaas">
+        <div style="display:flex;gap:8px;margin-top:2px">
+          <button type="button" class="dc-svc-btn active" data-svc="gpuaas" style="flex:1;padding:7px 10px;border-radius:7px;border:1.5px solid var(--accent);background:rgba(96,165,250,.13);color:var(--accent);font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.5px;cursor:pointer;transition:all .15s">GPUaaS</button>
+          <button type="button" class="dc-svc-btn" data-svc="baremetal" style="flex:1;padding:7px 10px;border-radius:7px;border:1.5px solid var(--line);background:transparent;color:var(--muted);font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.5px;cursor:pointer;transition:all .15s">Bare Metal</button>
+          <button type="button" class="dc-svc-btn" data-svc="colo" style="flex:1;padding:7px 10px;border-radius:7px;border:1.5px solid var(--line);background:transparent;color:var(--muted);font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.5px;cursor:pointer;transition:all .15s">CoLocation</button>
+        </div>
+      </div>
       <div class="form-row">
         <div class="form-field">
           <span class="form-label">MW Requested</span>

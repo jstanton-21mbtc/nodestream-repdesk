@@ -1368,6 +1368,7 @@
             '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap">'+
               (e.mw?'<span class="kc-mw">'+esc(e.mw)+' MW</span>':'')+
               '<span class="dc-status-badge '+esc(e.status||'prospect')+'">'+esc(DC_STATUS[e.status]||e.status)+'</span>'+
+              '<span style="font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:4px;letter-spacing:.4px;font-weight:700;background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.25);color:var(--accent)">'+esc(DC_SVC_LABELS[e.serviceType||'gpuaas']||e.serviceType||'GPUaaS')+'</span>'+
             '</div>'+
             (e.campus?'<div style="font-family:var(--mono);font-size:9px;color:var(--muted-2);margin-bottom:4px">'+esc(e.campus)+'</div>':'')+
             '<div class="kc-date">'+esc(e.dateAdded?fmtDate(e.dateAdded):'')+'</div>';
@@ -1388,11 +1389,25 @@
     board.appendChild(wrap);
   }
 
+  var DC_SVC_LABELS = { gpuaas:'GPUaaS', baremetal:'Bare Metal', colo:'CoLocation' };
+
+  function setDCServiceType(val){
+    var hi=$("#dc-service-type"); if(hi) hi.value=val||'gpuaas';
+    $$('.dc-svc-btn').forEach(function(b){
+      var active=b.dataset.svc===(val||'gpuaas');
+      b.classList.toggle('active',active);
+      b.style.borderColor=active?'var(--accent)':'var(--line)';
+      b.style.background=active?'rgba(96,165,250,.13)':'transparent';
+      b.style.color=active?'var(--accent)':'var(--muted)';
+    });
+  }
+
   function openAddDCEntry(quarter){
     populateDCQuarterSelect(quarter||getDCQuarters()[0]);
     $("#dcEntryModalTitle").textContent='Add Data Center';
     $("#dcEntryId").value=''; $("#dc-offtaker").value=''; $("#dc-mw").value='';
     $("#dc-status").value='prospect'; $("#dc-campus").value=''; $("#dc-notes").value='';
+    setDCServiceType('gpuaas');
     var delBtn=$("#dcEntryDeleteBtn"); if(delBtn) delBtn.style.display='none';
     _dcPendingDocs=[]; refreshDCDealDocPills();
     _viewingDCEntryId=null;
@@ -1408,6 +1423,7 @@
     $("#dcEntryId").value=entry.id; $("#dc-offtaker").value=entry.offtaker||'';
     $("#dc-mw").value=entry.mw||''; $("#dc-status").value=entry.status||'prospect';
     $("#dc-campus").value=entry.campus||''; $("#dc-notes").value=entry.notes||'';
+    setDCServiceType(entry.serviceType||'gpuaas');
     var delBtn=$("#dcEntryDeleteBtn"); if(delBtn) delBtn.style.display='';
     _dcPendingDocs=(entry.docs||[]).map(function(d){ return Object.assign({},d); }); refreshDCDealDocPills();
     $("#dcEntryModal").classList.remove('hidden');
@@ -1418,18 +1434,20 @@
     var offtaker=($("#dc-offtaker").value||'').trim(); if(!offtaker){ $("#dc-offtaker").focus(); return; }
     var entries=loadDCEntries(); var id=$("#dcEntryId").value;
     var quarter=$("#dc-quarter").value||getDCQuarters()[0];
+    var serviceType=($("#dc-service-type").value)||'gpuaas';
     if(id){
       var idx=entries.findIndex(function(e){ return e.id===id; });
       if(idx>-1){
         entries[idx].offtaker=offtaker; entries[idx].mw=($("#dc-mw").value||'').trim();
         entries[idx].quarter=quarter; entries[idx].status=$("#dc-status").value;
         entries[idx].campus=($("#dc-campus").value||'').trim(); entries[idx].notes=($("#dc-notes").value||'').trim();
+        entries[idx].serviceType=serviceType;
         entries[idx].docs=_dcPendingDocs.slice();
       }
     } else {
       entries.unshift({ id:'dc_'+Date.now(), offtaker:offtaker, mw:($("#dc-mw").value||'').trim(),
         quarter:quarter, status:$("#dc-status").value, campus:($("#dc-campus").value||'').trim(),
-        notes:($("#dc-notes").value||'').trim(), docs:_dcPendingDocs.slice(),
+        notes:($("#dc-notes").value||'').trim(), serviceType:serviceType, docs:_dcPendingDocs.slice(),
         dateAdded:new Date().toISOString().slice(0,10) });
     }
     saveDCEntries(entries);
@@ -1584,6 +1602,17 @@
     if(e.target.closest('#dcEntryModalSave')){ saveDCEntryForm(); return; }
     if(e.target.closest('#dcEntryDeleteBtn')){ deleteDCEntry();   return; }
     if(e.target.closest('#dcEntryDocsBtn')){ $("#dcEntryDocsInput").click(); return; }
+    var svcBtn=e.target.closest('.dc-svc-btn');
+    if(svcBtn){
+      $$('.dc-svc-btn').forEach(function(b){
+        b.classList.remove('active');
+        b.style.borderColor='var(--line)'; b.style.background='transparent'; b.style.color='var(--muted)';
+      });
+      svcBtn.classList.add('active');
+      svcBtn.style.borderColor='var(--accent)'; svcBtn.style.background='rgba(96,165,250,.13)'; svcBtn.style.color='var(--accent)';
+      var hi=$("#dc-service-type"); if(hi) hi.value=svcBtn.dataset.svc;
+      return;
+    }
 
     // Deal row (dashboard preview table)
     var tr=e.target.closest('tr[data-deal-id]');
