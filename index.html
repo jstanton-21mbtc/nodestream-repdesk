@@ -794,6 +794,12 @@
         <span class="form-label">Notes</span>
         <textarea class="form-input" id="dc-notes" rows="3" style="resize:vertical" placeholder="Contract terms, PPA details, key contacts..."></textarea>
       </div>
+      <div class="form-field">
+        <span class="form-label">Documents</span>
+        <div id="dcEntryDocsList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px"></div>
+        <button type="button" class="btn-ghost" id="dcEntryDocsBtn" style="font-size:12px;padding:5px 12px;width:fit-content">+ Attach File</button>
+        <input type="file" id="dcEntryDocsInput" style="display:none" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.png,.jpg,.jpeg,.csv">
+      </div>
     </div>
     <div class="modal-foot">
       <button class="btn-danger" id="dcEntryDeleteBtn" style="display:none">Delete Entry</button>

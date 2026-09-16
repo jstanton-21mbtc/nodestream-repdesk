@@ -452,6 +452,7 @@
   var _viewingDealId = null;
   var _pendingDocs   = [];
   var _hwPendingDocs = [];
+  var _dcPendingDocs = [];
 
   function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
   function fmtDate(iso){ if(!iso) return '—'; try{ return new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }catch(e){ return iso.slice(0,10); } }
@@ -510,6 +511,12 @@
   function refreshHWDealDocPills(){
     renderDocPills('hwDealDocsList', _hwPendingDocs, function(i){
       _hwPendingDocs.splice(i,1); refreshHWDealDocPills();
+    });
+  }
+
+  function refreshDCDealDocPills(){
+    renderDocPills('dcEntryDocsList', _dcPendingDocs, function(i){
+      _dcPendingDocs.splice(i,1); refreshDCDealDocPills();
     });
   }
 
@@ -1297,6 +1304,7 @@
     $("#dcEntryId").value=''; $("#dc-offtaker").value=''; $("#dc-mw").value='';
     $("#dc-status").value='prospect'; $("#dc-campus").value=''; $("#dc-notes").value='';
     var delBtn=$("#dcEntryDeleteBtn"); if(delBtn) delBtn.style.display='none';
+    _dcPendingDocs=[]; refreshDCDealDocPills();
     _viewingDCEntryId=null;
     $("#dcEntryModal").classList.remove('hidden');
     setTimeout(function(){ $("#dc-offtaker").focus(); },50);
@@ -1311,6 +1319,7 @@
     $("#dc-mw").value=entry.mw||''; $("#dc-status").value=entry.status||'prospect';
     $("#dc-campus").value=entry.campus||''; $("#dc-notes").value=entry.notes||'';
     var delBtn=$("#dcEntryDeleteBtn"); if(delBtn) delBtn.style.display='';
+    _dcPendingDocs=(entry.docs||[]).map(function(d){ return Object.assign({},d); }); refreshDCDealDocPills();
     $("#dcEntryModal").classList.remove('hidden');
     setTimeout(function(){ $("#dc-offtaker").focus(); },50);
   }
@@ -1325,11 +1334,13 @@
         entries[idx].offtaker=offtaker; entries[idx].mw=($("#dc-mw").value||'').trim();
         entries[idx].quarter=quarter; entries[idx].status=$("#dc-status").value;
         entries[idx].campus=($("#dc-campus").value||'').trim(); entries[idx].notes=($("#dc-notes").value||'').trim();
+        entries[idx].docs=_dcPendingDocs.slice();
       }
     } else {
       entries.unshift({ id:'dc_'+Date.now(), offtaker:offtaker, mw:($("#dc-mw").value||'').trim(),
         quarter:quarter, status:$("#dc-status").value, campus:($("#dc-campus").value||'').trim(),
-        notes:($("#dc-notes").value||'').trim(), dateAdded:new Date().toISOString().slice(0,10) });
+        notes:($("#dc-notes").value||'').trim(), docs:_dcPendingDocs.slice(),
+        dateAdded:new Date().toISOString().slice(0,10) });
     }
     saveDCEntries(entries);
     $("#dcEntryModal").classList.add('hidden'); _viewingDCEntryId=null;
@@ -1482,6 +1493,7 @@
     if(e.target.closest('#dcEntryModalClose')||e.target.closest('#dcEntryModalCancel')){ $("#dcEntryModal").classList.add('hidden'); _viewingDCEntryId=null; return; }
     if(e.target.closest('#dcEntryModalSave')){ saveDCEntryForm(); return; }
     if(e.target.closest('#dcEntryDeleteBtn')){ deleteDCEntry();   return; }
+    if(e.target.closest('#dcEntryDocsBtn')){ $("#dcEntryDocsInput").click(); return; }
 
     // Deal row (dashboard preview table)
     var tr=e.target.closest('tr[data-deal-id]');
@@ -1501,6 +1513,12 @@
       if(!hwInp.files.length) return;
       readFilesIntoDocs(hwInp.files, _hwPendingDocs, function(){ refreshHWDealDocPills(); });
       hwInp.value='';
+    });
+    var dcInp=$("#dcEntryDocsInput");
+    if(dcInp) dcInp.addEventListener('change',function(){
+      if(!dcInp.files.length) return;
+      readFilesIntoDocs(dcInp.files, _dcPendingDocs, function(){ refreshDCDealDocPills(); });
+      dcInp.value='';
     });
   })();
 
