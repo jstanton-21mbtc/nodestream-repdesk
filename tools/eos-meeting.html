@@ -335,7 +335,19 @@ function fmtRange(start){
 
 // ---- Storage ----
 function loadAll(){ try{ return JSON.parse(localStorage.getItem(EOS_KEY)||'{}'); }catch(e){ return {}; } }
-function saveAll(d){ try{ localStorage.setItem(EOS_KEY,JSON.stringify(d)); }catch(e){} }
+function saveAll(d){
+  try{ localStorage.setItem(EOS_KEY,JSON.stringify(d)); }catch(e){}
+  // Push to Supabase if configured
+  var sbUrl=(localStorage.getItem('ns_sb_url')||'').replace(/\/$/,'');
+  var sbKey=localStorage.getItem('ns_sb_anon')||'';
+  if(sbUrl&&sbKey){
+    fetch(sbUrl+'/rest/v1/ns_eos_meetings',{
+      method:'POST',
+      headers:{'apikey':sbKey,'Authorization':'Bearer '+sbKey,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
+      body:JSON.stringify({id:'shared',data:d,updated_at:new Date().toISOString()})
+    }).catch(function(){});
+  }
+}
 
 // ---- Defaults ----
 var SC_DEFAULTS=[

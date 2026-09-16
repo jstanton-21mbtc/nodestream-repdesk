@@ -589,6 +589,12 @@
       if(sessionStorage.getItem('ns_demo_v1')) return;
       localStorage.setItem('ns_tasks_v1'+nsUserSuffix(), JSON.stringify(rows[0].tasks));
     });
+    // EOS meetings — shared across all reps
+    sbGet('ns_eos_meetings','id','shared').then(function(rows){
+      if(!rows||!rows.length||!rows[0].data) return;
+      if(sessionStorage.getItem('ns_demo_v1')) return;
+      localStorage.setItem('ns_eos_meetings_v1', JSON.stringify(rows[0].data));
+    });
   }
 
   function loadDeals(){
@@ -2057,7 +2063,7 @@
     var sbKey=localStorage.getItem(NS_SB_KEY_KEY)||'';
     var sbConnected=!!(sbUrl&&sbKey);
     var sbSchema=
-      'create table if not exists ns_pipeline (\n  rep text primary key,\n  deals jsonb not null default \'[]\',\n  updated_at timestamptz default now()\n);\ncreate table if not exists ns_hw_pipeline (\n  rep text primary key,\n  deals jsonb not null default \'[]\',\n  updated_at timestamptz default now()\n);\ncreate table if not exists ns_dc_capacity (\n  id text primary key default \'shared\',\n  entries jsonb not null default \'[]\',\n  updated_at timestamptz default now()\n);\ncreate table if not exists ns_tasks (\n  rep text primary key,\n  tasks jsonb not null default \'[]\',\n  updated_at timestamptz default now()\n);\nalter table ns_pipeline enable row level security;\nalter table ns_hw_pipeline enable row level security;\nalter table ns_dc_capacity enable row level security;\nalter table ns_tasks enable row level security;\ncreate policy "anon_all" on ns_pipeline for all to anon using (true) with check (true);\ncreate policy "anon_all" on ns_hw_pipeline for all to anon using (true) with check (true);\ncreate policy "anon_all" on ns_dc_capacity for all to anon using (true) with check (true);\ncreate policy "anon_all" on ns_tasks for all to anon using (true) with check (true);';
+      'create table if not exists ns_pipeline (\n  rep text primary key,\n  deals jsonb not null default \'[]\',\n  updated_at timestamptz default now()\n);\ncreate table if not exists ns_hw_pipeline (\n  rep text primary key,\n  deals jsonb not null default \'[]\',\n  updated_at timestamptz default now()\n);\ncreate table if not exists ns_dc_capacity (\n  id text primary key default \'shared\',\n  entries jsonb not null default \'[]\',\n  updated_at timestamptz default now()\n);\ncreate table if not exists ns_tasks (\n  rep text primary key,\n  tasks jsonb not null default \'[]\',\n  updated_at timestamptz default now()\n);\ncreate table if not exists ns_eos_meetings (\n  id text primary key default \'shared\',\n  data jsonb not null default \'{}\',\n  updated_at timestamptz default now()\n);\nalter table ns_pipeline enable row level security;\nalter table ns_hw_pipeline enable row level security;\nalter table ns_dc_capacity enable row level security;\nalter table ns_tasks enable row level security;\nalter table ns_eos_meetings enable row level security;\ncreate policy "anon_all" on ns_pipeline for all to anon using (true) with check (true);\ncreate policy "anon_all" on ns_hw_pipeline for all to anon using (true) with check (true);\ncreate policy "anon_all" on ns_dc_capacity for all to anon using (true) with check (true);\ncreate policy "anon_all" on ns_tasks for all to anon using (true) with check (true);\ncreate policy "anon_all" on ns_eos_meetings for all to anon using (true) with check (true);';
     var sbDiv=document.createElement('div');
     sbDiv.className='settings-card';
     sbDiv.innerHTML=
@@ -2079,7 +2085,7 @@
       '</div>'+
       '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'+
         '<button class="btn-primary" id="sb-save-btn" style="padding:7px 16px;font-size:12px">Save & Connect</button>'+
-        (sbConnected?'<button class="btn-primary" id="sb-push-dc-btn" style="padding:7px 16px;font-size:12px;background:var(--green-dim)">Push DC to All Reps</button>':'')+
+        (sbConnected?'<button class="btn-primary" id="sb-push-dc-btn" style="padding:7px 16px;font-size:12px;background:var(--green-dim)">Push to All Reps</button>':'')+
         (sbConnected?'<button class="btn-ghost" id="sb-test-btn" style="padding:7px 14px;font-size:12px">Test Connection</button>':'')+
         (sbConnected?'<button class="btn-danger" id="sb-clear-btn" style="padding:7px 14px;font-size:12px">Disconnect</button>':'')+
       '</div>'+
@@ -2111,18 +2117,28 @@
     if(sbConnected){
       sbDiv.querySelector('#sb-push-dc-btn').addEventListener('click',function(){
         var btn=sbDiv.querySelector('#sb-push-dc-btn');
-        var entries=loadDCEntries();
-        if(!entries.length){ btn.textContent='No DC data to push'; setTimeout(function(){ btn.textContent='Push DC to All Reps'; },2000); return; }
+        var cfg=sbConfig(); if(!cfg) return;
         btn.textContent='Pushing…'; btn.disabled=true;
-        fetch(sbConfig().url+'/rest/v1/ns_dc_capacity',{
-          method:'POST',
-          headers:{'apikey':sbConfig().key,'Authorization':'Bearer '+sbConfig().key,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
-          body:JSON.stringify({id:'shared', entries:entries, updated_at:new Date().toISOString()})
-        }).then(function(r){
+        var dcEntries=loadDCEntries();
+        var eosData=(function(){ try{ return JSON.parse(localStorage.getItem('ns_eos_meetings_v1')||'{}'); }catch(e){ return {}; } })();
+        var pushes=[
+          fetch(cfg.url+'/rest/v1/ns_dc_capacity',{
+            method:'POST',
+            headers:{'apikey':cfg.key,'Authorization':'Bearer '+cfg.key,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
+            body:JSON.stringify({id:'shared', entries:dcEntries, updated_at:new Date().toISOString()})
+          }),
+          fetch(cfg.url+'/rest/v1/ns_eos_meetings',{
+            method:'POST',
+            headers:{'apikey':cfg.key,'Authorization':'Bearer '+cfg.key,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
+            body:JSON.stringify({id:'shared', data:eosData, updated_at:new Date().toISOString()})
+          })
+        ];
+        Promise.all(pushes).then(function(results){
           btn.disabled=false;
-          if(r.ok){ btn.textContent='✓ Pushed '+entries.length+' sites'; setTimeout(function(){ btn.textContent='Push DC to All Reps'; },3000); }
-          else { btn.textContent='✗ Failed — check connection'; setTimeout(function(){ btn.textContent='Push DC to All Reps'; },3000); }
-        }).catch(function(){ btn.disabled=false; btn.textContent='✗ Network error'; setTimeout(function(){ btn.textContent='Push DC to All Reps'; },3000); });
+          var ok=results.every(function(r){ return r.ok; });
+          if(ok){ btn.textContent='✓ DC + EOS pushed'; setTimeout(function(){ btn.textContent='Push to All Reps'; },3000); }
+          else { btn.textContent='✗ Partial failure — retry'; setTimeout(function(){ btn.textContent='Push to All Reps'; },3000); }
+        }).catch(function(){ btn.disabled=false; btn.textContent='✗ Network error'; setTimeout(function(){ btn.textContent='Push to All Reps'; },3000); });
       });
       sbDiv.querySelector('#sb-test-btn').addEventListener('click',function(){
         var btn=sbDiv.querySelector('#sb-test-btn');
