@@ -311,7 +311,7 @@ tr.drag-over-bottom td{border-bottom:2px solid var(--green) !important}
 
 var EOS_KEY = 'ns_eos_meetings_v1';
 var _uid = 0;
-function uid(){ return ++_uid; }
+function uid(){ return Date.now() + '_' + (++_uid); }
 function $(id){ return document.getElementById(id); }
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
