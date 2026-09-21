@@ -462,6 +462,11 @@
   var _dcPendingDocs = [];
 
   function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+  function setRepBtns(inputId, btnClass, val){
+    var hi = $(inputId); if(hi) hi.value = val||'';
+    $$(btnClass).forEach(function(b){ b.classList.toggle('active', b.dataset.rep === val); });
+  }
   function fmtDate(iso){ if(!iso) return '—'; try{ return new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }catch(e){ return iso.slice(0,10); } }
 
   // ---- Document helpers ----
@@ -768,7 +773,10 @@
           card.dataset.dealId=d.id;
           card.innerHTML=
             '<div class="kc-co">'+esc(d.co)+(hasDocs?'<span class="kc-docs">docs</span>':'')+' </div>'+
-            '<div class="kc-persona">'+esc(d.persona)+'</div>'+
+            '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">'+
+              '<span class="kc-persona" style="margin-bottom:0">'+esc(d.persona)+'</span>'+
+              (d.rep?'<span class="kc-rep" data-rep="'+esc(d.rep)+'">'+esc(d.rep)+'</span>':'')+
+            '</div>'+
             (d.amt?'<div class="kc-amt">'+esc(d.amt)+'</div>':'')+
             '<div class="kc-date" style="display:flex;align-items:center;justify-content:space-between;gap:6px">'+
               '<span>'+(d.dateAdded?esc(fmtDate(d.dateAdded)):'')+'</span>'+
@@ -856,6 +864,7 @@
       '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">'+
         '<span class="stage '+deal.stage+'">'+esc(STAGES[deal.stage]||deal.stage)+'</span>'+
         '<span class="persona-tag">'+esc(deal.persona)+'</span>'+
+        (deal.rep?'<span class="kc-rep" data-rep="'+esc(deal.rep)+'" style="font-size:9px">'+esc(deal.rep)+'</span>':'')+
         (deal.amt?'<span style="font-family:var(--mono);font-size:13px;color:var(--green-bright)">'+esc(deal.amt)+'</span>':'')+
         '<span style="font-family:var(--mono);font-size:10px;color:var(--muted-2);margin-left:auto">Added '+fmtDate(deal.dateAdded)+'</span>'+
       '</div>'+
@@ -959,6 +968,7 @@
     $("#dealId").value=''; $("#deal-co").value='';
     $("#deal-persona").value='Neocloud'; $("#deal-stage").value=stage||'disc';
     $("#deal-amt").value=''; $("#deal-notes").value='';
+    setRepBtns('#deal-rep', '.deal-rep-btn', '');
     _pendingDocs=[]; refreshDealDocPills();
     $("#dealModal").classList.remove('hidden');
     setTimeout(function(){ $("#deal-co").focus(); },50);
@@ -976,6 +986,7 @@
     $("#deal-stage").value=deal.stage||'disc';
     $("#deal-amt").value=deal.amt||'';
     $("#deal-notes").value=deal.notes||'';
+    setRepBtns('#deal-rep', '.deal-rep-btn', deal.rep||'');
     _pendingDocs=(deal.docs||[]).map(function(d){ return Object.assign({},d); }); refreshDealDocPills();
     $("#dealModal").classList.remove('hidden');
     setTimeout(function(){ $("#deal-co").focus(); },50);
@@ -993,13 +1004,15 @@
         deals[idx].stage=$("#deal-stage").value;
         deals[idx].amt=($("#deal-amt").value||'').trim();
         deals[idx].notes=($("#deal-notes").value||'').trim();
+        deals[idx].rep=($("#deal-rep").value||'').trim();
         deals[idx].docs=_pendingDocs.slice();
       }
     } else {
       deals.unshift({
         id:'deal_'+Date.now(), co:co, persona:$("#deal-persona").value,
         stage:$("#deal-stage").value, amt:($("#deal-amt").value||'').trim(),
-        notes:($("#deal-notes").value||'').trim(), docs:_pendingDocs.slice(),
+        notes:($("#deal-notes").value||'').trim(), rep:($("#deal-rep").value||'').trim(),
+        docs:_pendingDocs.slice(),
         scorecardNotes:'', scorecardSavedAt:null, scorecardExtra:'',
         quoteNotes:'', configSavedAt:null, quoteExtra:'',
         dateAdded:new Date().toISOString().slice(0,10)
@@ -1119,7 +1132,10 @@
           var hwDesc = fmtHWCard(d);
           var card = document.createElement('div'); card.className='kancard'; card.draggable=true; card.dataset.dealId=d.id;
           card.innerHTML=
-            '<div class="kc-co">'+esc(d.co)+'</div>'+
+            '<div style="display:flex;align-items:flex-start;gap:6px;flex-wrap:wrap;margin-bottom:6px">'+
+              '<span class="kc-co" style="margin-bottom:0;flex:1">'+esc(d.co)+'</span>'+
+              (d.rep?'<span class="kc-rep" data-rep="'+esc(d.rep)+'">'+esc(d.rep)+'</span>':'')+
+            '</div>'+
             (hwDesc?'<div class="kc-sku">'+esc(hwDesc)+'</div>':'')+
             (d.amt?'<div class="kc-amt">'+esc(d.amt)+'</div>':'')+
             '<div class="kc-date">'+esc(d.dateAdded?fmtDate(d.dateAdded):'')+'</div>';
@@ -1148,6 +1164,7 @@
     body.innerHTML=
       '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">'+
         '<span class="stage '+deal.stage+'">'+esc(HW_STAGES[deal.stage]||deal.stage)+'</span>'+
+        (deal.rep?'<span class="kc-rep" data-rep="'+esc(deal.rep)+'" style="font-size:9px">'+esc(deal.rep)+'</span>':'')+
         (hwDesc?'<span style="font-family:var(--mono);font-size:12px;color:var(--muted-2)">'+esc(hwDesc)+'</span>':'')+
         (deal.amt?'<span style="font-family:var(--mono);font-size:13px;color:var(--green-bright)">'+esc(deal.amt)+'</span>':'')+
         '<span style="font-family:var(--mono);font-size:10px;color:var(--muted-2);margin-left:auto">Added '+fmtDate(deal.dateAdded)+'</span>'+
@@ -1209,6 +1226,7 @@
     $("#hwDealId").value=''; $("#hw-deal-co").value=''; $("#hw-deal-sku").value='';
     $("#hw-deal-qty").value=''; $("#hw-deal-unit").value=''; $("#hw-deal-notes").value='';
     $("#hw-deal-stage").value=stage||'disc';
+    setRepBtns('#hw-deal-rep', '.hw-rep-btn', '');
     _hwPendingDocs=[]; refreshHWDealDocPills();
     $("#hwDealModal").classList.remove('hidden');
     setTimeout(function(){ $("#hw-deal-co").focus(); },50);
@@ -1223,6 +1241,7 @@
     $("#hw-deal-sku").value=deal.sku||''; $("#hw-deal-qty").value=deal.qty||'';
     $("#hw-deal-unit").value=deal.unitAmt||''; $("#hw-deal-stage").value=deal.stage||'disc';
     $("#hw-deal-notes").value=deal.notes||'';
+    setRepBtns('#hw-deal-rep', '.hw-rep-btn', deal.rep||'');
     _hwPendingDocs=(deal.docs||[]).map(function(d){ return Object.assign({},d); }); refreshHWDealDocPills();
     $("#hwDealModal").classList.remove('hidden');
     setTimeout(function(){ $("#hw-deal-co").focus(); },50);
@@ -1241,12 +1260,14 @@
         deals[idx].co=co; deals[idx].sku=($("#hw-deal-sku").value||'').trim();
         deals[idx].qty=qty||''; deals[idx].unitAmt=unitAmtStr; deals[idx].amt=totalAmt;
         deals[idx].stage=$("#hw-deal-stage").value; deals[idx].notes=($("#hw-deal-notes").value||'').trim();
+        deals[idx].rep=($("#hw-deal-rep").value||'').trim();
         deals[idx].docs=_hwPendingDocs.slice();
       }
     } else {
       deals.unshift({ id:'hw_'+Date.now(), co:co, sku:($("#hw-deal-sku").value||'').trim(),
         qty:qty||'', unitAmt:unitAmtStr, amt:totalAmt, stage:$("#hw-deal-stage").value,
-        notes:($("#hw-deal-notes").value||'').trim(), docs:_hwPendingDocs.slice(),
+        notes:($("#hw-deal-notes").value||'').trim(), rep:($("#hw-deal-rep").value||'').trim(),
+        docs:_hwPendingDocs.slice(),
         dateAdded:new Date().toISOString().slice(0,10) });
     }
     saveHWDeals(deals); $("#hwDealModal").classList.add('hidden'); renderKanbanHW();
@@ -1632,6 +1653,20 @@
     if(e.target.closest('#dcEntryModalSave')){ saveDCEntryForm(); return; }
     if(e.target.closest('#dcEntryDeleteBtn')){ deleteDCEntry();   return; }
     if(e.target.closest('#dcEntryDocsBtn')){ $("#dcEntryDocsInput").click(); return; }
+    // Rep tag buttons (GPUaaS and HW deal modals)
+    var dealRepBtn=e.target.closest('.deal-rep-btn');
+    if(dealRepBtn){
+      var _curRep=($("#deal-rep")||{}).value||'';
+      setRepBtns('#deal-rep','.deal-rep-btn', _curRep===dealRepBtn.dataset.rep ? '' : dealRepBtn.dataset.rep);
+      return;
+    }
+    var hwRepBtn=e.target.closest('.hw-rep-btn');
+    if(hwRepBtn){
+      var _curHWRep=($("#hw-deal-rep")||{}).value||'';
+      setRepBtns('#hw-deal-rep','.hw-rep-btn', _curHWRep===hwRepBtn.dataset.rep ? '' : hwRepBtn.dataset.rep);
+      return;
+    }
+
     var svcBtn=e.target.closest('.dc-svc-btn');
     if(svcBtn){
       $$('.dc-svc-btn').forEach(function(b){
