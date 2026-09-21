@@ -671,14 +671,16 @@
 
   function renderDashPipeline(){
     var tb = $("#pipeBody"); if(!tb) return;
-    var active = ensureDeals().filter(function(d){ return d.stage!=='won' && d.stage!=='lost'; });
+    var activeGPU = ensureDeals().filter(function(d){ return d.stage!=='won' && d.stage!=='lost'; });
+    var activeHW  = loadHWDeals().filter(function(d){ return d.stage!=='won' && d.stage!=='lost'; });
+    var allActive = activeGPU.concat(activeHW);
     tb.innerHTML = '';
-    if(!active.length){
+    if(!allActive.length){
       var empty = document.createElement('tr');
       empty.innerHTML = '<td colspan="4" style="text-align:center;font-family:var(--mono);font-size:11px;color:var(--muted-2);padding:18px 0">No active deals — add one in Pipeline</td>';
       tb.appendChild(empty); return;
     }
-    active.forEach(function(d){
+    activeGPU.forEach(function(d){
       var tr = document.createElement('tr');
       tr.className = 'clickable';
       tr.dataset.dealId = d.id;
@@ -688,7 +690,17 @@
         '<td class="amt">'+esc(d.amt||'—')+'</td>';
       tb.appendChild(tr);
     });
-    var total = fmtTotal(active);
+    activeHW.forEach(function(d){
+      var tr = document.createElement('tr');
+      tr.className = 'clickable';
+      tr.dataset.dealId = d.id;
+      tr.innerHTML = '<td class="co">'+esc(d.co)+'</td>'+
+        '<td class="persona-tag" style="font-family:var(--mono);font-size:9px;color:var(--muted-2)">HW</td>'+
+        '<td><span class="stage '+d.stage+'">'+esc(HW_STAGES[d.stage]||d.stage)+'</span></td>'+
+        '<td class="amt">'+esc(d.amt||'—')+'</td>';
+      tb.appendChild(tr);
+    });
+    var total = fmtTotal(allActive);
     if(total){
       var tfoot = document.createElement('tr');
       tfoot.innerHTML = '<td colspan="3" style="font-family:var(--mono);font-size:10px;color:var(--muted-2);letter-spacing:.5px;text-transform:uppercase;padding-top:8px;border-top:1px solid var(--line)">Total Open Pipeline</td>'+
