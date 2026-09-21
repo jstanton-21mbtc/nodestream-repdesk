@@ -1,4 +1,4 @@
-const CACHE = 'repdesk-v4';
+const CACHE = 'repdesk-v5';
 const ASSETS = [
   '/',
   '/index.html',
@@ -34,16 +34,14 @@ self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   if (url.origin !== self.location.origin) return;
 
+  // Network-first: always try to fetch fresh from server, fall back to cache if offline
   e.respondWith(
-    caches.match(e.request).then(cached => {
-      if (cached) return cached;
-      return fetch(e.request).then(res => {
-        if (res.ok) {
-          const clone = res.clone();
-          caches.open(CACHE).then(cache => cache.put(e.request, clone));
-        }
-        return res;
-      }).catch(() => cached);
-    })
+    fetch(e.request).then(res => {
+      if (res.ok) {
+        const clone = res.clone();
+        caches.open(CACHE).then(cache => cache.put(e.request, clone));
+      }
+      return res;
+    }).catch(() => caches.match(e.request))
   );
 });
