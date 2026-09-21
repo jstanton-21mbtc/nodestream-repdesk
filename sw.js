@@ -1,4 +1,4 @@
-const CACHE = 'repdesk-v2';
+const CACHE = 'repdesk-v3';
 const ASSETS = [
   '/',
   '/index.html',
