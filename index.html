@@ -12,6 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="Rep Desk">
 <link rel="apple-touch-icon" href="/icons/icon.svg">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
   :root{
     --ink:#0E1311;--panel:#141A17;--panel-2:#1B2420;--panel-3:#212C27;--line:#2A352F;
@@ -502,7 +503,13 @@
           <div class="h">Pipeline</div>
           <p class="lede" id="pipeSubtitle" style="margin:0">Drag cards between stages to advance deals. Click any card for details, scorecard &amp; quote notes.</p>
         </div>
-        <button class="add-btn" id="addDealBtn">+ Add Deal</button>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn-ghost" id="exportPipelinesBtn" style="font-size:12px;padding:7px 14px;display:flex;align-items:center;gap:6px">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export
+          </button>
+          <button class="add-btn" id="addDealBtn">+ Add Deal</button>
+        </div>
       </div>
       <div class="pipe-switcher">
         <button class="pipe-tab active" data-pipe="gpuaas">GPUaaS</button>

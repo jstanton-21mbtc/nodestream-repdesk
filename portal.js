@@ -1846,6 +1846,9 @@
     var pipeTab=e.target.closest('.pipe-tab');
     if(pipeTab && pipeTab.dataset.pipe){ switchPipeline(pipeTab.dataset.pipe); return; }
 
+    // Export all pipelines
+    if(e.target.closest('#exportPipelinesBtn')){ nsExportPipelines(); return; }
+
     // Add deal — route to active pipeline
     if(e.target.closest('#addDealBtn')){
       if(_activePipeline==='gpuaas')        openAddDeal();
@@ -2167,6 +2170,42 @@
     if(b.data.tasks)    localStorage.setItem('ns_tasks_v1'+suf,        JSON.stringify(b.data.tasks));
     alert('Restore complete. Refreshing the page now.');
     window.location.reload();
+  }
+
+  function nsExportPipelines(){
+    if(typeof XLSX === 'undefined'){ alert('Export library not loaded yet — try again in a moment.'); return; }
+    var wb = XLSX.utils.book_new();
+    var dateStr = new Date().toISOString().slice(0,10);
+
+    // GPUaaS
+    var gpuRows = [['Company','Stage','Amount','Rep','Persona','Notes','Date Added']];
+    loadDeals().forEach(function(d){
+      gpuRows.push([d.co||'', STAGES[d.stage]||d.stage||'', d.amt||'', d.rep||'', d.persona||'', d.notes||'', d.dateAdded||'']);
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(gpuRows), 'GPUaaS');
+
+    // Hardware
+    var hwRows = [['Company','Stage','SKU','Amount','Rep','Notes','Date Added']];
+    loadHWDeals().forEach(function(d){
+      hwRows.push([d.co||'', HW_STAGES[d.stage]||d.stage||'', d.sku||'', d.amt||'', d.rep||'', d.notes||'', d.dateAdded||'']);
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(hwRows), 'Hardware');
+
+    // DC Capacity
+    var dcRows = [['Facility','Quarter','Status','Service Type','MW','Campus','Node Type','Nodes','Notes','Date Added']];
+    loadDCEntries().forEach(function(e){
+      dcRows.push([e.offtaker||'', e.quarter||'', DC_STATUS[e.status]||e.status||'', DC_SVC_LABELS[e.serviceType]||e.serviceType||'', e.mw||'', e.campus||'', e.nodeType||'', e.nodeCount||'', e.notes||'', e.dateAdded||'']);
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(dcRows), 'DC Capacity');
+
+    // CoLo Capacity
+    var coloRows = [['Facility','Quarter','Status','Service Type','kW','Campus','Node Type','Nodes','Notes','Date Added']];
+    loadCoLoEntries().forEach(function(e){
+      coloRows.push([e.offtaker||'', e.quarter||'', DC_STATUS[e.status]||e.status||'', DC_SVC_LABELS[e.serviceType]||e.serviceType||'', e.kw||'', e.campus||'', e.nodeType||'', e.nodeCount||'', e.notes||'', e.dateAdded||'']);
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(coloRows), 'CoLo Capacity');
+
+    XLSX.writeFile(wb, 'nodestream-pipelines-' + dateStr + '.xlsx');
   }
 
   function nsDownloadBackup(snap){
