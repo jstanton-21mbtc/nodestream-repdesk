@@ -2465,17 +2465,19 @@
     });
 
     // ---- Supabase Cloud Sync card ----
-    var sbUrl=localStorage.getItem(NS_SB_URL_KEY)||'';
-    var sbKey=localStorage.getItem(NS_SB_KEY_KEY)||'';
-    var sbConnected=!!(sbUrl&&sbKey);
+    var sbCfg=sbConfig();
+    var sbUrl=sbCfg?sbCfg.url:SB_DEFAULT_URL;
+    var sbKey=(localStorage.getItem(NS_SB_KEY_KEY)||SB_DEFAULT_KEY);
+    var sbConnected=!!sbCfg;
+    var sbUsingDefaults=!localStorage.getItem(NS_SB_URL_KEY)&&!localStorage.getItem(NS_SB_KEY_KEY);
     var sbSchema=
       'create table if not exists ns_pipeline (\n  rep text primary key,\n  deals jsonb not null default \'[]\',\n  updated_at timestamptz default now()\n);\ncreate table if not exists ns_hw_pipeline (\n  rep text primary key,\n  deals jsonb not null default \'[]\',\n  updated_at timestamptz default now()\n);\ncreate table if not exists ns_dc_capacity (\n  id text primary key default \'shared\',\n  entries jsonb not null default \'[]\',\n  updated_at timestamptz default now()\n);\ncreate table if not exists ns_colo_capacity (\n  id text primary key default \'shared\',\n  entries jsonb not null default \'[]\',\n  updated_at timestamptz default now()\n);\ncreate table if not exists ns_tasks (\n  rep text primary key,\n  tasks jsonb not null default \'[]\',\n  updated_at timestamptz default now()\n);\ncreate table if not exists ns_eos_meetings (\n  id text primary key default \'shared\',\n  data jsonb not null default \'{}\',\n  updated_at timestamptz default now()\n);\nalter table ns_pipeline enable row level security;\nalter table ns_hw_pipeline enable row level security;\nalter table ns_dc_capacity enable row level security;\nalter table ns_colo_capacity enable row level security;\nalter table ns_tasks enable row level security;\nalter table ns_eos_meetings enable row level security;\ncreate policy "anon_all" on ns_pipeline for all to anon using (true) with check (true);\ncreate policy "anon_all" on ns_hw_pipeline for all to anon using (true) with check (true);\ncreate policy "anon_all" on ns_dc_capacity for all to anon using (true) with check (true);\ncreate policy "anon_all" on ns_colo_capacity for all to anon using (true) with check (true);\ncreate policy "anon_all" on ns_tasks for all to anon using (true) with check (true);\ncreate policy "anon_all" on ns_eos_meetings for all to anon using (true) with check (true);';
     var sbDiv=document.createElement('div');
     sbDiv.className='settings-card';
     sbDiv.innerHTML=
       '<h3>Cloud Sync <span class="prov-badge" style="background:rgba(62,180,137,.12);color:#3eb489;border:1px solid rgba(62,180,137,.3)">Supabase</span></h3>'+
-      '<p class="sc-desc">Sync all pipeline data across every rep\'s account in real time. DC Capacity is shared — all reps see the same sites. Personal pipelines and tasks sync per rep. Free Supabase tier covers any team size.</p>'+
-      '<p class="sc-desc" style="margin-top:-4px">1. Create a free project at <strong>supabase.com</strong> &nbsp;2. Run the SQL below in the SQL Editor &nbsp;3. Paste your URL + anon key here.</p>'+
+      '<p class="sc-desc">Sync all pipeline data across every rep\'s account in real time. All pipelines are shared — every rep sees the same deals, DC Capacity, and CoLo entries. Team credentials are pre-configured; no setup needed.</p>'+
+      '<p class="sc-desc" style="margin-top:-4px">Advanced: override with a custom Supabase project below, or run the SQL schema in a new project\'s SQL Editor then paste the credentials here.</p>'+
       '<div class="form-field" style="margin-bottom:10px">'+
         '<span class="form-label">SQL Schema — run once in Supabase SQL Editor</span>'+
         '<textarea id="sb-schema-box" rows="6" readonly style="width:100%;background:var(--ink);border:1px solid var(--line);border-radius:8px;color:var(--muted);font-family:var(--mono);font-size:10px;padding:10px;resize:none;outline:none;line-height:1.6">'+esc(sbSchema)+'</textarea>'+
@@ -2493,12 +2495,12 @@
         '<button class="btn-primary" id="sb-save-btn" style="padding:7px 16px;font-size:12px">Save & Connect</button>'+
         (sbConnected?'<button class="btn-primary" id="sb-push-dc-btn" style="padding:7px 16px;font-size:12px;background:var(--green-dim)">Push to All Reps</button>':'')+
         (sbConnected?'<button class="btn-ghost" id="sb-test-btn" style="padding:7px 14px;font-size:12px">Test Connection</button>':'')+
-        (sbConnected?'<button class="btn-danger" id="sb-clear-btn" style="padding:7px 14px;font-size:12px">Disconnect</button>':'')+
+        (!sbUsingDefaults?'<button class="btn-danger" id="sb-clear-btn" style="padding:7px 14px;font-size:12px">Reset to Default</button>':'')+
       '</div>'+
       '<div class="key-status" id="sb-status" style="margin-top:12px">'+
         '<span class="dot'+(sbConnected?' set':'')+'"></span>'+
         '<span class="ksl'+(sbConnected?' set':'')+'">'+
-          (sbConnected?'Connected — syncing to Supabase':'Not connected — using local storage only')+
+          (sbConnected?(sbUsingDefaults?'Connected — using shared team credentials':'Connected — using custom credentials'):'Not connected — using local storage only')+
         '</span>'+
       '</div>';
     el.appendChild(sbDiv);
@@ -2558,7 +2560,7 @@
         });
       });
       sbDiv.querySelector('#sb-clear-btn').addEventListener('click',function(){
-        if(!confirm('Disconnect Supabase? Local data will be kept.')) return;
+        if(!confirm('Reset to default team credentials? Any custom URL/key overrides will be cleared.')) return;
         localStorage.removeItem(NS_SB_URL_KEY); localStorage.removeItem(NS_SB_KEY_KEY);
         mountSettings();
       });
