@@ -1846,6 +1846,8 @@
     var pipeTab=e.target.closest('.pipe-tab');
     if(pipeTab && pipeTab.dataset.pipe){ switchPipeline(pipeTab.dataset.pipe); return; }
 
+    // Sync pipelines
+    if(e.target.closest('#syncPipelinesBtn')){ nsSyncPipelines(); return; }
     // Export all pipelines
     if(e.target.closest('#exportPipelinesBtn')){ nsExportPipelines(); return; }
 
@@ -2170,6 +2172,32 @@
     if(b.data.tasks)    localStorage.setItem('ns_tasks_v1'+suf,        JSON.stringify(b.data.tasks));
     alert('Restore complete. Refreshing the page now.');
     window.location.reload();
+  }
+
+  function nsSyncPipelines(){
+    var btn=document.getElementById('syncPipelinesBtn');
+    var cfg=sbConfig();
+    if(!cfg){
+      if(btn){ btn.textContent='✗ No Supabase'; setTimeout(function(){ btn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg> Sync'; },2500); }
+      return;
+    }
+    if(btn){ btn.textContent='Syncing…'; btn.disabled=true; }
+    var _hdrs={'apikey':cfg.key,'Authorization':'Bearer '+cfg.key,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'};
+    var now=new Date().toISOString();
+    // Push all local data up first
+    var pushes=[
+      fetch(cfg.url+'/rest/v1/ns_pipeline',{method:'POST',headers:_hdrs,body:JSON.stringify({rep:'shared',deals:loadDeals(),updated_at:now})}),
+      fetch(cfg.url+'/rest/v1/ns_hw_pipeline',{method:'POST',headers:_hdrs,body:JSON.stringify({rep:'shared',deals:loadHWDeals(),updated_at:now})}),
+      fetch(cfg.url+'/rest/v1/ns_dc_capacity',{method:'POST',headers:_hdrs,body:JSON.stringify({id:'shared',entries:loadDCEntries(),updated_at:now})}),
+      fetch(cfg.url+'/rest/v1/ns_colo_capacity',{method:'POST',headers:_hdrs,body:JSON.stringify({id:'shared',entries:loadCoLoEntries(),updated_at:now})})
+    ];
+    Promise.all(pushes).then(function(){
+      // Then pull latest from Supabase
+      sbSyncDown();
+      if(btn){ btn.disabled=false; btn.textContent='✓ Synced'; setTimeout(function(){ btn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg> Sync'; },2500); }
+    }).catch(function(){
+      if(btn){ btn.disabled=false; btn.textContent='✗ Failed'; setTimeout(function(){ btn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg> Sync'; },2500); }
+    });
   }
 
   function nsExportPipelines(){
