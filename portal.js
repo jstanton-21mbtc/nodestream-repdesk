@@ -2190,12 +2190,12 @@
     el.appendChild(sbDiv);
 
     sbDiv.querySelector('#sb-copy-schema').addEventListener('click',function(){
-      navigator.clipboard.writeText(sbSchema).then(function(){
-        var btn=sbDiv.querySelector('#sb-copy-schema');
-        btn.textContent='Copied ✓'; setTimeout(function(){ btn.textContent='Copy SQL'; },2000);
-      }).catch(function(){
-        sbDiv.querySelector('#sb-schema-box').select(); document.execCommand('copy');
-      });
+      var btn=sbDiv.querySelector('#sb-copy-schema');
+      function markCopied(){ btn.textContent='Copied ✓'; setTimeout(function(){ btn.textContent='Copy SQL'; },2000); }
+      function fallback(){ try{ var ta=sbDiv.querySelector('#sb-schema-box'); ta.select(); document.execCommand('copy'); markCopied(); }catch(e){} }
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(sbSchema).then(markCopied).catch(fallback);
+      } else { fallback(); }
     });
     sbDiv.querySelector('#sb-save-btn').addEventListener('click',function(){
       var url=(sbDiv.querySelector('#sb-url').value||'').trim();
