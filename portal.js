@@ -572,8 +572,8 @@
       if(typeof renderDCBoard==='function' && document.getElementById('dcCapacityBoard')) renderDCBoard();
     });
     if(!rep) return;
-    // Per-rep GPUaaS pipeline
-    sbGet('ns_pipeline','rep',rep).then(function(rows){
+    // Shared GPUaaS pipeline
+    sbGet('ns_pipeline','rep','shared').then(function(rows){
       if(!rows||!rows.length||!rows[0].deals) return;
       if(sessionStorage.getItem('ns_demo_v1')) return;
       localStorage.setItem('ns_pipeline_v1'+nsUserSuffix(), JSON.stringify(rows[0].deals));
@@ -581,8 +581,8 @@
       if(typeof renderDashKPIs==='function') renderDashKPIs();
       if(typeof renderDashPipeline==='function') renderDashPipeline();
     });
-    // Per-rep hardware pipeline
-    sbGet('ns_hw_pipeline','rep',rep).then(function(rows){
+    // Shared hardware pipeline
+    sbGet('ns_hw_pipeline','rep','shared').then(function(rows){
       if(!rows||!rows.length||!rows[0].deals) return;
       if(sessionStorage.getItem('ns_demo_v1')) return;
       localStorage.setItem('ns_hw_pipeline_v1'+nsUserSuffix(), JSON.stringify(rows[0].deals));
@@ -613,8 +613,7 @@
       sessionStorage.setItem('ns_demo_pipeline', JSON.stringify(d));
     else
       localStorage.setItem('ns_pipeline_v1' + nsUserSuffix(), JSON.stringify(d));
-    var _r=localStorage.getItem(NS_NAME_KEY)||'';
-    if(_r) sbUpsert('ns_pipeline',{rep:_r, deals:d, updated_at:new Date().toISOString()});
+    sbUpsert('ns_pipeline',{rep:'shared', deals:d, updated_at:new Date().toISOString()});
   }
 
   var STAGE_WEIGHTS = {disc:0.10, qual:0.25, quote:0.50, nego:0.75, won:1.0, lost:0.0};
@@ -1091,8 +1090,7 @@
       sessionStorage.setItem('ns_demo_hw_pipeline', JSON.stringify(d));
     else
       localStorage.setItem('ns_hw_pipeline_v1' + nsUserSuffix(), JSON.stringify(d));
-    var _r=localStorage.getItem(NS_NAME_KEY)||'';
-    if(_r) sbUpsert('ns_hw_pipeline',{rep:_r, deals:d, updated_at:new Date().toISOString()});
+    sbUpsert('ns_hw_pipeline',{rep:'shared', deals:d, updated_at:new Date().toISOString()});
   }
 
   function fmtHWCard(deal){
@@ -2215,23 +2213,23 @@
         btn.textContent='Pushing…'; btn.disabled=true;
         var dcEntries=loadDCEntries();
         var eosData=(function(){ try{ return JSON.parse(localStorage.getItem('ns_eos_meetings_v1')||'{}'); }catch(e){ return {}; } })();
+        var _hdrs={'apikey':cfg.key,'Authorization':'Bearer '+cfg.key,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'};
+        var now=new Date().toISOString();
         var pushes=[
-          fetch(cfg.url+'/rest/v1/ns_dc_capacity',{
-            method:'POST',
-            headers:{'apikey':cfg.key,'Authorization':'Bearer '+cfg.key,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
-            body:JSON.stringify({id:'shared', entries:dcEntries, updated_at:new Date().toISOString()})
-          }),
-          fetch(cfg.url+'/rest/v1/ns_eos_meetings',{
-            method:'POST',
-            headers:{'apikey':cfg.key,'Authorization':'Bearer '+cfg.key,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
-            body:JSON.stringify({id:'shared', data:eosData, updated_at:new Date().toISOString()})
-          })
+          fetch(cfg.url+'/rest/v1/ns_dc_capacity',{method:'POST',headers:_hdrs,
+            body:JSON.stringify({id:'shared', entries:dcEntries, updated_at:now})}),
+          fetch(cfg.url+'/rest/v1/ns_eos_meetings',{method:'POST',headers:_hdrs,
+            body:JSON.stringify({id:'shared', data:eosData, updated_at:now})}),
+          fetch(cfg.url+'/rest/v1/ns_pipeline',{method:'POST',headers:_hdrs,
+            body:JSON.stringify({rep:'shared', deals:loadDeals(), updated_at:now})}),
+          fetch(cfg.url+'/rest/v1/ns_hw_pipeline',{method:'POST',headers:_hdrs,
+            body:JSON.stringify({rep:'shared', deals:loadHWDeals(), updated_at:now})})
         ];
         Promise.all(pushes).then(function(results){
           btn.disabled=false;
           var ok=results.every(function(r){ return r.ok; });
-          if(ok){ btn.textContent='✓ DC + EOS pushed'; setTimeout(function(){ btn.textContent='Push to All Reps'; },3000); }
-          else { btn.textContent='✗ Partial failure — retry'; setTimeout(function(){ btn.textContent='Push to All Reps'; },3000); }
+          if(ok){ btn.textContent='\u2713 All data pushed'; setTimeout(function(){ btn.textContent='Push to All Reps'; },3000); }
+          else { btn.textContent='\u2717 Partial failure \u2014 retry'; setTimeout(function(){ btn.textContent='Push to All Reps'; },3000); }
         }).catch(function(){ btn.disabled=false; btn.textContent='✗ Network error'; setTimeout(function(){ btn.textContent='Push to All Reps'; },3000); });
       });
       sbDiv.querySelector('#sb-test-btn').addEventListener('click',function(){
