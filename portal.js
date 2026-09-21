@@ -688,6 +688,13 @@
         '<td class="amt">'+esc(d.amt||'—')+'</td>';
       tb.appendChild(tr);
     });
+    var total = fmtTotal(active);
+    if(total){
+      var tfoot = document.createElement('tr');
+      tfoot.innerHTML = '<td colspan="3" style="font-family:var(--mono);font-size:10px;color:var(--muted-2);letter-spacing:.5px;text-transform:uppercase;padding-top:8px;border-top:1px solid var(--line)">Total Open Pipeline</td>'+
+        '<td class="amt" style="font-weight:700;color:var(--green-bright);border-top:1px solid var(--line);padding-top:8px">'+total+'</td>';
+      tb.appendChild(tfoot);
+    }
   }
 
   function ensureDeals(){
