@@ -460,6 +460,7 @@
   var _pendingDocs   = [];
   var _hwPendingDocs = [];
   var _dcPendingDocs = [];
+  var _coloPendingDocs = [];
 
   function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
@@ -531,6 +532,11 @@
       _dcPendingDocs.splice(i,1); refreshDCDealDocPills();
     });
   }
+  function refreshCoLoDealDocPills(){
+    renderDocPills('coloEntryDocsList', _coloPendingDocs, function(i){
+      _coloPendingDocs.splice(i,1); refreshCoLoDealDocPills();
+    });
+  }
 
   // ============================================================
   // SUPABASE SYNC
@@ -570,6 +576,13 @@
       if(sessionStorage.getItem('ns_demo_v1')) return;
       localStorage.setItem('ns_dc_capacity_v1'+nsUserSuffix(), JSON.stringify(rows[0].entries));
       if(typeof renderDCBoard==='function' && document.getElementById('dcCapacityBoard')) renderDCBoard();
+    });
+    // CoLo capacity — shared across all reps
+    sbGet('ns_colo_capacity','id','shared').then(function(rows){
+      if(!rows||!rows.length||!rows[0].entries) return;
+      if(sessionStorage.getItem('ns_demo_v1')) return;
+      localStorage.setItem('ns_colo_capacity_v1'+nsUserSuffix(), JSON.stringify(rows[0].entries));
+      if(typeof renderCoLoBoard==='function' && document.getElementById('coloCapacityBoard')) renderCoLoBoard();
     });
     if(!rep) return;
     // Shared GPUaaS pipeline
@@ -1039,10 +1052,11 @@
   var PIPE_SUBTITLES = {
     gpuaas:   'Drag cards between stages to advance deals. Click any card for details, scorecard &amp; quote notes.',
     hardware: 'Track hardware deals — servers, GPUs, and custom builds. Drag cards to advance, click for details.',
-    dc:       'Track data center capacity by quarter. Drag cards between quarters as timelines shift.'
+    dc:       'Track data center capacity by quarter. Drag cards between quarters as timelines shift.',
+    colo:     'Track colocation capacity by quarter. Drag cards between quarters as timelines shift.'
   };
   var PIPE_BTN_LABELS = {
-    gpuaas: '+ Add Deal', hardware: '+ Add HW Deal', dc: '+ Add Data Center'
+    gpuaas: '+ Add Deal', hardware: '+ Add HW Deal', dc: '+ Add Data Center', colo: '+ Add CoLo Entry'
   };
 
   function switchPipeline(type){
@@ -1050,15 +1064,18 @@
     $$('.pipe-tab').forEach(function(t){ t.classList.toggle('active', t.dataset.pipe===_activePipeline); });
     var sub = $("#pipeSubtitle"); if(sub) sub.innerHTML = PIPE_SUBTITLES[_activePipeline]||'';
     var addBtn = $("#addDealBtn"); if(addBtn) addBtn.textContent = PIPE_BTN_LABELS[_activePipeline]||'+ Add';
-    var gpuBoard = $("#kanbanBoard");
-    var hwBoard  = $("#kanbanBoardHW");
-    var dcBoard  = $("#dcCapacityBoard");
-    if(gpuBoard) gpuBoard.style.display = (_activePipeline==='gpuaas')  ? 'flex' : 'none';
-    if(hwBoard)  hwBoard.style.display  = (_activePipeline==='hardware')? 'flex' : 'none';
-    if(dcBoard)  dcBoard.style.display  = (_activePipeline==='dc')      ? ''     : 'none';
-    if(_activePipeline==='gpuaas')   renderKanban();
+    var gpuBoard  = $("#kanbanBoard");
+    var hwBoard   = $("#kanbanBoardHW");
+    var dcBoard   = $("#dcCapacityBoard");
+    var coloBoard = $("#coloCapacityBoard");
+    if(gpuBoard)  gpuBoard.style.display  = (_activePipeline==='gpuaas')  ? 'flex' : 'none';
+    if(hwBoard)   hwBoard.style.display   = (_activePipeline==='hardware')? 'flex' : 'none';
+    if(dcBoard)   dcBoard.style.display   = (_activePipeline==='dc')      ? ''     : 'none';
+    if(coloBoard) coloBoard.style.display = (_activePipeline==='colo')    ? ''     : 'none';
+    if(_activePipeline==='gpuaas')        renderKanban();
     else if(_activePipeline==='hardware') renderKanbanHW();
     else if(_activePipeline==='dc')       renderDCBoard();
+    else if(_activePipeline==='colo')     renderCoLoBoard();
   }
 
   // ============================================================
@@ -1514,6 +1531,216 @@
   }
 
   // ============================================================
+  // COLO CAPACITY PIPELINE
+  // ============================================================
+  var _viewingCoLoEntryId = null;
+  var _coloDragId = null;
+
+  function loadCoLoEntries(){
+    var isDemo=sessionStorage.getItem('ns_demo_v1');
+    var store=isDemo?sessionStorage:localStorage;
+    var key=isDemo?'ns_demo_colo_capacity':'ns_colo_capacity_v1'+nsUserSuffix();
+    try{ return JSON.parse(store.getItem(key)||'null')||[]; }catch(e){ return []; }
+  }
+  function saveCoLoEntries(d){
+    if(sessionStorage.getItem('ns_demo_v1'))
+      sessionStorage.setItem('ns_demo_colo_capacity',JSON.stringify(d));
+    else
+      localStorage.setItem('ns_colo_capacity_v1'+nsUserSuffix(),JSON.stringify(d));
+    sbUpsert('ns_colo_capacity',{id:'shared', entries:d, updated_at:new Date().toISOString()});
+  }
+
+  function populateCoLoQuarterSelect(selectedVal){
+    var sel=$("#colo-quarter"); if(!sel) return;
+    var quarters=getDCQuarters();
+    loadCoLoEntries().forEach(function(e){ if(e.quarter && quarters.indexOf(e.quarter)===-1) quarters.push(e.quarter); });
+    quarters.sort(function(a,b){
+      var pa=a.match(/Q(\d)\s+(\d+)/); var pb=b.match(/Q(\d)\s+(\d+)/);
+      if(!pa||!pb) return a.localeCompare(b);
+      return (parseInt(pa[2])-parseInt(pb[2]))||( parseInt(pa[1])-parseInt(pb[1]));
+    });
+    sel.innerHTML='';
+    quarters.forEach(function(q){
+      var opt=document.createElement('option'); opt.value=q; opt.textContent=q;
+      if(q===selectedVal) opt.selected=true;
+      sel.appendChild(opt);
+    });
+  }
+
+  function parseKW(s){ var n=parseFloat(String(s||'').replace(/[^0-9.]/g,'')); return isNaN(n)?0:n; }
+  function totalKW(arr){ return arr.reduce(function(s,e){ return s+parseKW(e.kw); },0); }
+
+  function renderCoLoBoard(){
+    var board=document.getElementById('coloCapacityBoard'); if(!board) return;
+    var entries=loadCoLoEntries();
+    board.innerHTML='';
+    var quarters=getDCQuarters();
+    entries.forEach(function(e){ if(e.quarter && quarters.indexOf(e.quarter)===-1) quarters.push(e.quarter); });
+    quarters.sort(function(a,b){
+      var pa=a.match(/Q(\d)\s+(\d+)/); var pb=b.match(/Q(\d)\s+(\d+)/);
+      if(!pa||!pb) return a.localeCompare(b);
+      return (parseInt(pa[2])-parseInt(pb[2]))||( parseInt(pa[1])-parseInt(pb[1]));
+    });
+
+    var wrap=document.createElement('div');
+    wrap.style.cssText='display:flex;gap:14px;align-items:flex-start;min-width:max-content';
+
+    quarters.forEach(function(qk){
+      var qEntries=entries.filter(function(e){ return e.quarter===qk; });
+      var kwTotal=totalKW(qEntries);
+      var kwConfirmed=totalKW(qEntries.filter(function(e){ return e.status==='contracted'||e.status==='live'; }));
+      var col=document.createElement('div'); col.className='kancol';
+      var head=document.createElement('div'); head.className='kancol-head';
+      head.style.cssText='border-color:var(--green-dim);background:rgba(46,122,31,.07);border-left:3px solid var(--green-dim)';
+      head.innerHTML=
+        '<div style="min-width:0">'+
+          '<div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--green-bright);font-weight:700">'+esc(qk)+'</div>'+
+          (kwTotal?'<div style="font-family:var(--mono);font-size:9px;color:var(--muted-2);margin-top:3px">'+kwTotal+' kW tracked'+(kwConfirmed?' · '+kwConfirmed+' kW confirmed':'')+'</div>':'')+
+        '</div>'+
+        '<span style="font-family:var(--mono);font-size:11px;background:var(--panel-3);border:1px solid var(--line);border-radius:5px;padding:2px 8px;color:var(--muted-2);flex:none">'+qEntries.length+'</span>';
+      col.appendChild(head);
+      var body=document.createElement('div'); body.className='kancol-body';
+      body.addEventListener('dragover',function(e){ e.preventDefault(); e.dataTransfer.dropEffect='move'; body.classList.add('drag-over'); });
+      body.addEventListener('dragleave',function(e){ if(!body.contains(e.relatedTarget)) body.classList.remove('drag-over'); });
+      body.addEventListener('drop',function(e){
+        e.preventDefault(); body.classList.remove('drag-over');
+        if(!_coloDragId) return;
+        var all=loadCoLoEntries(); var entry=all.find(function(d){ return d.id===_coloDragId; });
+        if(entry && entry.quarter!==qk){ entry.quarter=qk; saveCoLoEntries(all); renderCoLoBoard(); }
+      });
+      if(qEntries.length){
+        qEntries.forEach(function(e){
+          var card=document.createElement('div'); card.className='kancard'; card.draggable=true; card.dataset.entryId=e.id;
+          var _assocDeal=e.associatedDealId?loadDeals().find(function(d){ return d.id===e.associatedDealId; }):null;
+          card.innerHTML=
+            '<div class="kc-co">'+esc(e.offtaker)+'</div>'+
+            '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap">'+
+              (e.kw?'<span class="kc-mw">'+esc(e.kw)+' kW</span>':'')+
+              '<span class="dc-status-badge '+esc(e.status||'prospect')+'">'+esc(DC_STATUS[e.status]||e.status)+'</span>'+
+              '<span style="font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:4px;letter-spacing:.4px;font-weight:700;background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.25);color:var(--accent)">'+esc(DC_SVC_LABELS[e.serviceType||'gpuaas']||e.serviceType||'GPUaaS')+'</span>'+
+              (e.nodeType?'<span style="font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:4px;letter-spacing:.4px;font-weight:700;background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.25);color:#a78bfa">'+esc(e.nodeType)+(e.nodeCount?' ×'+esc(e.nodeCount):'')+'</span>':'')+
+            '</div>'+
+            (e.campus?'<div style="font-family:var(--mono);font-size:9px;color:var(--muted-2);margin-bottom:4px">'+esc(e.campus)+'</div>':'')+
+            (_assocDeal?'<div style="font-family:var(--mono);font-size:9px;padding:2px 8px;border-radius:4px;margin-bottom:4px;background:rgba(250,189,47,.08);border:1px solid rgba(250,189,47,.28);color:#fabd2f;display:inline-block;letter-spacing:.3px">&#128279; '+esc(_assocDeal.co)+(_assocDeal.amt?' &middot; '+esc(_assocDeal.amt):'')+'</div>':'')+
+            '<div class="kc-date">'+esc(e.dateAdded?fmtDate(e.dateAdded):'')+'</div>';
+          card.addEventListener('dragstart',function(ev){ _coloDragId=e.id; card.classList.add('dragging'); ev.dataTransfer.effectAllowed='move'; ev.dataTransfer.setData('text/plain',e.id); });
+          card.addEventListener('dragend',function(){ card.classList.remove('dragging'); _coloDragId=null; });
+          card.addEventListener('click',function(){ openCoLoEntryDetail(e.id); });
+          body.appendChild(card);
+        });
+      } else {
+        var empty=document.createElement('div');
+        empty.style.cssText='text-align:center;padding:22px 8px;font-family:var(--mono);font-size:9.5px;color:var(--muted-2);letter-spacing:.5px;line-height:2';
+        empty.textContent='No CoLo entries'; body.appendChild(empty);
+      }
+      var addBtn=document.createElement('button'); addBtn.className='kancol-add'; addBtn.textContent='+ Add CoLo entry';
+      addBtn.addEventListener('click',function(){ openAddCoLoEntry(qk); });
+      body.appendChild(addBtn); col.appendChild(body); wrap.appendChild(col);
+    });
+    board.appendChild(wrap);
+  }
+
+  function setCoLoServiceType(val){
+    var svc=val||'gpuaas';
+    var hi=$("#colo-service-type"); if(hi) hi.value=svc;
+    $$('.colo-svc-btn').forEach(function(b){
+      var active=b.dataset.svc===svc;
+      b.classList.toggle('active',active);
+      b.style.borderColor=active?'var(--accent)':'var(--line)';
+      b.style.background=active?'rgba(96,165,250,.13)':'transparent';
+      b.style.color=active?'var(--accent)':'var(--muted)';
+    });
+    var showNode=svc==='gpuaas'||svc==='baremetal';
+    var ntf=$("#colo-node-type-field"); if(ntf) ntf.style.display=showNode?'':'none';
+    var ncf=$("#colo-node-count-field"); if(ncf) ncf.style.display=showNode?'':'none';
+    if(!showNode){ var nt=$("#colo-node-type"); if(nt) nt.value=''; var nc=$("#colo-node-count"); if(nc) nc.value=''; }
+  }
+
+  function populateCoLoAssocDealSelect(selectedId){
+    var sel=$("#colo-assoc-deal"); if(!sel) return;
+    var deals=loadDeals();
+    sel.innerHTML='<option value="">— None —</option>';
+    deals.forEach(function(d){
+      var opt=document.createElement('option');
+      opt.value=d.id;
+      opt.textContent=d.co+(d.amt?' · '+d.amt:'')+(d.stage?' ['+(STAGES[d.stage]||d.stage)+']':'');
+      if(d.id===selectedId) opt.selected=true;
+      sel.appendChild(opt);
+    });
+  }
+
+  function openAddCoLoEntry(quarter){
+    populateCoLoQuarterSelect(quarter||getDCQuarters()[0]);
+    $("#coloEntryModalTitle").textContent='Add CoLo Entry';
+    $("#coloEntryId").value=''; $("#colo-offtaker").value=''; $("#colo-kw").value='';
+    $("#colo-status").value='prospect'; $("#colo-campus").value=''; $("#colo-notes").value='';
+    setCoLoServiceType('gpuaas');
+    populateCoLoAssocDealSelect('');
+    var delBtn=$("#coloEntryDeleteBtn"); if(delBtn) delBtn.style.display='none';
+    _coloPendingDocs=[]; refreshCoLoDealDocPills();
+    _viewingCoLoEntryId=null;
+    $("#coloEntryModal").classList.remove('hidden');
+    setTimeout(function(){ $("#colo-offtaker").focus(); },50);
+  }
+
+  function openCoLoEntryDetail(id){
+    var entries=loadCoLoEntries(); var entry=entries.find(function(e){ return e.id===id; }); if(!entry) return;
+    _viewingCoLoEntryId=id;
+    populateCoLoQuarterSelect(entry.quarter);
+    $("#coloEntryModalTitle").textContent='Edit CoLo Entry';
+    $("#coloEntryId").value=entry.id; $("#colo-offtaker").value=entry.offtaker||'';
+    $("#colo-kw").value=entry.kw||''; $("#colo-status").value=entry.status||'prospect';
+    $("#colo-campus").value=entry.campus||''; $("#colo-notes").value=entry.notes||'';
+    setCoLoServiceType(entry.serviceType||'gpuaas');
+    var nt=$("#colo-node-type"); if(nt) nt.value=entry.nodeType||'';
+    var nc=$("#colo-node-count"); if(nc) nc.value=entry.nodeCount||'';
+    populateCoLoAssocDealSelect(entry.associatedDealId||'');
+    var delBtn=$("#coloEntryDeleteBtn"); if(delBtn) delBtn.style.display='';
+    _coloPendingDocs=(entry.docs||[]).map(function(d){ return Object.assign({},d); }); refreshCoLoDealDocPills();
+    $("#coloEntryModal").classList.remove('hidden');
+    setTimeout(function(){ $("#colo-offtaker").focus(); },50);
+  }
+
+  function saveCoLoEntryForm(){
+    var offtaker=($("#colo-offtaker").value||'').trim(); if(!offtaker){ $("#colo-offtaker").focus(); return; }
+    var entries=loadCoLoEntries(); var id=$("#coloEntryId").value;
+    var quarter=$("#colo-quarter").value||getDCQuarters()[0];
+    var serviceType=($("#colo-service-type").value)||'gpuaas';
+    var showNode=serviceType==='gpuaas'||serviceType==='baremetal';
+    var nodeType=showNode?($("#colo-node-type").value||''):'';
+    var nodeCount=showNode?($("#colo-node-count").value||''):'';
+    if(id){
+      var idx=entries.findIndex(function(e){ return e.id===id; });
+      if(idx>-1){
+        entries[idx].offtaker=offtaker; entries[idx].kw=($("#colo-kw").value||'').trim();
+        entries[idx].quarter=quarter; entries[idx].status=$("#colo-status").value;
+        entries[idx].campus=($("#colo-campus").value||'').trim(); entries[idx].notes=($("#colo-notes").value||'').trim();
+        entries[idx].serviceType=serviceType; entries[idx].nodeType=nodeType; entries[idx].nodeCount=nodeCount;
+        entries[idx].associatedDealId=($("#colo-assoc-deal").value||'');
+        entries[idx].docs=_coloPendingDocs.slice();
+      }
+    } else {
+      entries.unshift({ id:'colo_'+Date.now(), offtaker:offtaker, kw:($("#colo-kw").value||'').trim(),
+        quarter:quarter, status:$("#colo-status").value, campus:($("#colo-campus").value||'').trim(),
+        notes:($("#colo-notes").value||'').trim(), serviceType:serviceType, nodeType:nodeType, nodeCount:nodeCount,
+        associatedDealId:($("#colo-assoc-deal").value||''),
+        docs:_coloPendingDocs.slice(), dateAdded:new Date().toISOString().slice(0,10) });
+    }
+    saveCoLoEntries(entries);
+    $("#coloEntryModal").classList.add('hidden'); _viewingCoLoEntryId=null;
+    renderCoLoBoard();
+  }
+
+  function deleteCoLoEntry(){
+    if(!_viewingCoLoEntryId) return;
+    var entries=loadCoLoEntries(); var entry=entries.find(function(e){ return e.id===_viewingCoLoEntryId; }); if(!entry) return;
+    if(!confirm('Delete "'+entry.offtaker+'"? This cannot be undone.')) return;
+    saveCoLoEntries(entries.filter(function(e){ return e.id!==_viewingCoLoEntryId; }));
+    _viewingCoLoEntryId=null; $("#coloEntryModal").classList.add('hidden');
+    renderCoLoBoard();
+  }
+
+  // ============================================================
   // SAVE TO DEAL (from tool toolbar)
   // ============================================================
   var _savingTool    = null;
@@ -1621,9 +1848,10 @@
 
     // Add deal — route to active pipeline
     if(e.target.closest('#addDealBtn')){
-      if(_activePipeline==='gpuaas')   openAddDeal();
+      if(_activePipeline==='gpuaas')        openAddDeal();
       else if(_activePipeline==='hardware') openAddHWDeal();
       else if(_activePipeline==='dc')       openAddDCEntry();
+      else if(_activePipeline==='colo')     openAddCoLoEntry();
       return;
     }
     // GPUaaS deal form modal
@@ -1651,6 +1879,11 @@
     if(e.target.closest('#dcEntryModalSave')){ saveDCEntryForm(); return; }
     if(e.target.closest('#dcEntryDeleteBtn')){ deleteDCEntry();   return; }
     if(e.target.closest('#dcEntryDocsBtn')){ $("#dcEntryDocsInput").click(); return; }
+    // CoLo Capacity modal
+    if(e.target.closest('#coloEntryModalClose')||e.target.closest('#coloEntryModalCancel')){ $("#coloEntryModal").classList.add('hidden'); _viewingCoLoEntryId=null; return; }
+    if(e.target.closest('#coloEntryModalSave')){ saveCoLoEntryForm(); return; }
+    if(e.target.closest('#coloEntryDeleteBtn')){ deleteCoLoEntry();   return; }
+    if(e.target.closest('#coloEntryDocsBtn')){ $("#coloEntryDocsInput").click(); return; }
     // Rep tag buttons (GPUaaS and HW deal modals)
     var dealRepBtn=e.target.closest('.deal-rep-btn');
     if(dealRepBtn){
@@ -1674,8 +1907,11 @@
       svcBtn.classList.add('active');
       svcBtn.style.borderColor='var(--accent)'; svcBtn.style.background='rgba(96,165,250,.13)'; svcBtn.style.color='var(--accent)';
       var hi=$("#dc-service-type"); if(hi) hi.value=svcBtn.dataset.svc;
+      setDCServiceType(svcBtn.dataset.svc);
       return;
     }
+    var coloSvcBtn=e.target.closest('.colo-svc-btn');
+    if(coloSvcBtn){ setCoLoServiceType(coloSvcBtn.dataset.svc); return; }
 
     // Deal row (dashboard preview table)
     var tr=e.target.closest('tr[data-deal-id]');
@@ -1701,6 +1937,12 @@
       if(!dcInp.files.length) return;
       readFilesIntoDocs(dcInp.files, _dcPendingDocs, function(){ refreshDCDealDocPills(); });
       dcInp.value='';
+    });
+    var coloInp=$("#coloEntryDocsInput");
+    if(coloInp) coloInp.addEventListener('change',function(){
+      if(!coloInp.files.length) return;
+      readFilesIntoDocs(coloInp.files, _coloPendingDocs, function(){ refreshCoLoDealDocPills(); });
+      coloInp.value='';
     });
   })();
 
@@ -1866,6 +2108,7 @@
         gpuaas:   loadDeals(),
         hardware: loadHWDeals(),
         dc:       loadDCEntries(),
+        colo:     loadCoLoEntries(),
         tasks:    (function(){ try{ return JSON.parse(localStorage.getItem('ns_tasks_v1'+nsUserSuffix())||'null')||[]; }catch(e){ return []; } })()
       }
     };
@@ -1917,10 +2160,11 @@
     try{ b = JSON.parse(raw); }catch(e){ alert('Backup file is corrupted.'); return; }
     if(!confirm('Restore from "'+(b.label||key)+'"?\n\nThis will overwrite your current GPUaaS deals, Hardware deals, DC Capacity entries, and tasks with the backed-up versions. This cannot be undone.\n\nContinue?')) return;
     var suf = nsUserSuffix();
-    if(b.data.gpuaas)   localStorage.setItem('ns_pipeline_v1'+suf,   JSON.stringify(b.data.gpuaas));
-    if(b.data.hardware) localStorage.setItem('ns_hw_pipeline_v1'+suf, JSON.stringify(b.data.hardware));
-    if(b.data.dc)       localStorage.setItem('ns_dc_capacity_v1'+suf, JSON.stringify(b.data.dc));
-    if(b.data.tasks)    localStorage.setItem('ns_tasks_v1'+suf,       JSON.stringify(b.data.tasks));
+    if(b.data.gpuaas)   localStorage.setItem('ns_pipeline_v1'+suf,    JSON.stringify(b.data.gpuaas));
+    if(b.data.hardware) localStorage.setItem('ns_hw_pipeline_v1'+suf,  JSON.stringify(b.data.hardware));
+    if(b.data.dc)       localStorage.setItem('ns_dc_capacity_v1'+suf,  JSON.stringify(b.data.dc));
+    if(b.data.colo)     localStorage.setItem('ns_colo_capacity_v1'+suf,JSON.stringify(b.data.colo));
+    if(b.data.tasks)    localStorage.setItem('ns_tasks_v1'+suf,        JSON.stringify(b.data.tasks));
     alert('Restore complete. Refreshing the page now.');
     window.location.reload();
   }
@@ -2155,7 +2399,7 @@
     var sbKey=localStorage.getItem(NS_SB_KEY_KEY)||'';
     var sbConnected=!!(sbUrl&&sbKey);
     var sbSchema=
-      'create table if not exists ns_pipeline (\n  rep text primary key,\n  deals jsonb not null default \'[]\',\n  updated_at timestamptz default now()\n);\ncreate table if not exists ns_hw_pipeline (\n  rep text primary key,\n  deals jsonb not null default \'[]\',\n  updated_at timestamptz default now()\n);\ncreate table if not exists ns_dc_capacity (\n  id text primary key default \'shared\',\n  entries jsonb not null default \'[]\',\n  updated_at timestamptz default now()\n);\ncreate table if not exists ns_tasks (\n  rep text primary key,\n  tasks jsonb not null default \'[]\',\n  updated_at timestamptz default now()\n);\ncreate table if not exists ns_eos_meetings (\n  id text primary key default \'shared\',\n  data jsonb not null default \'{}\',\n  updated_at timestamptz default now()\n);\nalter table ns_pipeline enable row level security;\nalter table ns_hw_pipeline enable row level security;\nalter table ns_dc_capacity enable row level security;\nalter table ns_tasks enable row level security;\nalter table ns_eos_meetings enable row level security;\ncreate policy "anon_all" on ns_pipeline for all to anon using (true) with check (true);\ncreate policy "anon_all" on ns_hw_pipeline for all to anon using (true) with check (true);\ncreate policy "anon_all" on ns_dc_capacity for all to anon using (true) with check (true);\ncreate policy "anon_all" on ns_tasks for all to anon using (true) with check (true);\ncreate policy "anon_all" on ns_eos_meetings for all to anon using (true) with check (true);';
+      'create table if not exists ns_pipeline (\n  rep text primary key,\n  deals jsonb not null default \'[]\',\n  updated_at timestamptz default now()\n);\ncreate table if not exists ns_hw_pipeline (\n  rep text primary key,\n  deals jsonb not null default \'[]\',\n  updated_at timestamptz default now()\n);\ncreate table if not exists ns_dc_capacity (\n  id text primary key default \'shared\',\n  entries jsonb not null default \'[]\',\n  updated_at timestamptz default now()\n);\ncreate table if not exists ns_colo_capacity (\n  id text primary key default \'shared\',\n  entries jsonb not null default \'[]\',\n  updated_at timestamptz default now()\n);\ncreate table if not exists ns_tasks (\n  rep text primary key,\n  tasks jsonb not null default \'[]\',\n  updated_at timestamptz default now()\n);\ncreate table if not exists ns_eos_meetings (\n  id text primary key default \'shared\',\n  data jsonb not null default \'{}\',\n  updated_at timestamptz default now()\n);\nalter table ns_pipeline enable row level security;\nalter table ns_hw_pipeline enable row level security;\nalter table ns_dc_capacity enable row level security;\nalter table ns_colo_capacity enable row level security;\nalter table ns_tasks enable row level security;\nalter table ns_eos_meetings enable row level security;\ncreate policy "anon_all" on ns_pipeline for all to anon using (true) with check (true);\ncreate policy "anon_all" on ns_hw_pipeline for all to anon using (true) with check (true);\ncreate policy "anon_all" on ns_dc_capacity for all to anon using (true) with check (true);\ncreate policy "anon_all" on ns_colo_capacity for all to anon using (true) with check (true);\ncreate policy "anon_all" on ns_tasks for all to anon using (true) with check (true);\ncreate policy "anon_all" on ns_eos_meetings for all to anon using (true) with check (true);';
     var sbDiv=document.createElement('div');
     sbDiv.className='settings-card';
     sbDiv.innerHTML=
@@ -2218,6 +2462,8 @@
         var pushes=[
           fetch(cfg.url+'/rest/v1/ns_dc_capacity',{method:'POST',headers:_hdrs,
             body:JSON.stringify({id:'shared', entries:dcEntries, updated_at:now})}),
+          fetch(cfg.url+'/rest/v1/ns_colo_capacity',{method:'POST',headers:_hdrs,
+            body:JSON.stringify({id:'shared', entries:loadCoLoEntries(), updated_at:now})}),
           fetch(cfg.url+'/rest/v1/ns_eos_meetings',{method:'POST',headers:_hdrs,
             body:JSON.stringify({id:'shared', data:eosData, updated_at:now})}),
           fetch(cfg.url+'/rest/v1/ns_pipeline',{method:'POST',headers:_hdrs,
