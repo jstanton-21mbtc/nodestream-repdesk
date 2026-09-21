@@ -541,9 +541,12 @@
   // ============================================================
   // SUPABASE SYNC
   // ============================================================
+  var SB_DEFAULT_URL = 'https://mnxdixjgcunzjzdrbfwu.supabase.co';
+  var SB_DEFAULT_KEY = 'sb_publishable_99p6EyTqQSsbeQGg8oDJ1Q_2OSA-WBw';
+
   function sbConfig(){
-    var url=localStorage.getItem(NS_SB_URL_KEY)||'';
-    var key=localStorage.getItem(NS_SB_KEY_KEY)||'';
+    var url=localStorage.getItem(NS_SB_URL_KEY)||SB_DEFAULT_URL;
+    var key=localStorage.getItem(NS_SB_KEY_KEY)||SB_DEFAULT_KEY;
     if(!url||!key) return null;
     return {url:url.replace(/\/$/,''), key:key};
   }
