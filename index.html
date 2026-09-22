@@ -18,6 +18,7 @@
     --ink:#0E1311;--panel:#141A17;--panel-2:#1B2420;--panel-3:#212C27;--line:#2A352F;
     --green:#3CA028;--green-bright:#4FD135;--green-dim:#2E7A1F;
     --amber:#E0A73C;--text:#E8EFEA;--muted:#8A9A90;--muted-2:#5F6F66;--red:#D9584A;
+    --accent:#60A5FA;--blue:#5B9BD5;
     --mono:"JetBrains Mono","SF Mono",ui-monospace,"Cascadia Code",Menlo,monospace;
     --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
     --topbar-bg:rgba(14,19,17,.88);
@@ -26,6 +27,7 @@
     --ink:#F0F6F2;--panel:#FFFFFF;--panel-2:#E8F2EB;--panel-3:#DDE9E1;--line:#C4D6CA;
     --green:#2A7A18;--green-bright:#3CA028;--green-dim:#236015;
     --amber:#8A5800;--text:#0D1510;--muted:#3A5244;--muted-2:#5F7A6C;--red:#B42C20;
+    --accent:#3B82F6;--blue:#3B82F6;
     --topbar-bg:rgba(240,246,242,.92);
   }
   *{box-sizing:border-box;margin:0;padding:0}
@@ -165,7 +167,7 @@
   .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
 
   /* ---- Kanban ---- */
-  .kanban{display:flex;gap:14px;column-gap:14px;overflow-x:auto;padding-bottom:20px;align-items:flex-start}
+  .kanban{display:flex;gap:14px;column-gap:14px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:20px;align-items:flex-start}
   .kanban::-webkit-scrollbar{height:5px}
   .kanban::-webkit-scrollbar-track{background:transparent}
   .kanban::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
@@ -213,7 +215,7 @@
   /* ---- Pipeline & Modals ---- */
   .modal-overlay{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.72);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px}
   .modal-overlay.hidden{display:none}
-  .modal{background:var(--panel);border:1px solid var(--line);border-radius:16px;width:100%;max-width:540px;max-height:92vh;display:flex;flex-direction:column;overflow:hidden}
+  .modal{background:var(--panel);border:1px solid var(--line);border-radius:16px;width:100%;max-width:540px;max-height:92vh;max-height:92dvh;display:flex;flex-direction:column;overflow:hidden}
   .modal.modal-wide{max-width:740px}
   .modal-head{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--line)}
   .modal-title{font-size:16px;font-weight:700}

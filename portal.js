@@ -603,6 +603,8 @@
       if(sessionStorage.getItem('ns_demo_v1')) return;
       localStorage.setItem('ns_hw_pipeline_v1'+nsUserSuffix(), JSON.stringify(rows[0].deals));
       if(typeof renderKanbanHW==='function') renderKanbanHW();
+      if(typeof renderDashKPIs==='function') renderDashKPIs();
+      if(typeof renderDashPipeline==='function') renderDashPipeline();
     });
     // Per-rep tasks
     sbGet('ns_tasks','rep',rep).then(function(rows){
@@ -642,10 +644,11 @@
 
   function renderDashKPIs(){
     var wrap = $("#kpis"); if(!wrap) return;
-    var deals  = ensureDeals();
-    var active = deals.filter(function(d){ return d.stage!=='won'&&d.stage!=='lost'; });
-    var won    = deals.filter(function(d){ return d.stage==='won'; });
-    var quoting= deals.filter(function(d){ return d.stage==='quote'; });
+    var allDeals   = ensureDeals().concat(loadHWDeals());
+    var deals      = ensureDeals();
+    var active     = allDeals.filter(function(d){ return d.stage!=='won'&&d.stage!=='lost'; });
+    var won        = allDeals.filter(function(d){ return d.stage==='won'; });
+    var quoting    = deals.filter(function(d){ return d.stage==='quote'; });
     var openVal    = active.reduce(function(s,d){ return s+parseAmt(d.amt); }, 0);
     var weightedVal= active.reduce(function(s,d){ return s+parseAmt(d.amt)*(STAGE_WEIGHTS[d.stage]||0); }, 0);
     var wonVal     = won.reduce(function(s,d){ return s+parseAmt(d.amt); }, 0);
@@ -2207,11 +2210,13 @@
     var _hdrs={'apikey':cfg.key,'Authorization':'Bearer '+cfg.key,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'};
     var now=new Date().toISOString();
     // Push all local data up first
+    var eosData=(function(){ try{ return JSON.parse(localStorage.getItem('ns_eos_meetings_v1')||'{}'); }catch(e){ return {}; } })();
     var pushes=[
       fetch(cfg.url+'/rest/v1/ns_pipeline',{method:'POST',headers:_hdrs,body:JSON.stringify({rep:'shared',deals:loadDeals(),updated_at:now})}),
       fetch(cfg.url+'/rest/v1/ns_hw_pipeline',{method:'POST',headers:_hdrs,body:JSON.stringify({rep:'shared',deals:loadHWDeals(),updated_at:now})}),
       fetch(cfg.url+'/rest/v1/ns_dc_capacity',{method:'POST',headers:_hdrs,body:JSON.stringify({id:'shared',entries:loadDCEntries(),updated_at:now})}),
-      fetch(cfg.url+'/rest/v1/ns_colo_capacity',{method:'POST',headers:_hdrs,body:JSON.stringify({id:'shared',entries:loadCoLoEntries(),updated_at:now})})
+      fetch(cfg.url+'/rest/v1/ns_colo_capacity',{method:'POST',headers:_hdrs,body:JSON.stringify({id:'shared',entries:loadCoLoEntries(),updated_at:now})}),
+      fetch(cfg.url+'/rest/v1/ns_eos_meetings',{method:'POST',headers:_hdrs,body:JSON.stringify({id:'shared',data:eosData,updated_at:now})})
     ];
     Promise.all(pushes).then(function(){
       // Then pull latest from Supabase
