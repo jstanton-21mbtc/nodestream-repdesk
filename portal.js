@@ -2836,6 +2836,14 @@
   renderDashPipeline();
 
   // ============================================================
+  // AUTO-SYNC — poll Supabase every 60s so new entries from any
+  // rep appear automatically without a manual Sync or page refresh
+  // ============================================================
+  setInterval(function(){
+    if(nsIsLoggedIn() && !sessionStorage.getItem('ns_demo_v1')) sbSyncDown();
+  }, 60000);
+
+  // ============================================================
   // AI ANALYST
   // ============================================================
   var _aiHistory = []; // {role:'user'|'assistant', content:''}
