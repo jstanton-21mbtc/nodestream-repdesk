@@ -1388,6 +1388,7 @@
   function renderDCBoard(){
     var board=document.getElementById('dcCapacityBoard'); if(!board) return;
     var entries=loadDCEntries();
+    if(_activeRepFilter) entries=entries.filter(function(e){ return e.rep===_activeRepFilter; });
     board.innerHTML='';
     var quarters=getDCQuarters();
     // Add any quarter in data not yet in the default range
@@ -1446,7 +1447,10 @@
           var card=document.createElement('div'); card.className='kancard'; card.draggable=true; card.dataset.entryId=e.id;
           var _assocDeal=e.associatedDealId?loadDeals().find(function(d){ return d.id===e.associatedDealId; }):null;
           card.innerHTML=
-            '<div class="kc-co">'+esc(e.offtaker)+'</div>'+
+            '<div style="display:flex;align-items:flex-start;gap:6px;flex-wrap:wrap;margin-bottom:2px">'+
+              '<span class="kc-co" style="margin-bottom:0;flex:1">'+esc(e.offtaker)+'</span>'+
+              (e.rep?'<span class="kc-rep" data-rep="'+esc(e.rep)+'">'+esc(e.rep)+'</span>':'')+
+            '</div>'+
             '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap">'+
               (e.mw?'<span class="kc-mw">'+esc(e.mw)+' MW</span>':'')+
               '<span class="dc-status-badge '+esc(e.status||'prospect')+'">'+esc(DC_STATUS[e.status]||e.status)+'</span>'+
@@ -1509,6 +1513,7 @@
     $("#dcEntryModalTitle").textContent='Add Data Center';
     $("#dcEntryId").value=''; $("#dc-offtaker").value=''; $("#dc-mw").value='';
     $("#dc-status").value='prospect'; $("#dc-campus").value=''; $("#dc-notes").value='';
+    setRepBtns('#dc-rep','.dc-rep-btn','');
     setDCServiceType('gpuaas');
     populateDCAssocDealSelect('');
     var delBtn=$("#dcEntryDeleteBtn"); if(delBtn) delBtn.style.display='none';
@@ -1526,6 +1531,7 @@
     $("#dcEntryId").value=entry.id; $("#dc-offtaker").value=entry.offtaker||'';
     $("#dc-mw").value=entry.mw||''; $("#dc-status").value=entry.status||'prospect';
     $("#dc-campus").value=entry.campus||''; $("#dc-notes").value=entry.notes||'';
+    setRepBtns('#dc-rep','.dc-rep-btn',entry.rep||'');
     setDCServiceType(entry.serviceType||'gpuaas');
     var nt=$("#dc-node-type"); if(nt) nt.value=entry.nodeType||'';
     var nc=$("#dc-node-count"); if(nc) nc.value=entry.nodeCount||'';
@@ -1551,6 +1557,7 @@
         entries[idx].quarter=quarter; entries[idx].status=$("#dc-status").value;
         entries[idx].campus=($("#dc-campus").value||'').trim(); entries[idx].notes=($("#dc-notes").value||'').trim();
         entries[idx].serviceType=serviceType; entries[idx].nodeType=nodeType; entries[idx].nodeCount=nodeCount;
+        entries[idx].rep=($("#dc-rep")?$("#dc-rep").value:'')||'';
         entries[idx].associatedDealId=($("#dc-assoc-deal").value||'');
         entries[idx].docs=_dcPendingDocs.slice();
       }
@@ -1558,6 +1565,7 @@
       entries.unshift({ id:'dc_'+Date.now(), offtaker:offtaker, mw:($("#dc-mw").value||'').trim(),
         quarter:quarter, status:$("#dc-status").value, campus:($("#dc-campus").value||'').trim(),
         notes:($("#dc-notes").value||'').trim(), serviceType:serviceType, nodeType:nodeType, nodeCount:nodeCount,
+        rep:($("#dc-rep")?$("#dc-rep").value:'')||'',
         associatedDealId:($("#dc-assoc-deal").value||''),
         docs:_dcPendingDocs.slice(), dateAdded:new Date().toISOString().slice(0,10) });
     }
@@ -1933,6 +1941,12 @@
       setRepBtns('#hw-deal-rep','.hw-rep-btn', _curHWRep===hwRepBtn.dataset.rep ? '' : hwRepBtn.dataset.rep);
       return;
     }
+    var dcRepBtn=e.target.closest('.dc-rep-btn');
+    if(dcRepBtn){
+      var _curDCRep=($("#dc-rep")||{}).value||'';
+      setRepBtns('#dc-rep','.dc-rep-btn', _curDCRep===dcRepBtn.dataset.rep ? '' : dcRepBtn.dataset.rep);
+      return;
+    }
     var coloRepBtn=e.target.closest('.colo-rep-btn');
     if(coloRepBtn){
       var _curColoRep=($("#colo-rep")||{}).value||'';
@@ -2262,9 +2276,9 @@
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(hwRows), 'Hardware');
 
     // DC Capacity
-    var dcRows = [['Facility','Quarter','Status','Service Type','MW','Campus','Node Type','Nodes','Notes','Date Added']];
+    var dcRows = [['Facility','Quarter','Status','Rep','Service Type','MW','Campus','Node Type','Nodes','Notes','Date Added']];
     loadDCEntries().forEach(function(e){
-      dcRows.push([e.offtaker||'', e.quarter||'', DC_STATUS[e.status]||e.status||'', DC_SVC_LABELS[e.serviceType]||e.serviceType||'', e.mw||'', e.campus||'', e.nodeType||'', e.nodeCount||'', e.notes||'', e.dateAdded||'']);
+      dcRows.push([e.offtaker||'', e.quarter||'', DC_STATUS[e.status]||e.status||'', e.rep||'', DC_SVC_LABELS[e.serviceType]||e.serviceType||'', e.mw||'', e.campus||'', e.nodeType||'', e.nodeCount||'', e.notes||'', e.dateAdded||'']);
     });
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(dcRows), 'DC Capacity');
 
