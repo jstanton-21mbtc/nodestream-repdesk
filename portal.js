@@ -573,17 +573,26 @@
   function sbSyncDown(){
     var cfg=sbConfig(); if(!cfg) return;
     var rep=localStorage.getItem(NS_NAME_KEY)||'';
+    var isDemo=sessionStorage.getItem('ns_demo_v1');
+    if(isDemo) return;
+
+    // EOS meetings — shared, no rep dependency — sync first
+    sbGet('ns_eos_meetings','id','shared').then(function(rows){
+      if(!rows||!rows.length||!rows[0].data) return;
+      localStorage.setItem('ns_eos_meetings_v1', JSON.stringify(rows[0].data));
+      // Reload EOS iframe if currently on EOS view so rep sees updates immediately
+      var eosView=document.getElementById('view-eos');
+      if(eosView && !eosView.classList.contains('hidden')) loadFrame('eos');
+    });
     // DC capacity — shared across all reps
     sbGet('ns_dc_capacity','id','shared').then(function(rows){
       if(!rows||!rows.length||!rows[0].entries) return;
-      if(sessionStorage.getItem('ns_demo_v1')) return;
       localStorage.setItem('ns_dc_capacity_v1'+nsUserSuffix(), JSON.stringify(rows[0].entries));
       if(typeof renderDCBoard==='function' && document.getElementById('dcCapacityBoard')) renderDCBoard();
     });
     // CoLo capacity — shared across all reps
     sbGet('ns_colo_capacity','id','shared').then(function(rows){
       if(!rows||!rows.length||!rows[0].entries) return;
-      if(sessionStorage.getItem('ns_demo_v1')) return;
       localStorage.setItem('ns_colo_capacity_v1'+nsUserSuffix(), JSON.stringify(rows[0].entries));
       if(typeof renderCoLoBoard==='function' && document.getElementById('coloCapacityBoard')) renderCoLoBoard();
     });
@@ -591,7 +600,6 @@
     // Shared GPUaaS pipeline
     sbGet('ns_pipeline','rep','shared').then(function(rows){
       if(!rows||!rows.length||!rows[0].deals) return;
-      if(sessionStorage.getItem('ns_demo_v1')) return;
       localStorage.setItem('ns_pipeline_v1'+nsUserSuffix(), JSON.stringify(rows[0].deals));
       if(typeof renderKanban==='function') renderKanban();
       if(typeof renderDashKPIs==='function') renderDashKPIs();
@@ -600,7 +608,6 @@
     // Shared hardware pipeline
     sbGet('ns_hw_pipeline','rep','shared').then(function(rows){
       if(!rows||!rows.length||!rows[0].deals) return;
-      if(sessionStorage.getItem('ns_demo_v1')) return;
       localStorage.setItem('ns_hw_pipeline_v1'+nsUserSuffix(), JSON.stringify(rows[0].deals));
       if(typeof renderKanbanHW==='function') renderKanbanHW();
       if(typeof renderDashKPIs==='function') renderDashKPIs();
@@ -609,14 +616,7 @@
     // Per-rep tasks
     sbGet('ns_tasks','rep',rep).then(function(rows){
       if(!rows||!rows.length||!rows[0].tasks) return;
-      if(sessionStorage.getItem('ns_demo_v1')) return;
       localStorage.setItem('ns_tasks_v1'+nsUserSuffix(), JSON.stringify(rows[0].tasks));
-    });
-    // EOS meetings — shared across all reps
-    sbGet('ns_eos_meetings','id','shared').then(function(rows){
-      if(!rows||!rows.length||!rows[0].data) return;
-      if(sessionStorage.getItem('ns_demo_v1')) return;
-      localStorage.setItem('ns_eos_meetings_v1', JSON.stringify(rows[0].data));
     });
   }
 
@@ -2209,18 +2209,14 @@
     if(btn){ btn.textContent='Syncing…'; btn.disabled=true; }
     var _hdrs={'apikey':cfg.key,'Authorization':'Bearer '+cfg.key,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'};
     var now=new Date().toISOString();
-    // Push all local data up first
+    // Pipelines (GPUaaS, HW, DC, CoLo) are pushed automatically on every save.
+    // Only push EOS here since the iframe has no auto-push mechanism.
     var eosData=(function(){ try{ return JSON.parse(localStorage.getItem('ns_eos_meetings_v1')||'{}'); }catch(e){ return {}; } })();
-    var pushes=[
-      fetch(cfg.url+'/rest/v1/ns_pipeline',{method:'POST',headers:_hdrs,body:JSON.stringify({rep:'shared',deals:loadDeals(),updated_at:now})}),
-      fetch(cfg.url+'/rest/v1/ns_hw_pipeline',{method:'POST',headers:_hdrs,body:JSON.stringify({rep:'shared',deals:loadHWDeals(),updated_at:now})}),
-      fetch(cfg.url+'/rest/v1/ns_dc_capacity',{method:'POST',headers:_hdrs,body:JSON.stringify({id:'shared',entries:loadDCEntries(),updated_at:now})}),
-      fetch(cfg.url+'/rest/v1/ns_colo_capacity',{method:'POST',headers:_hdrs,body:JSON.stringify({id:'shared',entries:loadCoLoEntries(),updated_at:now})}),
-      fetch(cfg.url+'/rest/v1/ns_eos_meetings',{method:'POST',headers:_hdrs,body:JSON.stringify({id:'shared',data:eosData,updated_at:now})})
-    ];
-    Promise.all(pushes).then(function(){
-      // Then pull latest from Supabase
-      sbSyncDown();
+    fetch(cfg.url+'/rest/v1/ns_eos_meetings',{method:'POST',headers:_hdrs,body:JSON.stringify({id:'shared',data:eosData,updated_at:now})})
+    .then(function(){
+      // Pull latest for all pipelines + EOS from Supabase
+      return sbSyncDown();
+    }).then(function(){
       if(btn){ btn.disabled=false; btn.textContent='✓ Synced'; setTimeout(function(){ btn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg> Sync'; },2500); }
     }).catch(function(){
       if(btn){ btn.disabled=false; btn.textContent='✗ Failed'; setTimeout(function(){ btn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg> Sync'; },2500); }
