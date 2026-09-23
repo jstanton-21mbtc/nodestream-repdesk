@@ -1642,8 +1642,7 @@
             '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap">'+
               (e.kw?'<span class="kc-mw">'+esc(e.kw)+' kW</span>':'')+
               '<span class="dc-status-badge '+esc(e.status||'prospect')+'">'+esc(DC_STATUS[e.status]||e.status)+'</span>'+
-              '<span style="font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:4px;letter-spacing:.4px;font-weight:700;background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.25);color:var(--accent)">'+esc(DC_SVC_LABELS[e.serviceType||'gpuaas']||e.serviceType||'GPUaaS')+'</span>'+
-              (e.nodeType?'<span style="font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:4px;letter-spacing:.4px;font-weight:700;background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.25);color:#a78bfa">'+esc(e.nodeType)+(e.nodeCount?' ×'+esc(e.nodeCount):'')+'</span>':'')+
+              (e.tier?'<span style="font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:4px;letter-spacing:.4px;font-weight:700;background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.25);color:var(--accent)">Tier '+esc(e.tier)+'</span>':'')+
             '</div>'+
             (e.campus?'<div style="font-family:var(--mono);font-size:9px;color:var(--muted-2);margin-bottom:4px">'+esc(e.campus)+'</div>':'')+
             (_assocDeal?'<div style="font-family:var(--mono);font-size:9px;padding:2px 8px;border-radius:4px;margin-bottom:4px;background:rgba(250,189,47,.08);border:1px solid rgba(250,189,47,.28);color:#fabd2f;display:inline-block;letter-spacing:.3px">&#128279; '+esc(_assocDeal.co)+(_assocDeal.amt?' &middot; '+esc(_assocDeal.amt):'')+'</div>':'')+
@@ -1665,21 +1664,6 @@
     board.appendChild(wrap);
   }
 
-  function setCoLoServiceType(val){
-    var svc=val||'gpuaas';
-    var hi=$("#colo-service-type"); if(hi) hi.value=svc;
-    $$('.colo-svc-btn').forEach(function(b){
-      var active=b.dataset.svc===svc;
-      b.classList.toggle('active',active);
-      b.style.borderColor=active?'var(--accent)':'var(--line)';
-      b.style.background=active?'rgba(96,165,250,.13)':'transparent';
-      b.style.color=active?'var(--accent)':'var(--muted)';
-    });
-    var showNode=svc==='gpuaas'||svc==='baremetal';
-    var ntf=$("#colo-node-type-field"); if(ntf) ntf.style.display=showNode?'':'none';
-    var ncf=$("#colo-node-count-field"); if(ncf) ncf.style.display=showNode?'':'none';
-    if(!showNode){ var nt=$("#colo-node-type"); if(nt) nt.value=''; var nc=$("#colo-node-count"); if(nc) nc.value=''; }
-  }
 
   function populateCoLoAssocDealSelect(selectedId){
     var sel=$("#colo-assoc-deal"); if(!sel) return;
@@ -1699,7 +1683,7 @@
     $("#coloEntryModalTitle").textContent='Add CoLo Entry';
     $("#coloEntryId").value=''; $("#colo-offtaker").value=''; $("#colo-kw").value='';
     $("#colo-status").value='prospect'; $("#colo-campus").value=''; $("#colo-notes").value='';
-    setCoLoServiceType('gpuaas');
+    var t=$("#colo-tier"); if(t) t.value='';
     populateCoLoAssocDealSelect('');
     var delBtn=$("#coloEntryDeleteBtn"); if(delBtn) delBtn.style.display='none';
     _coloPendingDocs=[]; refreshCoLoDealDocPills();
@@ -1716,9 +1700,7 @@
     $("#coloEntryId").value=entry.id; $("#colo-offtaker").value=entry.offtaker||'';
     $("#colo-kw").value=entry.kw||''; $("#colo-status").value=entry.status||'prospect';
     $("#colo-campus").value=entry.campus||''; $("#colo-notes").value=entry.notes||'';
-    setCoLoServiceType(entry.serviceType||'gpuaas');
-    var nt=$("#colo-node-type"); if(nt) nt.value=entry.nodeType||'';
-    var nc=$("#colo-node-count"); if(nc) nc.value=entry.nodeCount||'';
+    var t=$("#colo-tier"); if(t) t.value=entry.tier||'';
     populateCoLoAssocDealSelect(entry.associatedDealId||'');
     var delBtn=$("#coloEntryDeleteBtn"); if(delBtn) delBtn.style.display='';
     _coloPendingDocs=(entry.docs||[]).map(function(d){ return Object.assign({},d); }); refreshCoLoDealDocPills();
@@ -1730,24 +1712,21 @@
     var offtaker=($("#colo-offtaker").value||'').trim(); if(!offtaker){ $("#colo-offtaker").focus(); return; }
     var entries=loadCoLoEntries(); var id=$("#coloEntryId").value;
     var quarter=$("#colo-quarter").value||getDCQuarters()[0];
-    var serviceType=($("#colo-service-type").value)||'gpuaas';
-    var showNode=serviceType==='gpuaas'||serviceType==='baremetal';
-    var nodeType=showNode?($("#colo-node-type").value||''):'';
-    var nodeCount=showNode?($("#colo-node-count").value||''):'';
+    var tier=($("#colo-tier")?$("#colo-tier").value:'')||'';
     if(id){
       var idx=entries.findIndex(function(e){ return e.id===id; });
       if(idx>-1){
         entries[idx].offtaker=offtaker; entries[idx].kw=($("#colo-kw").value||'').trim();
         entries[idx].quarter=quarter; entries[idx].status=$("#colo-status").value;
         entries[idx].campus=($("#colo-campus").value||'').trim(); entries[idx].notes=($("#colo-notes").value||'').trim();
-        entries[idx].serviceType=serviceType; entries[idx].nodeType=nodeType; entries[idx].nodeCount=nodeCount;
+        entries[idx].tier=tier;
         entries[idx].associatedDealId=($("#colo-assoc-deal").value||'');
         entries[idx].docs=_coloPendingDocs.slice();
       }
     } else {
       entries.unshift({ id:'colo_'+Date.now(), offtaker:offtaker, kw:($("#colo-kw").value||'').trim(),
         quarter:quarter, status:$("#colo-status").value, campus:($("#colo-campus").value||'').trim(),
-        notes:($("#colo-notes").value||'').trim(), serviceType:serviceType, nodeType:nodeType, nodeCount:nodeCount,
+        notes:($("#colo-notes").value||'').trim(), tier:tier,
         associatedDealId:($("#colo-assoc-deal").value||''),
         docs:_coloPendingDocs.slice(), dateAdded:new Date().toISOString().slice(0,10) });
     }
@@ -1940,9 +1919,6 @@
       setDCServiceType(svcBtn.dataset.svc);
       return;
     }
-    var coloSvcBtn=e.target.closest('.colo-svc-btn');
-    if(coloSvcBtn){ setCoLoServiceType(coloSvcBtn.dataset.svc); return; }
-
     // Deal row (dashboard preview table)
     var tr=e.target.closest('tr[data-deal-id]');
     if(tr){ openDealDetail(tr.dataset.dealId); return; }
@@ -2250,9 +2226,9 @@
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(dcRows), 'DC Capacity');
 
     // CoLo Capacity
-    var coloRows = [['Facility','Quarter','Status','Service Type','kW','Campus','Node Type','Nodes','Notes','Date Added']];
+    var coloRows = [['Facility','Quarter','Status','Tier','kW','Campus','Notes','Date Added']];
     loadCoLoEntries().forEach(function(e){
-      coloRows.push([e.offtaker||'', e.quarter||'', DC_STATUS[e.status]||e.status||'', DC_SVC_LABELS[e.serviceType]||e.serviceType||'', e.kw||'', e.campus||'', e.nodeType||'', e.nodeCount||'', e.notes||'', e.dateAdded||'']);
+      coloRows.push([e.offtaker||'', e.quarter||'', DC_STATUS[e.status]||e.status||'', e.tier?'Tier '+e.tier:'', e.kw||'', e.campus||'', e.notes||'', e.dateAdded||'']);
     });
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(coloRows), 'CoLo Capacity');
 

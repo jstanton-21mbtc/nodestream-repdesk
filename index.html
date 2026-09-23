@@ -898,27 +898,15 @@
         <input class="form-input" type="text" id="colo-offtaker" placeholder="e.g. Equinix DC1, CoreSite LA2">
       </div>
       <div class="form-field">
-        <span class="form-label">Service Type</span>
-        <input type="hidden" id="colo-service-type" value="gpuaas">
-        <div style="display:flex;gap:8px;margin-top:2px">
-          <button type="button" class="colo-svc-btn active" data-svc="gpuaas" style="flex:1;padding:7px 10px;border-radius:7px;border:1.5px solid var(--accent);background:rgba(96,165,250,.13);color:var(--accent);font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.5px;cursor:pointer;transition:all .15s">GPUaaS</button>
-          <button type="button" class="colo-svc-btn" data-svc="baremetal" style="flex:1;padding:7px 10px;border-radius:7px;border:1.5px solid var(--line);background:transparent;color:var(--muted);font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.5px;cursor:pointer;transition:all .15s">Bare Metal</button>
-          <button type="button" class="colo-svc-btn" data-svc="colo" style="flex:1;padding:7px 10px;border-radius:7px;border:1.5px solid var(--line);background:transparent;color:var(--muted);font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.5px;cursor:pointer;transition:all .15s">CoLocation</button>
-        </div>
-      </div>
-      <div class="form-field" id="colo-node-type-field" style="display:none;animation:fadeIn .15s ease">
-        <span class="form-label">Node Type</span>
-        <select class="form-input" id="colo-node-type">
-          <option value="">— Select node type —</option>
-          <option value="B300">B300</option>
-          <option value="GB300">GB300</option>
-          <option value="Vera Rubin">Vera Rubin</option>
-          <option value="H100">H100</option>
+        <span class="form-label">Tier</span>
+        <select class="form-input" id="colo-tier">
+          <option value="">— Select tier —</option>
+          <option value="1">Tier 1</option>
+          <option value="2">Tier 2</option>
+          <option value="3">Tier 3</option>
+          <option value="4">Tier 4</option>
+          <option value="5">Tier 5</option>
         </select>
-      </div>
-      <div class="form-field" id="colo-node-count-field" style="display:none;animation:fadeIn .15s ease">
-        <span class="form-label">Number of Nodes</span>
-        <input class="form-input" type="number" id="colo-node-count" placeholder="e.g. 512" min="1">
       </div>
       <div class="form-row">
         <div class="form-field">
