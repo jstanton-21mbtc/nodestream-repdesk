@@ -2832,12 +2832,21 @@
   renderDashPipeline();
 
   // ============================================================
-  // AUTO-SYNC — poll Supabase every 60s so new entries from any
-  // rep appear automatically without a manual Sync or page refresh
+  // AUTO-SYNC — two mechanisms so reps always see live data:
+  //   1. Poll every 30s (catches changes while tab is active)
+  //   2. Sync immediately when tab becomes visible again (covers
+  //      the rep returning from another app / waking their laptop)
   // ============================================================
   setInterval(function(){
     if(nsIsLoggedIn() && !sessionStorage.getItem('ns_demo_v1')) sbSyncDown();
-  }, 60000);
+  }, 30000);
+
+  document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState === 'visible' &&
+       nsIsLoggedIn() && !sessionStorage.getItem('ns_demo_v1')){
+      sbSyncDown();
+    }
+  });
 
   // ============================================================
   // AI ANALYST
