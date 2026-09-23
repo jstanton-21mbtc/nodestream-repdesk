@@ -455,7 +455,8 @@
     nego:"Negotiation", won:"Closed Won", lost:"Closed Lost"
   };
   var _pipeFilter    = 'all';
-  var _activePipeline = 'gpuaas'; // 'gpuaas' | 'hardware' | 'dc'
+  var _activePipeline = 'gpuaas'; // 'gpuaas' | 'hardware' | 'dc' | 'colo'
+  var _activeRepFilter = '';
   var _viewingDealId = null;
   var _pendingDocs   = [];
   var _hwPendingDocs = [];
@@ -758,6 +759,7 @@
   function renderKanban(){
     var board=document.getElementById('kanbanBoard'); if(!board) return;
     var deals=ensureDeals();
+    if(_activeRepFilter) deals=deals.filter(function(d){ return d.rep===_activeRepFilter; });
     board.innerHTML='';
 
     Object.keys(STAGES).forEach(function(sk){
@@ -1078,10 +1080,10 @@
     gpuaas:   'Drag cards between stages to advance deals. Click any card for details, scorecard &amp; quote notes.',
     hardware: 'Track hardware deals — servers, GPUs, and custom builds. Drag cards to advance, click for details.',
     dc:       'Track data center capacity by quarter. Drag cards between quarters as timelines shift.',
-    colo:     'Track colocation capacity by quarter. Drag cards between quarters as timelines shift.'
+    colo:     'Track colocation deals by quarter. Drag cards between quarters as timelines shift.'
   };
   var PIPE_BTN_LABELS = {
-    gpuaas: '+ Add Deal', hardware: '+ Add HW Deal', dc: '+ Add Data Center', colo: '+ Add CoLo Entry'
+    gpuaas: '+ Add Deal', hardware: '+ Add HW Deal', dc: '+ Add Data Center', colo: '+ Add CoLo Deal'
   };
 
   function switchPipeline(type){
@@ -1143,6 +1145,7 @@
   function renderKanbanHW(){
     var board = document.getElementById('kanbanBoardHW'); if(!board) return;
     var deals = loadHWDeals();
+    if(_activeRepFilter) deals=deals.filter(function(d){ return d.rep===_activeRepFilter; });
     board.innerHTML = '';
     Object.keys(HW_STAGES).forEach(function(sk){
       var cfg = HW_STAGE_CFG[sk]||HW_STAGE_CFG.disc;
@@ -1598,6 +1601,7 @@
   function renderCoLoBoard(){
     var board=document.getElementById('coloCapacityBoard'); if(!board) return;
     var entries=loadCoLoEntries();
+    if(_activeRepFilter) entries=entries.filter(function(e){ return e.rep===_activeRepFilter; });
     board.innerHTML='';
     var quarters=getDCQuarters();
     entries.forEach(function(e){ if(e.quarter && quarters.indexOf(e.quarter)===-1) quarters.push(e.quarter); });
@@ -1638,7 +1642,10 @@
           var card=document.createElement('div'); card.className='kancard'; card.draggable=true; card.dataset.entryId=e.id;
           var _assocDeal=e.associatedDealId?loadDeals().find(function(d){ return d.id===e.associatedDealId; }):null;
           card.innerHTML=
-            '<div class="kc-co">'+esc(e.offtaker)+'</div>'+
+            '<div style="display:flex;align-items:flex-start;gap:6px;flex-wrap:wrap;margin-bottom:2px">'+
+              '<span class="kc-co" style="margin-bottom:0;flex:1">'+esc(e.offtaker)+'</span>'+
+              (e.rep?'<span class="kc-rep" data-rep="'+esc(e.rep)+'">'+esc(e.rep)+'</span>':'')+
+            '</div>'+
             '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap">'+
               (e.kw?'<span class="kc-mw">'+esc(e.kw)+' kW</span>':'')+
               '<span class="dc-status-badge '+esc(e.status||'prospect')+'">'+esc(DC_STATUS[e.status]||e.status)+'</span>'+
@@ -1680,10 +1687,11 @@
 
   function openAddCoLoEntry(quarter){
     populateCoLoQuarterSelect(quarter||getDCQuarters()[0]);
-    $("#coloEntryModalTitle").textContent='Add CoLo Entry';
+    $("#coloEntryModalTitle").textContent='Add CoLo Deal';
     $("#coloEntryId").value=''; $("#colo-offtaker").value=''; $("#colo-kw").value='';
     $("#colo-status").value='prospect'; $("#colo-campus").value=''; $("#colo-notes").value='';
     var t=$("#colo-tier"); if(t) t.value='';
+    setRepBtns('#colo-rep','.colo-rep-btn','');
     populateCoLoAssocDealSelect('');
     var delBtn=$("#coloEntryDeleteBtn"); if(delBtn) delBtn.style.display='none';
     _coloPendingDocs=[]; refreshCoLoDealDocPills();
@@ -1696,11 +1704,12 @@
     var entries=loadCoLoEntries(); var entry=entries.find(function(e){ return e.id===id; }); if(!entry) return;
     _viewingCoLoEntryId=id;
     populateCoLoQuarterSelect(entry.quarter);
-    $("#coloEntryModalTitle").textContent='Edit CoLo Entry';
+    $("#coloEntryModalTitle").textContent='Edit CoLo Deal';
     $("#coloEntryId").value=entry.id; $("#colo-offtaker").value=entry.offtaker||'';
     $("#colo-kw").value=entry.kw||''; $("#colo-status").value=entry.status||'prospect';
     $("#colo-campus").value=entry.campus||''; $("#colo-notes").value=entry.notes||'';
     var t=$("#colo-tier"); if(t) t.value=entry.tier||'';
+    setRepBtns('#colo-rep','.colo-rep-btn',entry.rep||'');
     populateCoLoAssocDealSelect(entry.associatedDealId||'');
     var delBtn=$("#coloEntryDeleteBtn"); if(delBtn) delBtn.style.display='';
     _coloPendingDocs=(entry.docs||[]).map(function(d){ return Object.assign({},d); }); refreshCoLoDealDocPills();
@@ -1713,20 +1722,21 @@
     var entries=loadCoLoEntries(); var id=$("#coloEntryId").value;
     var quarter=$("#colo-quarter").value||getDCQuarters()[0];
     var tier=($("#colo-tier")?$("#colo-tier").value:'')||'';
+    var rep=($("#colo-rep")?$("#colo-rep").value:'')||'';
     if(id){
       var idx=entries.findIndex(function(e){ return e.id===id; });
       if(idx>-1){
         entries[idx].offtaker=offtaker; entries[idx].kw=($("#colo-kw").value||'').trim();
         entries[idx].quarter=quarter; entries[idx].status=$("#colo-status").value;
         entries[idx].campus=($("#colo-campus").value||'').trim(); entries[idx].notes=($("#colo-notes").value||'').trim();
-        entries[idx].tier=tier;
+        entries[idx].tier=tier; entries[idx].rep=rep;
         entries[idx].associatedDealId=($("#colo-assoc-deal").value||'');
         entries[idx].docs=_coloPendingDocs.slice();
       }
     } else {
       entries.unshift({ id:'colo_'+Date.now(), offtaker:offtaker, kw:($("#colo-kw").value||'').trim(),
         quarter:quarter, status:$("#colo-status").value, campus:($("#colo-campus").value||'').trim(),
-        notes:($("#colo-notes").value||'').trim(), tier:tier,
+        notes:($("#colo-notes").value||'').trim(), tier:tier, rep:rep,
         associatedDealId:($("#colo-assoc-deal").value||''),
         docs:_coloPendingDocs.slice(), dateAdded:new Date().toISOString().slice(0,10) });
     }
@@ -1904,6 +1914,22 @@
     if(hwRepBtn){
       var _curHWRep=($("#hw-deal-rep")||{}).value||'';
       setRepBtns('#hw-deal-rep','.hw-rep-btn', _curHWRep===hwRepBtn.dataset.rep ? '' : hwRepBtn.dataset.rep);
+      return;
+    }
+    var coloRepBtn=e.target.closest('.colo-rep-btn');
+    if(coloRepBtn){
+      var _curColoRep=($("#colo-rep")||{}).value||'';
+      setRepBtns('#colo-rep','.colo-rep-btn', _curColoRep===coloRepBtn.dataset.rep ? '' : coloRepBtn.dataset.rep);
+      return;
+    }
+    var repFilterBtn=e.target.closest('.rep-filter-btn');
+    if(repFilterBtn){
+      _activeRepFilter = repFilterBtn.dataset.rep==='all' ? '' : repFilterBtn.dataset.rep;
+      $$('.rep-filter-btn').forEach(function(b){ b.classList.toggle('active', b.dataset.rep===(repFilterBtn.dataset.rep)); });
+      if(_activePipeline==='gpuaas') renderKanban();
+      else if(_activePipeline==='hardware') renderKanbanHW();
+      else if(_activePipeline==='dc') renderDCBoard();
+      else if(_activePipeline==='colo') renderCoLoBoard();
       return;
     }
 
@@ -2226,9 +2252,9 @@
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(dcRows), 'DC Capacity');
 
     // CoLo Capacity
-    var coloRows = [['Facility','Quarter','Status','Tier','kW','Campus','Notes','Date Added']];
+    var coloRows = [['Facility','Quarter','Status','Tier','Rep','kW','Campus','Notes','Date Added']];
     loadCoLoEntries().forEach(function(e){
-      coloRows.push([e.offtaker||'', e.quarter||'', DC_STATUS[e.status]||e.status||'', e.tier?'Tier '+e.tier:'', e.kw||'', e.campus||'', e.notes||'', e.dateAdded||'']);
+      coloRows.push([e.offtaker||'', e.quarter||'', DC_STATUS[e.status]||e.status||'', e.tier?'Tier '+e.tier:'', e.rep||'', e.kw||'', e.campus||'', e.notes||'', e.dateAdded||'']);
     });
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(coloRows), 'CoLo Capacity');
 
