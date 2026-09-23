@@ -1398,22 +1398,39 @@
       return (parseInt(pa[2])-parseInt(pb[2]))||( parseInt(pa[1])-parseInt(pb[1]));
     });
 
+    var _dcNow=new Date(); var _curDCQ='Q'+Math.ceil((_dcNow.getMonth()+1)/3)+' '+_dcNow.getFullYear();
+
     var wrap=document.createElement('div');
     wrap.style.cssText='display:flex;gap:14px;align-items:flex-start;min-width:max-content';
 
     quarters.forEach(function(qk){
+      var isLive=qk===_curDCQ;
       var qEntries=entries.filter(function(e){ return e.quarter===qk; });
       var mwTotal=totalMW(qEntries);
       var mwConfirmed=totalMW(qEntries.filter(function(e){ return e.status==='contracted'||e.status==='live'; }));
       var col=document.createElement('div'); col.className='kancol';
       var head=document.createElement('div'); head.className='kancol-head';
-      head.style.cssText='border-color:var(--green-dim);background:rgba(46,122,31,.07);border-left:3px solid var(--green-dim)';
-      head.innerHTML=
-        '<div style="min-width:0">'+
-          '<div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--green-bright);font-weight:700">'+esc(qk)+'</div>'+
-          (mwTotal?'<div style="font-family:var(--mono);font-size:9px;color:var(--muted-2);margin-top:3px">'+mwTotal+' MW tracked'+(mwConfirmed?' · '+mwConfirmed+' MW confirmed':'')+'</div>':'')+
-        '</div>'+
-        '<span style="font-family:var(--mono);font-size:11px;background:var(--panel-3);border:1px solid var(--line);border-radius:5px;padding:2px 8px;color:var(--muted-2);flex:none">'+qEntries.length+'</span>';
+      if(isLive){
+        head.style.cssText='border-color:var(--green-bright);background:rgba(60,160,40,.13);border-left:3px solid var(--green-bright);box-shadow:inset 0 0 0 1px rgba(60,160,40,.12)';
+        head.innerHTML=
+          '<div style="min-width:0">'+
+            '<div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--green-bright);font-weight:700;display:flex;align-items:center;gap:7px">'+
+              '<span style="width:7px;height:7px;border-radius:50%;background:var(--green-bright);box-shadow:0 0 7px var(--green-bright);flex:none"></span>'+
+              'Live Capacity'+
+            '</div>'+
+            '<div style="font-family:var(--mono);font-size:9px;color:var(--muted-2);margin-top:2px">'+esc(qk)+'</div>'+
+            (mwTotal?'<div style="font-family:var(--mono);font-size:9px;color:var(--muted-2);margin-top:2px">'+mwTotal+' MW tracked'+(mwConfirmed?' · '+mwConfirmed+' MW confirmed':'')+'</div>':'')+
+          '</div>'+
+          '<span style="font-family:var(--mono);font-size:11px;background:rgba(60,160,40,.12);border:1px solid rgba(60,160,40,.4);border-radius:5px;padding:2px 8px;color:var(--green-bright);flex:none">'+qEntries.length+'</span>';
+      } else {
+        head.style.cssText='border-color:var(--green-dim);background:rgba(46,122,31,.07);border-left:3px solid var(--green-dim)';
+        head.innerHTML=
+          '<div style="min-width:0">'+
+            '<div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--green-bright);font-weight:700">'+esc(qk)+'</div>'+
+            (mwTotal?'<div style="font-family:var(--mono);font-size:9px;color:var(--muted-2);margin-top:3px">'+mwTotal+' MW tracked'+(mwConfirmed?' · '+mwConfirmed+' MW confirmed':'')+'</div>':'')+
+          '</div>'+
+          '<span style="font-family:var(--mono);font-size:11px;background:var(--panel-3);border:1px solid var(--line);border-radius:5px;padding:2px 8px;color:var(--muted-2);flex:none">'+qEntries.length+'</span>';
+      }
       col.appendChild(head);
       var body=document.createElement('div'); body.className='kancol-body';
       body.addEventListener('dragover',function(e){ e.preventDefault(); e.dataTransfer.dropEffect='move'; body.classList.add('drag-over'); });
