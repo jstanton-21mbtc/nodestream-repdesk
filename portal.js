@@ -643,6 +643,14 @@
     return '$'+Math.round(n||0);
   }
 
+  var NS_PIPELINE_SNAP_KEY = 'ns_pipeline_snapshot_v1';
+  function loadPipelineSnapshot(){
+    try{ return JSON.parse(localStorage.getItem(NS_PIPELINE_SNAP_KEY+nsUserSuffix())||'null'); }catch(e){ return null; }
+  }
+  function savePipelineSnapshot(openVal,weightedVal){
+    localStorage.setItem(NS_PIPELINE_SNAP_KEY+nsUserSuffix(), JSON.stringify({openVal:openVal,weightedVal:weightedVal,savedAt:new Date().toISOString()}));
+  }
+
   function renderDashKPIs(){
     var wrap = $("#kpis"); if(!wrap) return;
     var allDeals   = ensureDeals().concat(loadHWDeals());
@@ -653,11 +661,29 @@
     var openVal    = active.reduce(function(s,d){ return s+parseAmt(d.amt); }, 0);
     var weightedVal= active.reduce(function(s,d){ return s+parseAmt(d.amt)*(STAGE_WEIGHTS[d.stage]||0); }, 0);
     var wonVal     = won.reduce(function(s,d){ return s+parseAmt(d.amt); }, 0);
+
+    // Weekly growth vs snapshot
+    var snap = loadPipelineSnapshot();
+    var openPct = null, weightedPct = null;
+    if(snap){
+      if(snap.openVal) openPct = (openVal - snap.openVal) / snap.openVal * 100;
+      if(snap.weightedVal) weightedPct = (weightedVal - snap.weightedVal) / snap.weightedVal * 100;
+      if(Date.now() - new Date(snap.savedAt).getTime() >= 7*24*60*60*1000) savePipelineSnapshot(openVal, weightedVal);
+    } else {
+      savePipelineSnapshot(openVal, weightedVal);
+    }
+    function pctBadge(pct){
+      if(pct===null) return '';
+      var sign=pct>0?'+':''; var color=pct>0?'var(--green-bright)':pct<0?'#f87171':'var(--muted-2)';
+      var arrow=pct>0?'▲':pct<0?'▼':'—';
+      return '<span style="font-family:var(--mono);font-size:9px;color:'+color+';margin-left:6px;letter-spacing:.3px">'+arrow+' '+sign+pct.toFixed(1)+'% wk</span>';
+    }
+
     var kpis = [
       {k:'Open pipeline', v:active.length?fmtAmt(openVal):'—', green:true,
-       d:active.length+' active deal'+(active.length!==1?'s':'')},
+       d:active.length+' active deal'+(active.length!==1?'s':''), pct:openPct},
       {k:'Weighted',      v:active.length?fmtAmt(weightedVal):'—', green:false,
-       d:'stage-adjusted'},
+       d:'stage-adjusted', pct:weightedPct},
       {k:'Quotes out',    v:String(quoting.length), green:false,
        d:quoting.length?'awaiting signature':'none out'},
       {k:'Closed won',    v:won.length?fmtAmt(wonVal):'—', green:false,
@@ -668,7 +694,7 @@
       var d=document.createElement('div'); d.className='kpi';
       d.innerHTML='<div class="k">'+k.k+'</div>'+
         '<div class="v'+(k.green?' green':'')+'">'+k.v+'</div>'+
-        '<div class="d">'+k.d+'</div>';
+        '<div class="d">'+k.d+(k.pct!==undefined&&k.pct!==null?pctBadge(k.pct):'')+'</div>';
       wrap.appendChild(d);
     });
   }
