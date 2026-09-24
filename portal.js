@@ -1682,7 +1682,7 @@
       if(qEntries.length){
         qEntries.forEach(function(e){
           var card=document.createElement('div'); card.className='kancard'; card.draggable=true; card.dataset.entryId=e.id;
-          var _assocDeal=e.associatedDealId?loadDeals().find(function(d){ return d.id===e.associatedDealId; }):null;
+          var _assocDCEntry=e.associatedDealId?loadDCEntries().find(function(d){ return d.id===e.associatedDealId; }):null;
           card.innerHTML=
             '<div style="display:flex;align-items:flex-start;gap:6px;flex-wrap:wrap;margin-bottom:2px">'+
               '<span class="kc-co" style="margin-bottom:0;flex:1">'+esc(e.offtaker)+'</span>'+
@@ -1694,7 +1694,7 @@
               (e.tier?'<span style="font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:4px;letter-spacing:.4px;font-weight:700;background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.25);color:var(--accent)">Tier '+esc(e.tier)+'</span>':'')+
             '</div>'+
             (e.campus?'<div style="font-family:var(--mono);font-size:9px;color:var(--muted-2);margin-bottom:4px">'+esc(e.campus)+'</div>':'')+
-            (_assocDeal?'<div style="font-family:var(--mono);font-size:9px;padding:2px 8px;border-radius:4px;margin-bottom:4px;background:rgba(250,189,47,.08);border:1px solid rgba(250,189,47,.28);color:#fabd2f;display:inline-block;letter-spacing:.3px">&#128279; '+esc(_assocDeal.co)+(_assocDeal.amt?' &middot; '+esc(_assocDeal.amt):'')+'</div>':'')+
+            (_assocDCEntry?'<div style="font-family:var(--mono);font-size:9px;padding:2px 8px;border-radius:4px;margin-bottom:4px;background:rgba(250,189,47,.08);border:1px solid rgba(250,189,47,.28);color:#fabd2f;display:inline-block;letter-spacing:.3px">&#128279; '+esc(_assocDCEntry.offtaker)+(_assocDCEntry.mw?' &middot; '+esc(_assocDCEntry.mw)+' MW':'')+'</div>':'')+
             '<div class="kc-date">'+esc(e.dateAdded?fmtDate(e.dateAdded):'')+'</div>';
           card.addEventListener('dragstart',function(ev){ _coloDragId=e.id; card.classList.add('dragging'); ev.dataTransfer.effectAllowed='move'; ev.dataTransfer.setData('text/plain',e.id); });
           card.addEventListener('dragend',function(){ card.classList.remove('dragging'); _coloDragId=null; });
@@ -1716,13 +1716,13 @@
 
   function populateCoLoAssocDealSelect(selectedId){
     var sel=$("#colo-assoc-deal"); if(!sel) return;
-    var deals=loadDeals();
+    var entries=loadDCEntries();
     sel.innerHTML='<option value="">— None —</option>';
-    deals.forEach(function(d){
+    entries.forEach(function(e){
       var opt=document.createElement('option');
-      opt.value=d.id;
-      opt.textContent=d.co+(d.amt?' · '+d.amt:'')+(d.stage?' ['+(STAGES[d.stage]||d.stage)+']':'');
-      if(d.id===selectedId) opt.selected=true;
+      opt.value=e.id;
+      opt.textContent=e.offtaker+(e.mw?' · '+e.mw+' MW':'')+(e.status?' ['+( DC_STATUS[e.status]||e.status)+']':'');
+      if(e.id===selectedId) opt.selected=true;
       sel.appendChild(opt);
     });
   }
