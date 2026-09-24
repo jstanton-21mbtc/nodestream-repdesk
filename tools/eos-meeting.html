@@ -799,6 +799,11 @@ $('nextWeek').addEventListener('click',function(){
   loadWeek(toKey(addDays(s,7)));
 });
 
+// ---- SUPABASE SOFT-SYNC (preserves scroll position) ----
+window.addEventListener('message',function(e){
+  if(e.data && e.data.type==='eos-reload') loadWeek(_key);
+});
+
 // ---- SAVE BUTTON ----
 $('saveBtn').addEventListener('click',doSave);
 

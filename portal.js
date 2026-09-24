@@ -581,9 +581,12 @@
     sbGet('ns_eos_meetings','id','shared').then(function(rows){
       if(!rows||!rows.length||!rows[0].data) return;
       localStorage.setItem('ns_eos_meetings_v1', JSON.stringify(rows[0].data));
-      // Reload EOS iframe if currently on EOS view so rep sees updates immediately
+      // Soft-refresh EOS iframe data without reloading (preserves scroll position)
       var eosView=document.getElementById('view-eos');
-      if(eosView && !eosView.classList.contains('hidden')) loadFrame('eos');
+      var eosFrame=document.getElementById('frame-eos');
+      if(eosView && !eosView.classList.contains('hidden') && eosFrame && eosFrame.contentWindow){
+        eosFrame.contentWindow.postMessage({type:'eos-reload'},'*');
+      }
     });
     // DC capacity — shared across all reps
     sbGet('ns_dc_capacity','id','shared').then(function(rows){
