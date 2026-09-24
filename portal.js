@@ -664,6 +664,9 @@
     var openVal    = active.reduce(function(s,d){ return s+parseAmt(d.amt); }, 0);
     var weightedVal= active.reduce(function(s,d){ return s+parseAmt(d.amt)*(STAGE_WEIGHTS[d.stage]||0); }, 0);
     var wonVal     = won.reduce(function(s,d){ return s+parseAmt(d.amt); }, 0);
+    var hwActive   = loadHWDeals().filter(function(d){ return d.stage!=='won'&&d.stage!=='lost'; });
+    var hwTopline  = hwActive.reduce(function(s,d){ return s+parseAmt(d.amt); },0);
+    var hwMargin   = hwActive.reduce(function(s,d){ return s+parseAmt(d.totalMargin); },0);
 
     // Weekly growth vs snapshot
     var snap = loadPipelineSnapshot();
@@ -690,7 +693,9 @@
       {k:'Quotes out',    v:String(quoting.length), green:false,
        d:quoting.length?'awaiting signature':'none out'},
       {k:'Closed won',    v:won.length?fmtAmt(wonVal):'—', green:false,
-       d:won.length+' deal'+(won.length!==1?'s':'')}
+       d:won.length+' deal'+(won.length!==1?'s':'')},
+      {k:'HW Margin',     v:hwMargin?fmtAmt(hwMargin):'—', green:false,
+       d:hwActive.length+' HW deal'+(hwActive.length!==1?'s':'')+(hwTopline&&hwMargin?' · '+(hwMargin/hwTopline*100).toFixed(1)+'% blended':'')}
     ];
     wrap.innerHTML='';
     kpis.forEach(function(k){
@@ -1210,6 +1215,7 @@
             '</div>'+
             (hwDesc?'<div class="kc-sku">'+esc(hwDesc)+'</div>':'')+
             (d.amt?'<div class="kc-amt">'+esc(d.amt)+'</div>':'')+
+            (d.totalMargin?'<div style="font-family:var(--mono);font-size:9.5px;color:var(--green-bright);opacity:.85;margin-bottom:2px">Margin: '+esc(d.totalMargin)+(d.marginPct?' ('+esc(d.marginPct)+')':'')+'</div>':'')+
             '<div class="kc-date">'+esc(d.dateAdded?fmtDate(d.dateAdded):'')+'</div>';
           card.addEventListener('dragstart',function(e){ _hwDragId=d.id; card.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain',d.id); });
           card.addEventListener('dragend',function(){ card.classList.remove('dragging'); _hwDragId=null; });
@@ -1239,6 +1245,7 @@
         (deal.rep?'<span class="kc-rep" data-rep="'+esc(deal.rep)+'" style="font-size:9px">'+esc(deal.rep)+'</span>':'')+
         (hwDesc?'<span style="font-family:var(--mono);font-size:12px;color:var(--muted-2)">'+esc(hwDesc)+'</span>':'')+
         (deal.amt?'<span style="font-family:var(--mono);font-size:13px;color:var(--green-bright)">'+esc(deal.amt)+'</span>':'')+
+        (deal.totalMargin?'<span style="font-family:var(--mono);font-size:11px;color:var(--green-bright);opacity:.8">Margin: '+esc(deal.totalMargin)+(deal.marginPct?' ('+esc(deal.marginPct)+')':'')+'</span>':'')+
         '<span style="font-family:var(--mono);font-size:10px;color:var(--muted-2);margin-left:auto">Added '+fmtDate(deal.dateAdded)+'</span>'+
       '</div>'+
       '<div class="detail-section">'+
@@ -1293,10 +1300,20 @@
 
   function closeHWDetail(){ $("#hwDealDetail").classList.add('hidden'); _viewingHWDealId=null; }
 
+  function updateHWMarginPct(){
+    var unit=parseAmt($("#hw-deal-unit").value||'');
+    var margin=parseAmt($("#hw-deal-margin").value||'');
+    var disp=$("#hw-margin-pct-display"); if(!disp) return;
+    if(unit&&margin){ disp.textContent=(margin/unit*100).toFixed(1)+'%'; disp.style.color='var(--green-bright)'; }
+    else { disp.textContent='—'; disp.style.color='var(--muted-2)'; }
+  }
+
   function openAddHWDeal(stage){
     $("#hwDealModalTitle").textContent='Add Hardware Deal';
     $("#hwDealId").value=''; $("#hw-deal-co").value=''; $("#hw-deal-sku").value='';
     $("#hw-deal-qty").value=''; $("#hw-deal-unit").value=''; $("#hw-deal-notes").value='';
+    var _mg=$("#hw-deal-margin"); if(_mg) _mg.value='';
+    updateHWMarginPct();
     $("#hw-deal-stage").value=stage||'disc';
     setRepBtns('#hw-deal-rep', '.hw-rep-btn', '');
     _hwPendingDocs=[]; refreshHWDealDocPills();
@@ -1313,6 +1330,8 @@
     $("#hw-deal-sku").value=deal.sku||''; $("#hw-deal-qty").value=deal.qty||'';
     $("#hw-deal-unit").value=deal.unitAmt||''; $("#hw-deal-stage").value=deal.stage||'disc';
     $("#hw-deal-notes").value=deal.notes||'';
+    var _mg=$("#hw-deal-margin"); if(_mg) _mg.value=deal.unitMargin||'';
+    updateHWMarginPct();
     setRepBtns('#hw-deal-rep', '.hw-rep-btn', deal.rep||'');
     _hwPendingDocs=(deal.docs||[]).map(function(d){ return Object.assign({},d); }); refreshHWDealDocPills();
     $("#hwDealModal").classList.remove('hidden');
@@ -1325,19 +1344,26 @@
     var unitAmtStr=($("#hw-deal-unit").value||'').trim();
     var unitAmtVal=parseAmt(unitAmtStr);
     var totalAmt = qty && unitAmtVal ? fmtAmt(qty*unitAmtVal) : unitAmtStr;
+    var unitMarginStr=($("#hw-deal-margin")?$("#hw-deal-margin").value||'':'').trim();
+    var unitMarginVal=parseAmt(unitMarginStr);
+    var totalMargin = qty && unitMarginVal ? fmtAmt(qty*unitMarginVal) : (unitMarginVal?fmtAmt(unitMarginVal):'');
+    var marginPct = unitAmtVal && unitMarginVal ? (unitMarginVal/unitAmtVal*100).toFixed(1)+'%' : '';
     var deals=loadHWDeals(); var id=$("#hwDealId").value;
     if(id){
       var idx=deals.findIndex(function(d){ return d.id===id; });
       if(idx>-1){
         deals[idx].co=co; deals[idx].sku=($("#hw-deal-sku").value||'').trim();
         deals[idx].qty=qty||''; deals[idx].unitAmt=unitAmtStr; deals[idx].amt=totalAmt;
+        deals[idx].unitMargin=unitMarginStr; deals[idx].totalMargin=totalMargin; deals[idx].marginPct=marginPct;
         deals[idx].stage=$("#hw-deal-stage").value; deals[idx].notes=($("#hw-deal-notes").value||'').trim();
         deals[idx].rep=($("#hw-deal-rep").value||'').trim();
         deals[idx].docs=_hwPendingDocs.slice();
       }
     } else {
       deals.unshift({ id:'hw_'+Date.now(), co:co, sku:($("#hw-deal-sku").value||'').trim(),
-        qty:qty||'', unitAmt:unitAmtStr, amt:totalAmt, stage:$("#hw-deal-stage").value,
+        qty:qty||'', unitAmt:unitAmtStr, amt:totalAmt,
+        unitMargin:unitMarginStr, totalMargin:totalMargin, marginPct:marginPct,
+        stage:$("#hw-deal-stage").value,
         notes:($("#hw-deal-notes").value||'').trim(), rep:($("#hw-deal-rep").value||'').trim(),
         docs:_hwPendingDocs.slice(),
         dateAdded:new Date().toISOString().slice(0,10) });
@@ -2034,6 +2060,9 @@
       if(!inp.files.length) return;
       readFilesIntoDocs(inp.files, _pendingDocs, function(){ refreshDealDocPills(); });
       inp.value='';
+    });
+    ['hw-deal-unit','hw-deal-margin'].forEach(function(id){
+      var el=$("#"+id); if(el) el.addEventListener('input', updateHWMarginPct);
     });
     var hwInp=$("#hwDealDocsInput");
     if(hwInp) hwInp.addEventListener('change',function(){
