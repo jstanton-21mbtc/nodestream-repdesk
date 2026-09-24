@@ -723,7 +723,7 @@
       tr.className = 'clickable';
       tr.dataset.dealId = d.id;
       tr.innerHTML = '<td class="co">'+esc(d.co)+'</td>'+
-        '<td class="persona-tag">'+esc(d.persona||'')+'</td>'+
+        '<td><span style="font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.4px;padding:2px 7px;border-radius:4px;background:rgba(96,165,250,.1);border:1px solid rgba(96,165,250,.3);color:var(--accent)">GPUaaS</span></td>'+
         '<td><span class="stage '+d.stage+'">'+esc(STAGES[d.stage]||d.stage)+'</span></td>'+
         '<td class="amt">'+esc(d.amt||'—')+'</td>';
       tb.appendChild(tr);
@@ -733,7 +733,7 @@
       tr.className = 'clickable';
       tr.dataset.dealId = d.id;
       tr.innerHTML = '<td class="co">'+esc(d.co)+'</td>'+
-        '<td class="persona-tag" style="font-family:var(--mono);font-size:9px;color:var(--muted-2)">HW</td>'+
+        '<td><span style="font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.4px;padding:2px 7px;border-radius:4px;background:rgba(224,167,60,.1);border:1px solid rgba(224,167,60,.3);color:var(--amber)">Hardware</span></td>'+
         '<td><span class="stage '+d.stage+'">'+esc(HW_STAGES[d.stage]||d.stage)+'</span></td>'+
         '<td class="amt">'+esc(d.amt||'—')+'</td>';
       tb.appendChild(tr);
