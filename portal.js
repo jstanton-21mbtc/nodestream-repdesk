@@ -2344,9 +2344,9 @@
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(gpuRows), 'GPUaaS');
 
     // Hardware
-    var hwRows = [['Company','Stage','SKU','Amount','Rep','Notes','Date Added']];
+    var hwRows = [['Company','Stage','SKU','Qty','Unit Price','Total Topline','Unit Margin','Total Margin','Margin %','Rep','Notes','Date Added']];
     loadHWDeals().forEach(function(d){
-      hwRows.push([d.co||'', HW_STAGES[d.stage]||d.stage||'', d.sku||'', d.amt||'', d.rep||'', d.notes||'', d.dateAdded||'']);
+      hwRows.push([d.co||'', HW_STAGES[d.stage]||d.stage||'', d.sku||'', d.qty||'', d.unitAmt||'', d.amt||'', d.unitMargin||'', d.totalMargin||'', d.marginPct||'', d.rep||'', d.notes||'', d.dateAdded||'']);
     });
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(hwRows), 'Hardware');
 
