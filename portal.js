@@ -600,6 +600,12 @@
       localStorage.setItem('ns_colo_capacity_v1'+nsUserSuffix(), JSON.stringify(rows[0].entries));
       if(typeof renderCoLoBoard==='function' && document.getElementById('coloCapacityBoard')) renderCoLoBoard();
     });
+    // Supply inventory — shared across all reps
+    sbGet('ns_supply','id','shared').then(function(rows){
+      if(!rows||!rows.length||!rows[0].items) return;
+      localStorage.setItem('ns_supply_v1', JSON.stringify(rows[0].items));
+      if(typeof renderSupplyBoard==='function' && document.getElementById('supplyBoard') && document.getElementById('supplyBoard').style.display!=='none') renderSupplyBoard();
+    });
     if(!rep) return;
     // Shared GPUaaS pipeline
     sbGet('ns_pipeline','rep','shared').then(function(rows){
@@ -1112,10 +1118,11 @@
     gpuaas:   'Drag cards between stages to advance deals. Click any card for details, scorecard &amp; quote notes.',
     hardware: 'Track hardware deals — servers, GPUs, and custom builds. Drag cards to advance, click for details.',
     dc:       'Track data center capacity by quarter. Drag cards between quarters as timelines shift.',
-    colo:     'Track colocation deals by quarter. Drag cards between quarters as timelines shift.'
+    colo:     'Track colocation deals by quarter. Drag cards between quarters as timelines shift.',
+    supply:   'Track available GPU and server inventory. Set pricing, assign units to active deals, and monitor availability in real time.'
   };
   var PIPE_BTN_LABELS = {
-    gpuaas: '+ Add Deal', hardware: '+ Add HW Deal', dc: '+ Add Data Center', colo: '+ Add CoLo Deal'
+    gpuaas: '+ Add Deal', hardware: '+ Add HW Deal', dc: '+ Add Data Center', colo: '+ Add CoLo Deal', supply: '+ Add Item'
   };
 
   function switchPipeline(type){
@@ -1123,18 +1130,23 @@
     $$('.pipe-tab').forEach(function(t){ t.classList.toggle('active', t.dataset.pipe===_activePipeline); });
     var sub = $("#pipeSubtitle"); if(sub) sub.innerHTML = PIPE_SUBTITLES[_activePipeline]||'';
     var addBtn = $("#addDealBtn"); if(addBtn) addBtn.textContent = PIPE_BTN_LABELS[_activePipeline]||'+ Add';
-    var gpuBoard  = $("#kanbanBoard");
-    var hwBoard   = $("#kanbanBoardHW");
-    var dcBoard   = $("#dcCapacityBoard");
-    var coloBoard = $("#coloCapacityBoard");
-    if(gpuBoard)  gpuBoard.style.display  = (_activePipeline==='gpuaas')  ? 'flex' : 'none';
-    if(hwBoard)   hwBoard.style.display   = (_activePipeline==='hardware')? 'flex' : 'none';
-    if(dcBoard)   dcBoard.style.display   = (_activePipeline==='dc')      ? ''     : 'none';
-    if(coloBoard) coloBoard.style.display = (_activePipeline==='colo')    ? ''     : 'none';
+    var gpuBoard    = $("#kanbanBoard");
+    var hwBoard     = $("#kanbanBoardHW");
+    var dcBoard     = $("#dcCapacityBoard");
+    var coloBoard   = $("#coloCapacityBoard");
+    var supplyBoard = $("#supplyBoard");
+    var repBar      = $("#repFilterBar");
+    if(gpuBoard)    gpuBoard.style.display    = (_activePipeline==='gpuaas')  ? 'flex' : 'none';
+    if(hwBoard)     hwBoard.style.display     = (_activePipeline==='hardware')? 'flex' : 'none';
+    if(dcBoard)     dcBoard.style.display     = (_activePipeline==='dc')      ? ''     : 'none';
+    if(coloBoard)   coloBoard.style.display   = (_activePipeline==='colo')    ? ''     : 'none';
+    if(supplyBoard) supplyBoard.style.display = (_activePipeline==='supply')  ? ''     : 'none';
+    if(repBar)      repBar.style.display      = (_activePipeline==='supply')  ? 'none' : '';
     if(_activePipeline==='gpuaas')        renderKanban();
     else if(_activePipeline==='hardware') renderKanbanHW();
     else if(_activePipeline==='dc')       renderDCBoard();
     else if(_activePipeline==='colo')     renderCoLoBoard();
+    else if(_activePipeline==='supply')   renderSupplyBoard();
   }
 
   // ============================================================
@@ -1850,6 +1862,230 @@
   }
 
   // ============================================================
+  // SUPPLY INVENTORY
+  // ============================================================
+  function loadSupplyItems(){
+    var isDemo = sessionStorage.getItem('ns_demo_v1');
+    var store  = isDemo ? sessionStorage : localStorage;
+    var key    = isDemo ? 'ns_demo_supply' : 'ns_supply_v1';
+    try{ return JSON.parse(store.getItem(key)||'null')||[]; }catch(e){ return []; }
+  }
+  function saveSupplyItems(d){
+    if(sessionStorage.getItem('ns_demo_v1'))
+      sessionStorage.setItem('ns_demo_supply', JSON.stringify(d));
+    else
+      localStorage.setItem('ns_supply_v1', JSON.stringify(d));
+    sbUpsert('ns_supply',{id:'shared', items:d, updated_at:new Date().toISOString()});
+  }
+
+  var _editingSupplyId   = null;
+  var _supplyAllocations = [];
+
+  function _supplyAllocatedQty(item){
+    return (item.allocations||[]).reduce(function(s,a){ return s+(parseInt(a.qty,10)||0); },0);
+  }
+
+  function _supplyKpiTile(label,val,green){
+    return '<div style="background:linear-gradient(180deg,var(--panel-2),rgba(27,36,32,.4));border:1px solid var(--line);border-radius:12px;padding:14px 16px">'+
+      '<div style="font-family:var(--mono);font-size:10px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted-2);margin-bottom:8px">'+esc(label)+'</div>'+
+      '<div style="font-family:var(--mono);font-size:24px;font-weight:600;color:'+(green?'var(--green-bright)':'var(--text)')+'">'+esc(val)+'</div>'+
+    '</div>';
+  }
+
+  function renderSupplyBoard(){
+    var board = document.getElementById('supplyBoard'); if(!board) return;
+    var items = loadSupplyItems();
+    if(!items.length){
+      board.innerHTML =
+        '<div style="text-align:center;padding:52px 20px;font-family:var(--mono);font-size:11.5px;color:var(--muted-2);line-height:2.4">'+
+          'No inventory yet.<br><span style="color:var(--text)">Hit <strong>+ Add Item</strong> to track available hardware.</span>'+
+        '</div>';
+      return;
+    }
+    var totalUnits   = items.reduce(function(s,i){ return s+(parseInt(i.totalQty,10)||0); },0);
+    var totalAlloc   = items.reduce(function(s,i){ return s+_supplyAllocatedQty(i); },0);
+    var totalAvail   = totalUnits - totalAlloc;
+    var totalCostVal = items.reduce(function(s,i){ var c=parseAmt(i.cost),q=parseInt(i.totalQty,10)||0; return s+(c?c*q:0); },0);
+    var kpiHtml =
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:22px">'+
+        _supplyKpiTile('SKUs',String(items.length),false)+
+        _supplyKpiTile('Total Units',String(totalUnits),false)+
+        _supplyKpiTile('Allocated',String(totalAlloc),false)+
+        _supplyKpiTile('Available',String(totalAvail),totalAvail>0)+
+        (totalCostVal?_supplyKpiTile('Inventory Cost',fmtAmt(totalCostVal),false):'')+
+      '</div>';
+    var rows = '';
+    items.forEach(function(item){
+      var allocQty = _supplyAllocatedQty(item);
+      var totalQty = parseInt(item.totalQty,10)||0;
+      var availQty = Math.max(0,totalQty-allocQty);
+      var availPct = totalQty ? availQty/totalQty : 1;
+      var availColor = availQty===0?'var(--red)':availPct<0.25?'var(--amber)':'var(--green-bright)';
+      var cost=parseAmt(item.cost), price=parseAmt(item.price);
+      var margin=(cost&&price)?price-cost:0;
+      var mPct=(price&&margin)?(margin/price*100).toFixed(1)+'%':'';
+      var mColor=margin>0?'var(--green-bright)':margin<0?'var(--red)':'var(--muted-2)';
+      var allocTags=(item.allocations||[]).map(function(a){
+        var nm=a.dealName.length>16?a.dealName.slice(0,16)+'\u2026':a.dealName;
+        return '<span title="'+esc(a.dealName)+' \u00b7 '+a.qty+' units" style="display:inline-block;margin:1px 2px;font-family:var(--mono);font-size:8px;padding:1px 5px;border-radius:3px;background:rgba(96,165,250,.1);border:1px solid rgba(96,165,250,.25);color:var(--accent);white-space:nowrap">'+esc(nm)+'&thinsp;\xd7'+a.qty+'</span>';
+      }).join('');
+      rows +=
+        '<tr class="clickable" data-supply-id="'+esc(item.id)+'">'+
+          '<td style="font-weight:700">'+esc(item.model||'—')+'</td>'+
+          '<td style="color:var(--muted);font-size:12px">'+esc(item.source||'—')+'</td>'+
+          '<td style="font-family:var(--mono);font-size:12px">'+esc(item.cost||'—')+'</td>'+
+          '<td style="font-family:var(--mono);font-size:12px;color:var(--green-bright)">'+esc(item.price||'—')+'</td>'+
+          '<td style="font-family:var(--mono);font-size:12px;color:'+mColor+'">'+
+            (margin?fmtAmt(margin):'—')+(mPct?' <span style="opacity:.6;font-size:10px">('+mPct+')</span>':'')+
+          '</td>'+
+          '<td style="text-align:center;font-family:var(--mono);font-size:13px">'+totalQty+'</td>'+
+          '<td style="text-align:center">'+
+            (allocQty?
+              '<div style="font-family:var(--mono);font-size:12px;margin-bottom:4px">'+allocQty+'</div>'+
+              (allocTags?'<div>'+allocTags+'</div>':''):
+              '<span style="color:var(--muted-2);font-family:var(--mono);font-size:12px">0</span>')+
+          '</td>'+
+          '<td style="text-align:center;font-family:var(--mono);font-size:14px;font-weight:700;color:'+availColor+'">'+availQty+'</td>'+
+          '<td style="font-size:12px;color:var(--muted)">'+esc(item.leadTime||'—')+'</td>'+
+        '</tr>';
+    });
+    board.innerHTML = kpiHtml +
+      '<div style="overflow-x:auto">'+
+      '<table class="pipe" style="min-width:820px">'+
+        '<thead><tr>'+
+          '<th>Model / SKU</th><th>Source</th><th>Unit Cost</th>'+
+          '<th>NS Price</th><th>Margin</th>'+
+          '<th style="text-align:center">Total Qty</th>'+
+          '<th style="text-align:center">Allocated</th>'+
+          '<th style="text-align:center">Available</th>'+
+          '<th>Lead Time</th>'+
+        '</tr></thead>'+
+        '<tbody>'+rows+'</tbody>'+
+      '</table></div>';
+  }
+
+  function openAddSupplyItem(){
+    _editingSupplyId=null; _supplyAllocations=[];
+    $('#supply-item-id').value=''; $('#supply-model').value=''; $('#supply-source').value='';
+    $('#supply-cost').value=''; $('#supply-price').value='';
+    $('#supply-qty').value=''; $('#supply-lead').value=''; $('#supply-notes').value='';
+    $('#supplyModalTitle').textContent='Add Inventory Item';
+    $('#supplyDeleteBtn').style.display='none';
+    _renderSupplyMargin(); _renderSupplyAllocations();
+    $('#supplyModal').classList.remove('hidden');
+    setTimeout(function(){ $('#supply-model').focus(); },60);
+  }
+
+  function openEditSupplyItem(id){
+    var items=loadSupplyItems(); var item=items.find(function(i){ return i.id===id; }); if(!item) return;
+    _editingSupplyId=id;
+    _supplyAllocations=(item.allocations||[]).map(function(a){ return {dealId:a.dealId,dealName:a.dealName,qty:a.qty}; });
+    $('#supply-item-id').value=id; $('#supply-model').value=item.model||''; $('#supply-source').value=item.source||'';
+    $('#supply-cost').value=item.cost||''; $('#supply-price').value=item.price||'';
+    $('#supply-qty').value=item.totalQty||''; $('#supply-lead').value=item.leadTime||''; $('#supply-notes').value=item.notes||'';
+    $('#supplyModalTitle').textContent='Edit Inventory Item';
+    $('#supplyDeleteBtn').style.display='';
+    _renderSupplyMargin(); _renderSupplyAllocations();
+    $('#supplyModal').classList.remove('hidden');
+  }
+
+  function _renderSupplyMargin(){
+    var cost=parseAmt($('#supply-cost').value||''), price=parseAmt($('#supply-price').value||'');
+    var margin=(cost&&price)?price-cost:0, pct=(price&&margin)?(margin/price*100).toFixed(1)+'%':'';
+    var el=$('#supply-margin-display'); if(!el) return;
+    el.textContent=margin ? fmtAmt(margin)+(pct?' ('+pct+')':'') : '—';
+    el.style.color=margin>0?'var(--green-bright)':margin<0?'var(--red)':'var(--muted-2)';
+  }
+
+  function _renderSupplyAllocations(){
+    var wrap=$('#supply-alloc-list'); if(!wrap) return;
+    _populateSupplyDealDropdown();
+    if(!_supplyAllocations.length){
+      wrap.innerHTML='<div style="font-family:var(--mono);font-size:10.5px;color:var(--muted-2);padding:6px 0">No units allocated to deals yet.</div>';
+      return;
+    }
+    wrap.innerHTML=_supplyAllocations.map(function(a,i){
+      return '<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line)">'+
+        '<span style="flex:1;font-size:13px">'+esc(a.dealName)+'</span>'+
+        '<span style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--green-bright)">\xd7'+String(a.qty)+'</span>'+
+        '<button type="button" class="supply-alloc-remove" data-alloc-idx="'+i+'" style="background:none;border:none;color:var(--muted-2);cursor:pointer;font-size:16px;line-height:1;padding:0 2px;transition:.12s" title="Remove">&times;</button>'+
+      '</div>';
+    }).join('');
+  }
+
+  function _populateSupplyDealDropdown(){
+    var sel=$('#supply-alloc-deal'); if(!sel) return;
+    var gpuDeals=loadDeals().filter(function(d){ return d.stage!=='won'&&d.stage!=='lost'; });
+    var hwDeals=loadHWDeals().filter(function(d){ return d.stage!=='won'&&d.stage!=='lost'; });
+    sel.innerHTML='<option value="">— Select deal —</option>';
+    if(gpuDeals.length){
+      var g=document.createElement('optgroup'); g.label='GPUaaS';
+      gpuDeals.forEach(function(d){ var o=document.createElement('option'); o.value=d.id; o.textContent=d.co; g.appendChild(o); });
+      sel.appendChild(g);
+    }
+    if(hwDeals.length){
+      var h=document.createElement('optgroup'); h.label='Hardware';
+      hwDeals.forEach(function(d){ var o=document.createElement('option'); o.value=d.id; o.textContent=d.co; h.appendChild(o); });
+      sel.appendChild(h);
+    }
+  }
+
+  function _addSupplyAllocation(){
+    var sel=$('#supply-alloc-deal'), qtyEl=$('#supply-alloc-qty'); if(!sel||!qtyEl) return;
+    var dealId=sel.value, qty=parseInt(qtyEl.value,10)||0;
+    if(!dealId){ alert('Select a deal first.'); return; }
+    if(qty<1){ alert('Enter a quantity of at least 1.'); return; }
+    var dealName=sel.options[sel.selectedIndex]?sel.options[sel.selectedIndex].text:'';
+    var existing=_supplyAllocations.findIndex(function(a){ return a.dealId===dealId; });
+    if(existing!==-1){ _supplyAllocations[existing].qty=qty; }
+    else { _supplyAllocations.push({dealId:dealId,dealName:dealName,qty:qty}); }
+    sel.value=''; qtyEl.value='';
+    _renderSupplyAllocations();
+  }
+
+  function saveSupplyItemForm(){
+    var model=($('#supply-model').value||'').trim();
+    if(!model){ alert('Model name is required.'); $('#supply-model').focus(); return; }
+    var items=loadSupplyItems(), now=new Date().toISOString();
+    if(_editingSupplyId){
+      var idx=items.findIndex(function(i){ return i.id===_editingSupplyId; });
+      if(idx!==-1){
+        items[idx].model=model; items[idx].source=($('#supply-source').value||'').trim();
+        items[idx].cost=($('#supply-cost').value||'').trim(); items[idx].price=($('#supply-price').value||'').trim();
+        items[idx].totalQty=parseInt($('#supply-qty').value,10)||0;
+        items[idx].leadTime=($('#supply-lead').value||'').trim(); items[idx].notes=($('#supply-notes').value||'').trim();
+        items[idx].allocations=_supplyAllocations.slice();
+      }
+    } else {
+      items.unshift({
+        id:'supply_'+Date.now(), model:model, source:($('#supply-source').value||'').trim(),
+        cost:($('#supply-cost').value||'').trim(), price:($('#supply-price').value||'').trim(),
+        totalQty:parseInt($('#supply-qty').value,10)||0,
+        leadTime:($('#supply-lead').value||'').trim(), notes:($('#supply-notes').value||'').trim(),
+        allocations:_supplyAllocations.slice(), dateAdded:now.slice(0,10)
+      });
+    }
+    saveSupplyItems(items);
+    $('#supplyModal').classList.add('hidden');
+    renderSupplyBoard();
+  }
+
+  function deleteSupplyItem(){
+    if(!_editingSupplyId) return;
+    var items=loadSupplyItems(), item=items.find(function(i){ return i.id===_editingSupplyId; }); if(!item) return;
+    if(!confirm('Delete "'+item.model+'"? This cannot be undone.')) return;
+    saveSupplyItems(items.filter(function(i){ return i.id!==_editingSupplyId; }));
+    _editingSupplyId=null; $('#supplyModal').classList.add('hidden'); renderSupplyBoard();
+  }
+
+  // Wire margin auto-calc on cost/price inputs
+  (function(){
+    ['supply-cost','supply-price'].forEach(function(id){
+      var el=document.getElementById(id); if(el) el.addEventListener('input',_renderSupplyMargin);
+    });
+  })();
+
+  // ============================================================
   // SAVE TO DEAL (from tool toolbar)
   // ============================================================
   var _savingTool    = null;
@@ -1966,6 +2202,7 @@
       else if(_activePipeline==='hardware') openAddHWDeal();
       else if(_activePipeline==='dc')       openAddDCEntry();
       else if(_activePipeline==='colo')     openAddCoLoEntry();
+      else if(_activePipeline==='supply')   openAddSupplyItem();
       return;
     }
     // GPUaaS deal form modal
@@ -1998,6 +2235,15 @@
     if(e.target.closest('#coloEntryModalSave')){ saveCoLoEntryForm(); return; }
     if(e.target.closest('#coloEntryDeleteBtn')){ deleteCoLoEntry();   return; }
     if(e.target.closest('#coloEntryDocsBtn')){ $("#coloEntryDocsInput").click(); return; }
+    // Supply inventory modal
+    if(e.target.closest('#supplyModalClose')||e.target.closest('#supplyModalCancel')){ $('#supplyModal').classList.add('hidden'); return; }
+    if(e.target.closest('#supplyModalSave'))  { saveSupplyItemForm(); return; }
+    if(e.target.closest('#supplyDeleteBtn'))  { deleteSupplyItem();   return; }
+    if(e.target.closest('#supplyAllocAddBtn')){ _addSupplyAllocation(); return; }
+    var supplyAllocRemove=e.target.closest('.supply-alloc-remove');
+    if(supplyAllocRemove){ var _sai=parseInt(supplyAllocRemove.dataset.allocIdx,10); if(!isNaN(_sai)){ _supplyAllocations.splice(_sai,1); _renderSupplyAllocations(); } return; }
+    var supplyRow=e.target.closest('tr[data-supply-id]');
+    if(supplyRow){ openEditSupplyItem(supplyRow.dataset.supplyId); return; }
     // Rep tag buttons (GPUaaS and HW deal modals)
     var dealRepBtn=e.target.closest('.deal-rep-btn');
     if(dealRepBtn){
@@ -2031,6 +2277,7 @@
       else if(_activePipeline==='hardware') renderKanbanHW();
       else if(_activePipeline==='dc') renderDCBoard();
       else if(_activePipeline==='colo') renderCoLoBoard();
+      else if(_activePipeline==='supply') renderSupplyBoard();
       return;
     }
 
@@ -2245,6 +2492,7 @@
         hardware: loadHWDeals(),
         dc:       loadDCEntries(),
         colo:     loadCoLoEntries(),
+        supply:   loadSupplyItems(),
         tasks:    (function(){ try{ return JSON.parse(localStorage.getItem('ns_tasks_v1'+nsUserSuffix())||'null')||[]; }catch(e){ return []; } })()
       }
     };
@@ -2300,6 +2548,7 @@
     if(b.data.hardware) localStorage.setItem('ns_hw_pipeline_v1'+suf,  JSON.stringify(b.data.hardware));
     if(b.data.dc)       localStorage.setItem('ns_dc_capacity_v1'+suf,  JSON.stringify(b.data.dc));
     if(b.data.colo)     localStorage.setItem('ns_colo_capacity_v1'+suf,JSON.stringify(b.data.colo));
+    if(b.data.supply)   localStorage.setItem('ns_supply_v1',           JSON.stringify(b.data.supply));
     if(b.data.tasks)    localStorage.setItem('ns_tasks_v1'+suf,        JSON.stringify(b.data.tasks));
     alert('Restore complete. Refreshing the page now.');
     window.location.reload();
@@ -2361,6 +2610,19 @@
       coloRows.push([e.offtaker||'', e.quarter||'', DC_STATUS[e.status]||e.status||'', e.tier?'Tier '+e.tier:'', e.rep||'', e.kw||'', e.campus||'', e.notes||'', e.dateAdded||'']);
     });
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(coloRows), 'CoLo Capacity');
+
+    // Supply Inventory
+    var supplyRows = [['Model / SKU','Source','Unit Cost','NS Price','Margin','Margin %','Total Qty','Allocated Qty','Available Qty','Lead Time','Allocated To (Deals)','Notes','Date Added']];
+    loadSupplyItems().forEach(function(item){
+      var cost=parseAmt(item.cost), price=parseAmt(item.price);
+      var margin=(cost&&price)?price-cost:0, mPct=(price&&margin)?(margin/price*100).toFixed(1)+'%':'';
+      var allocQty=_supplyAllocatedQty(item), totalQty=parseInt(item.totalQty,10)||0;
+      var allocDeals=(item.allocations||[]).map(function(a){ return a.dealName+' \xd7'+a.qty; }).join('; ');
+      supplyRows.push([item.model||'', item.source||'', item.cost||'', item.price||'',
+        margin?fmtAmt(margin):'', mPct, totalQty, allocQty, Math.max(0,totalQty-allocQty),
+        item.leadTime||'', allocDeals, item.notes||'', item.dateAdded||'']);
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(supplyRows), 'Supply');
 
     XLSX.writeFile(wb, 'nodestream-pipelines-' + dateStr + '.xlsx');
   }

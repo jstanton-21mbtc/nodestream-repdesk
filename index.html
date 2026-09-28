@@ -539,6 +539,7 @@
         <button class="pipe-tab" data-pipe="hardware">Hardware</button>
         <button class="pipe-tab" data-pipe="dc">DC Capacity</button>
         <button class="pipe-tab" data-pipe="colo">CoLo Deals</button>
+        <button class="pipe-tab" data-pipe="supply">Supply</button>
       </div>
       <div class="rep-filter" id="repFilterBar">
         <span class="rep-filter-label">Rep:</span>
@@ -551,6 +552,7 @@
       <div class="kanban" id="kanbanBoardHW" style="display:none"></div>
       <div id="dcCapacityBoard" style="display:none;overflow-x:auto;padding-bottom:20px"></div>
       <div id="coloCapacityBoard" style="display:none;overflow-x:auto;padding-bottom:20px"></div>
+      <div id="supplyBoard" style="display:none;padding-bottom:20px"></div>
     </section>
 
     <!-- ============ ORNN COMPUTE INDEX ============ -->
@@ -1008,6 +1010,81 @@
       <span style="flex:1"></span>
       <button class="btn-ghost" id="coloEntryModalCancel">Cancel</button>
       <button class="btn-primary" id="coloEntryModalSave">Save Entry</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SUPPLY INVENTORY MODAL ============ -->
+<div class="modal-overlay hidden" id="supplyModal">
+  <div class="modal modal-wide">
+    <div class="modal-head">
+      <span class="modal-title" id="supplyModalTitle">Add Inventory Item</span>
+      <button class="modal-x" id="supplyModalClose">&#10005;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="supply-item-id">
+      <div class="form-row">
+        <div class="form-field">
+          <span class="form-label">Model / SKU</span>
+          <input class="form-input" type="text" id="supply-model" placeholder="e.g. H100 SXM5, B300, A100 80GB">
+        </div>
+        <div class="form-field">
+          <span class="form-label">Source / Vendor</span>
+          <input class="form-input" type="text" id="supply-source" placeholder="e.g. NVIDIA, Lambda, Partner">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <span class="form-label">Unit Cost</span>
+          <input class="form-input" type="text" id="supply-cost" placeholder="e.g. $25K">
+        </div>
+        <div class="form-field">
+          <span class="form-label">Nodestream Unit Price</span>
+          <input class="form-input" type="text" id="supply-price" placeholder="e.g. $32K">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <span class="form-label">Margin (auto-calculated)</span>
+          <div class="form-input" id="supply-margin-display" style="background:var(--panel-3);color:var(--muted-2);pointer-events:none;line-height:1.9">—</div>
+        </div>
+        <div class="form-field">
+          <span class="form-label">Lead Time</span>
+          <input class="form-input" type="text" id="supply-lead" placeholder="e.g. 4-6 weeks">
+        </div>
+      </div>
+      <div class="form-field">
+        <span class="form-label">Total Quantity Available</span>
+        <input class="form-input" type="number" id="supply-qty" placeholder="e.g. 10" min="0" style="max-width:220px">
+      </div>
+      <div class="form-field">
+        <span class="form-label">Notes</span>
+        <textarea class="form-input" id="supply-notes" rows="2" style="resize:vertical" placeholder="Storage location, condition, special terms, availability window..."></textarea>
+      </div>
+      <div style="border-top:1px solid var(--line);padding-top:16px;margin-top:4px">
+        <div style="font-family:var(--mono);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--green);font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:7px">
+          <span style="width:5px;height:5px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);display:inline-block;flex:none"></span>
+          Deal Allocations
+        </div>
+        <div id="supply-alloc-list" style="margin-bottom:14px"></div>
+        <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+          <div style="flex:1;min-width:180px">
+            <div class="form-label" style="margin-bottom:5px">Assign to Deal</div>
+            <select class="form-input" id="supply-alloc-deal" style="font-size:12.5px"></select>
+          </div>
+          <div style="width:90px">
+            <div class="form-label" style="margin-bottom:5px">Qty</div>
+            <input class="form-input" type="number" id="supply-alloc-qty" placeholder="0" min="1" style="padding:9px 10px">
+          </div>
+          <button type="button" id="supplyAllocAddBtn" class="btn-ghost" style="padding:9px 14px;font-size:12px;flex:none;margin-bottom:1px">Assign</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-danger" id="supplyDeleteBtn" style="display:none">Delete Item</button>
+      <span style="flex:1"></span>
+      <button class="btn-ghost" id="supplyModalCancel">Cancel</button>
+      <button class="btn-primary" id="supplyModalSave">Save Item</button>
     </div>
   </div>
 </div>
