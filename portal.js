@@ -690,12 +690,10 @@
        d:active.length+' active deal'+(active.length!==1?'s':''), pct:openPct},
       {k:'Weighted',      v:active.length?fmtAmt(weightedVal):'—', green:false,
        d:'stage-adjusted', pct:weightedPct},
-      {k:'Quotes out',    v:String(quoting.length), green:false,
-       d:quoting.length?'awaiting signature':'none out'},
-      {k:'Closed won',    v:won.length?fmtAmt(wonVal):'—', green:false,
-       d:won.length+' deal'+(won.length!==1?'s':'')},
       {k:'HW Margin',     v:hwMargin?fmtAmt(hwMargin):'—', green:false,
-       d:hwActive.length+' HW deal'+(hwActive.length!==1?'s':'')+(hwTopline&&hwMargin?' · '+(hwMargin/hwTopline*100).toFixed(1)+'% blended':'')}
+       d:hwActive.length+' HW deal'+(hwActive.length!==1?'s':'')+(hwTopline&&hwMargin?' · '+(hwMargin/hwTopline*100).toFixed(1)+'% blended':'')},
+      {k:'Closed won',    v:won.length?fmtAmt(wonVal):'—', green:false,
+       d:won.length+' deal'+(won.length!==1?'s':'')}
     ];
     wrap.innerHTML='';
     kpis.forEach(function(k){
@@ -708,42 +706,42 @@
   }
 
   function renderDashPipeline(){
-    var tb = $("#pipeBody"); if(!tb) return;
+    var tbGPU = $("#pipeBodyGPU");
+    var tbHW  = $("#pipeBodyHW");
+    if(!tbGPU || !tbHW) return;
     var activeGPU = ensureDeals().filter(function(d){ return d.stage!=='won' && d.stage!=='lost'; });
     var activeHW  = loadHWDeals().filter(function(d){ return d.stage!=='won' && d.stage!=='lost'; });
-    var allActive = activeGPU.concat(activeHW);
-    tb.innerHTML = '';
-    if(!allActive.length){
-      var empty = document.createElement('tr');
-      empty.innerHTML = '<td colspan="4" style="text-align:center;font-family:var(--mono);font-size:11px;color:var(--muted-2);padding:18px 0">No active deals — add one in Pipeline</td>';
-      tb.appendChild(empty); return;
+    tbGPU.innerHTML = '';
+    tbHW.innerHTML  = '';
+    if(!activeGPU.length){
+      var emptyG = document.createElement('tr');
+      emptyG.innerHTML = '<td colspan="3" style="text-align:center;font-family:var(--mono);font-size:11px;color:var(--muted-2);padding:14px 0">No GPUaaS deals</td>';
+      tbGPU.appendChild(emptyG);
+    } else {
+      activeGPU.forEach(function(d){
+        var tr = document.createElement('tr');
+        tr.className = 'clickable';
+        tr.dataset.dealId = d.id;
+        tr.innerHTML = '<td class="co">'+esc(d.co)+'</td>'+
+          '<td><span class="stage '+d.stage+'">'+esc(STAGES[d.stage]||d.stage)+'</span></td>'+
+          '<td class="amt">'+esc(d.amt||'—')+'</td>';
+        tbGPU.appendChild(tr);
+      });
     }
-    activeGPU.forEach(function(d){
-      var tr = document.createElement('tr');
-      tr.className = 'clickable';
-      tr.dataset.dealId = d.id;
-      tr.innerHTML = '<td class="co">'+esc(d.co)+'</td>'+
-        '<td><span style="font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.4px;padding:2px 7px;border-radius:4px;background:rgba(96,165,250,.1);border:1px solid rgba(96,165,250,.3);color:var(--accent)">GPUaaS</span></td>'+
-        '<td><span class="stage '+d.stage+'">'+esc(STAGES[d.stage]||d.stage)+'</span></td>'+
-        '<td class="amt">'+esc(d.amt||'—')+'</td>';
-      tb.appendChild(tr);
-    });
-    activeHW.forEach(function(d){
-      var tr = document.createElement('tr');
-      tr.className = 'clickable';
-      tr.dataset.dealId = d.id;
-      tr.innerHTML = '<td class="co">'+esc(d.co)+'</td>'+
-        '<td><span style="font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.4px;padding:2px 7px;border-radius:4px;background:rgba(224,167,60,.1);border:1px solid rgba(224,167,60,.3);color:var(--amber)">Hardware</span></td>'+
-        '<td><span class="stage '+d.stage+'">'+esc(HW_STAGES[d.stage]||d.stage)+'</span></td>'+
-        '<td class="amt">'+esc(d.amt||'—')+'</td>';
-      tb.appendChild(tr);
-    });
-    var total = fmtTotal(allActive);
-    if(total){
-      var tfoot = document.createElement('tr');
-      tfoot.innerHTML = '<td colspan="3" style="font-family:var(--mono);font-size:10px;color:var(--muted-2);letter-spacing:.5px;text-transform:uppercase;padding-top:8px;border-top:1px solid var(--line)">Total Open Pipeline</td>'+
-        '<td class="amt" style="font-weight:700;color:var(--green-bright);border-top:1px solid var(--line);padding-top:8px">'+total+'</td>';
-      tb.appendChild(tfoot);
+    if(!activeHW.length){
+      var emptyH = document.createElement('tr');
+      emptyH.innerHTML = '<td colspan="3" style="text-align:center;font-family:var(--mono);font-size:11px;color:var(--muted-2);padding:14px 0">No Hardware deals</td>';
+      tbHW.appendChild(emptyH);
+    } else {
+      activeHW.forEach(function(d){
+        var tr = document.createElement('tr');
+        tr.className = 'clickable';
+        tr.dataset.dealId = d.id;
+        tr.innerHTML = '<td class="co">'+esc(d.co)+'</td>'+
+          '<td><span class="stage '+d.stage+'">'+esc(HW_STAGES[d.stage]||d.stage)+'</span></td>'+
+          '<td class="amt">'+esc(d.amt||'—')+'</td>';
+        tbHW.appendChild(tr);
+      });
     }
   }
 

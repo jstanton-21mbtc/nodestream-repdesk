@@ -454,14 +454,21 @@
       <div class="h">Your day</div>
       <p class="lede">Everything for today's calls in one place — pipeline at a glance, what's next, and one tap into the tool you need.</p>
 
-      <div id="dailyBriefMount" style="margin-bottom:24px"></div>
-
       <div class="kpis" id="kpis"></div>
 
       <div class="dashgrid">
         <div class="panel">
           <div class="ph"><span class="t">Active pipeline</span><button class="more" data-view="playbook">Docs →</button></div>
-          <table class="pipe" id="pipeTable"><thead><tr><th>Account</th><th>Type</th><th>Stage</th><th style="text-align:right">Contract</th></tr></thead><tbody id="pipeBody"></tbody></table>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+            <div>
+              <div style="font-family:var(--mono);font-size:9px;letter-spacing:1.2px;text-transform:uppercase;color:var(--accent);margin-bottom:8px;font-weight:700">GPUaaS</div>
+              <table class="pipe" id="pipeTableGPU"><thead><tr><th>Account</th><th>Stage</th><th style="text-align:right">Contract</th></tr></thead><tbody id="pipeBodyGPU"></tbody></table>
+            </div>
+            <div>
+              <div style="font-family:var(--mono);font-size:9px;letter-spacing:1.2px;text-transform:uppercase;color:var(--amber);margin-bottom:8px;font-weight:700">Hardware</div>
+              <table class="pipe" id="pipeTableHW"><thead><tr><th>Account</th><th>Stage</th><th style="text-align:right">Contract</th></tr></thead><tbody id="pipeBodyHW"></tbody></table>
+            </div>
+          </div>
         </div>
         <div>
           <div class="panel" style="margin-bottom:20px">
