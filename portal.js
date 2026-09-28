@@ -461,7 +461,8 @@
   var _pendingDocs   = [];
   var _hwPendingDocs = [];
   var _dcPendingDocs = [];
-  var _coloPendingDocs = [];
+  var _coloPendingDocs  = [];
+  var _supplyPendingDocs = [];
 
   function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
@@ -536,6 +537,11 @@
   function refreshCoLoDealDocPills(){
     renderDocPills('coloEntryDocsList', _coloPendingDocs, function(i){
       _coloPendingDocs.splice(i,1); refreshCoLoDealDocPills();
+    });
+  }
+  function refreshSupplyDocPills(){
+    renderDocPills('supplyDocsList', _supplyPendingDocs, function(i){
+      _supplyPendingDocs.splice(i,1); refreshSupplyDocPills();
     });
   }
 
@@ -1965,13 +1971,13 @@
   }
 
   function openAddSupplyItem(){
-    _editingSupplyId=null; _supplyAllocations=[];
+    _editingSupplyId=null; _supplyAllocations=[]; _supplyPendingDocs=[];
     $('#supply-item-id').value=''; $('#supply-model').value=''; $('#supply-source').value='';
     $('#supply-cost').value=''; $('#supply-price').value='';
     $('#supply-qty').value=''; $('#supply-lead').value=''; $('#supply-notes').value='';
     $('#supplyModalTitle').textContent='Add Inventory Item';
     $('#supplyDeleteBtn').style.display='none';
-    _renderSupplyMargin(); _renderSupplyAllocations();
+    _renderSupplyMargin(); _renderSupplyAllocations(); refreshSupplyDocPills();
     $('#supplyModal').classList.remove('hidden');
     setTimeout(function(){ $('#supply-model').focus(); },60);
   }
@@ -1980,12 +1986,13 @@
     var items=loadSupplyItems(); var item=items.find(function(i){ return i.id===id; }); if(!item) return;
     _editingSupplyId=id;
     _supplyAllocations=(item.allocations||[]).map(function(a){ return {dealId:a.dealId,dealName:a.dealName,qty:a.qty}; });
+    _supplyPendingDocs=(item.docs||[]).map(function(d){ return Object.assign({},d); });
     $('#supply-item-id').value=id; $('#supply-model').value=item.model||''; $('#supply-source').value=item.source||'';
     $('#supply-cost').value=item.cost||''; $('#supply-price').value=item.price||'';
     $('#supply-qty').value=item.totalQty||''; $('#supply-lead').value=item.leadTime||''; $('#supply-notes').value=item.notes||'';
     $('#supplyModalTitle').textContent='Edit Inventory Item';
     $('#supplyDeleteBtn').style.display='';
-    _renderSupplyMargin(); _renderSupplyAllocations();
+    _renderSupplyMargin(); _renderSupplyAllocations(); refreshSupplyDocPills();
     $('#supplyModal').classList.remove('hidden');
   }
 
@@ -2054,7 +2061,7 @@
         items[idx].cost=($('#supply-cost').value||'').trim(); items[idx].price=($('#supply-price').value||'').trim();
         items[idx].totalQty=parseInt($('#supply-qty').value,10)||0;
         items[idx].leadTime=($('#supply-lead').value||'').trim(); items[idx].notes=($('#supply-notes').value||'').trim();
-        items[idx].allocations=_supplyAllocations.slice();
+        items[idx].allocations=_supplyAllocations.slice(); items[idx].docs=_supplyPendingDocs.slice();
       }
     } else {
       items.unshift({
@@ -2062,7 +2069,7 @@
         cost:($('#supply-cost').value||'').trim(), price:($('#supply-price').value||'').trim(),
         totalQty:parseInt($('#supply-qty').value,10)||0,
         leadTime:($('#supply-lead').value||'').trim(), notes:($('#supply-notes').value||'').trim(),
-        allocations:_supplyAllocations.slice(), dateAdded:now.slice(0,10)
+        allocations:_supplyAllocations.slice(), docs:_supplyPendingDocs.slice(), dateAdded:now.slice(0,10)
       });
     }
     saveSupplyItems(items);
@@ -2236,6 +2243,7 @@
     if(e.target.closest('#coloEntryDeleteBtn')){ deleteCoLoEntry();   return; }
     if(e.target.closest('#coloEntryDocsBtn')){ $("#coloEntryDocsInput").click(); return; }
     // Supply inventory modal
+    if(e.target.closest('#supplyDocsBtn')){ $('#supplyDocsInput').click(); return; }
     if(e.target.closest('#supplyModalClose')||e.target.closest('#supplyModalCancel')){ $('#supplyModal').classList.add('hidden'); return; }
     if(e.target.closest('#supplyModalSave'))  { saveSupplyItemForm(); return; }
     if(e.target.closest('#supplyDeleteBtn'))  { deleteSupplyItem();   return; }
@@ -2326,6 +2334,12 @@
       if(!coloInp.files.length) return;
       readFilesIntoDocs(coloInp.files, _coloPendingDocs, function(){ refreshCoLoDealDocPills(); });
       coloInp.value='';
+    });
+    var supplyInp=$("#supplyDocsInput");
+    if(supplyInp) supplyInp.addEventListener('change',function(){
+      if(!supplyInp.files.length) return;
+      readFilesIntoDocs(supplyInp.files, _supplyPendingDocs, function(){ refreshSupplyDocPills(); });
+      supplyInp.value='';
     });
   })();
 
