@@ -721,8 +721,10 @@
     var tbGPU = $("#pipeBodyGPU");
     var tbHW  = $("#pipeBodyHW");
     if(!tbGPU || !tbHW) return;
-    var activeGPU = ensureDeals().filter(function(d){ return d.stage!=='won' && d.stage!=='lost'; });
-    var activeHW  = loadHWDeals().filter(function(d){ return d.stage!=='won' && d.stage!=='lost'; });
+    var activeGPU = ensureDeals().filter(function(d){ return d.stage!=='won' && d.stage!=='lost'; })
+      .sort(function(a,b){ return (STAGE_WEIGHTS[b.stage]||0)-(STAGE_WEIGHTS[a.stage]||0); });
+    var activeHW  = loadHWDeals().filter(function(d){ return d.stage!=='won' && d.stage!=='lost'; })
+      .sort(function(a,b){ return (STAGE_WEIGHTS[b.stage]||0)-(STAGE_WEIGHTS[a.stage]||0); });
     tbGPU.innerHTML = '';
     tbHW.innerHTML  = '';
     if(!activeGPU.length){
