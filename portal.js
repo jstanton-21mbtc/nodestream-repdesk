@@ -679,6 +679,9 @@
     var hwActive   = loadHWDeals().filter(function(d){ return d.stage!=='won'&&d.stage!=='lost'; });
     var hwTopline  = hwActive.reduce(function(s,d){ return s+parseAmt(d.amt); },0);
     var hwMargin   = hwActive.reduce(function(s,d){ return s+parseAmt(d.totalMargin); },0);
+    var gpuActive  = deals.filter(function(d){ return d.stage!=='won'&&d.stage!=='lost'; });
+    var gpuProfit  = gpuActive.reduce(function(s,d){ return s+parseAmt(d.amt); },0);
+    var totalProfit = hwMargin + gpuProfit;
 
     // Weekly growth vs snapshot
     var snap = loadPipelineSnapshot();
@@ -702,8 +705,8 @@
        d:active.length+' active deal'+(active.length!==1?'s':''), pct:openPct},
       {k:'Weighted',      v:active.length?fmtAmt(weightedVal):'—', green:false,
        d:'stage-adjusted', pct:weightedPct},
-      {k:'HW Margin',     v:hwMargin?fmtAmt(hwMargin):'—', green:false,
-       d:hwActive.length+' HW deal'+(hwActive.length!==1?'s':'')+(hwTopline&&hwMargin?' · '+(hwMargin/hwTopline*100).toFixed(1)+'% blended':'')},
+      {k:'Pipeline Profit', v:totalProfit?fmtAmt(totalProfit):'—', green:false,
+       d:(gpuProfit?'GPU '+fmtAmt(gpuProfit):'')+(gpuProfit&&hwMargin?' · ':'')+(hwMargin?'HW '+fmtAmt(hwMargin):'')+((!gpuProfit&&!hwMargin)?'no active deals':'')},
       {k:'Closed won',    v:won.length?fmtAmt(wonVal):'—', green:false,
        d:won.length+' deal'+(won.length!==1?'s':'')}
     ];
