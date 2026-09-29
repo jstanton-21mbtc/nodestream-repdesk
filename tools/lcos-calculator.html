@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Offtaker Credit Scorer — Nodestream Rep Desk</title>
+<style>
+  :root{
+    --ink:#0E1311;--panel:#141A17;--panel-2:#1B2420;--panel-3:#212C27;--line:#2A352F;
+    --green:#3CA028;--green-bright:#4FD135;--green-dim:#2E7A1F;
+    --amber:#E0A73C;--text:#E8EFEA;--muted:#8A9A90;--muted-2:#5F6F66;--red:#D9584A;
+    --blue:#5B9BD5;
+    --mono:"JetBrains Mono","SF Mono",ui-monospace,"Cascadia Code",Menlo,monospace;
+    --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--ink);color:var(--text);font-family:var(--sans);line-height:1.5;font-size:14px;padding:28px 28px 60px}
+  h1{font-size:22px;font-weight:800;letter-spacing:-.4px;margin-bottom:5px}
+  h1 span{color:var(--green-bright)}
+  .sub{font-size:12.5px;color:var(--muted);margin-bottom:28px;max-width:72ch}
+  .badge{font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--green);background:rgba(60,160,40,.1);border:1px solid rgba(60,160,40,.25);padding:4px 10px;border-radius:5px;display:inline-block;margin-bottom:12px}
+
+  /* Layout */
+  .layout{display:grid;grid-template-columns:1fr 340px;gap:24px;align-items:start}
+  @media(max-width:900px){.layout{grid-template-columns:1fr}}
+
+  /* Factor cards */
+  .factor{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:16px}
+  .factor-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+  .factor-name{font-size:14px;font-weight:700}
+  .factor-weight{font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase;padding:3px 9px;border-radius:6px;font-weight:600}
+  .w-green{background:rgba(60,160,40,.12);color:var(--green-bright);border:1px solid rgba(60,160,40,.3)}
+  .w-amber{background:rgba(224,167,60,.12);color:var(--amber);border:1px solid rgba(224,167,60,.3)}
+  .w-muted{background:var(--panel-2);color:var(--muted);border:1px solid var(--line)}
+
+  .field{margin-bottom:12px}
+  .field:last-child{margin-bottom:0}
+  .field label{display:block;font-size:11.5px;color:var(--muted-2);font-family:var(--mono);letter-spacing:.5px;text-transform:uppercase;margin-bottom:5px}
+  .field input,.field select{width:100%;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;color:var(--text);font-family:var(--sans);font-size:13px;padding:9px 12px;outline:none;transition:.13s}
+  .field input:focus,.field select:focus{border-color:var(--green-dim);box-shadow:0 0 0 2px rgba(60,160,40,.12)}
+  .field input::placeholder{color:var(--muted-2)}
+  .field select option{background:var(--panel-2)}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+  /* Factor sub-score bar */
+  .factor-score-row{display:flex;align-items:center;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+  .fs-label{font-family:var(--mono);font-size:10px;color:var(--muted-2);white-space:nowrap}
+  .fs-bar-wrap{flex:1;background:var(--panel-3);border-radius:4px;height:6px;overflow:hidden}
+  .fs-bar{height:100%;border-radius:4px;transition:width .35s ease,background .35s ease}
+  .fs-val{font-family:var(--mono);font-size:12px;font-weight:700;width:36px;text-align:right;flex:none}
+
+  /* Results panel */
+  .results{position:sticky;top:20px}
+  .score-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:24px;margin-bottom:16px;text-align:center}
+  .score-num{font-family:var(--mono);font-size:64px;font-weight:800;letter-spacing:-3px;line-height:1;margin-bottom:4px}
+  .score-label{font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted-2);margin-bottom:18px}
+  .tier-badge{display:inline-block;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:6px 18px;border-radius:8px;margin-bottom:10px}
+  .tier-1{background:rgba(91,155,213,.15);color:var(--blue);border:1px solid rgba(91,155,213,.4)}
+  .tier-2{background:rgba(224,167,60,.15);color:var(--amber);border:1px solid rgba(224,167,60,.4)}
+  .tier-3{background:rgba(60,160,40,.15);color:var(--green-bright);border:1px solid rgba(60,160,40,.4)}
+  .tier-4{background:rgba(217,88,74,.12);color:var(--red);border:1px solid rgba(217,88,74,.3)}
+  .tier-5{background:rgba(140,40,40,.18);color:#ff7777;border:1px solid rgba(217,88,74,.4)}
+
+  .rating-band{font-size:12px;color:var(--muted);margin-bottom:16px}
+  .structuring{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:14px;text-align:left;margin-bottom:0}
+  .structuring .st-label{font-family:var(--mono);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--green);margin-bottom:7px;font-weight:600}
+  .structuring p{font-size:12px;color:var(--muted);line-height:1.65}
+
+  /* Breakdown */
+  .breakdown{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px}
+  .breakdown h3{font-size:13px;font-weight:700;margin-bottom:14px;font-family:var(--mono);letter-spacing:.5px;text-transform:uppercase;color:var(--muted-2)}
+  .br-row{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+  .br-row:last-child{margin-bottom:0}
+  .br-name{font-size:12px;font-weight:600;width:145px;flex:none}
+  .br-bar-wrap{flex:1;background:var(--panel-3);border-radius:4px;height:7px;overflow:hidden}
+  .br-bar{height:100%;border-radius:4px;transition:width .35s ease}
+  .br-val{font-family:var(--mono);font-size:11px;width:34px;text-align:right;flex:none}
+  .br-contrib{font-family:var(--mono);font-size:10px;color:var(--muted-2);width:40px;text-align:right;flex:none}
+
+  .flags-box{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-top:16px}
+  .flags-box h3{font-size:12px;font-weight:700;margin-bottom:10px;font-family:var(--mono);letter-spacing:.5px;text-transform:uppercase;color:var(--muted-2)}
+  .flag-item{display:flex;gap:8px;align-items:flex-start;margin-bottom:8px;font-size:12px;color:var(--muted)}
+  .flag-item:last-child{margin-bottom:0}
+  .flag-pill{font-family:var(--mono);font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;flex:none;margin-top:1px}
+  .flag-w{background:rgba(224,167,60,.15);color:var(--amber);border:1px solid rgba(224,167,60,.3)}
+  .flag-p{background:rgba(91,155,213,.12);color:var(--blue);border:1px solid rgba(91,155,213,.3)}
+
+  .note{font-family:var(--mono);font-size:10px;color:var(--muted-2);margin-top:20px;line-height:1.7}
+</style>
+</head>
+<body>
+
+<div class="badge">Offtaker Credit Scorer</div>
+<h1>LCOS <span>Offtaker Rating</span></h1>
+<p class="sub">Score any private GPU compute buyer using the Liquid Compute Offtaker Score (LCOS) framework. Enter what you know — unknown inputs default to conservative neutral values. Scores are indicative structuring guidance, not credit ratings.</p>
+
+<div class="layout">
+
+  <!-- LEFT: inputs -->
+  <div>
+
+    <!-- Factor 1: Funding -->
+    <div class="factor">
+      <div class="factor-head">
+        <span class="factor-name">1 — Funding</span>
+        <span class="factor-weight w-green">30% weight</span>
+      </div>
+
+      <div class="row2">
+        <div class="field">
+          <label>Total Capital Raised ($M)</label>
+          <input type="number" id="f1-capital" placeholder="e.g. 500" min="0" oninput="calc()">
+        </div>
+        <div class="field">
+          <label>Last Round Age</label>
+          <select id="f1-age" onchange="calc()">
+            <option value="1">Under 12 months</option>
+            <option value="0.5" selected>12–24 months</option>
+            <option value="0.25">Over 24 months</option>
+            <option value="0.5">Unknown</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Backer Depth</label>
+        <select id="f1-backer" onchange="calc()">
+          <option value="90">Top-tier — NVIDIA, hyperscaler, sovereign fund, or multiple top-decile VCs</option>
+          <option value="72" selected>Strong VCs — a16z, Sequoia, GV, Coatue, Founders Fund etc.</option>
+          <option value="50">Single fund or mixed early-stage</option>
+          <option value="35">Angel-led or undisclosed</option>
+          <option value="85">Self-funded profitable firm</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Funding Type</label>
+        <select id="f1-type" onchange="calc()">
+          <option value="1">Equity rounds (standard)</option>
+          <option value="1">Self-funded / profitable — no outside equity</option>
+          <option value="0.9">Committed debt facility</option>
+          <option value="0.7">Convertible / bridge</option>
+        </select>
+      </div>
+      <div class="factor-score-row">
+        <span class="fs-label">Factor score</span>
+        <div class="fs-bar-wrap"><div class="fs-bar" id="bar-f1" style="width:50%;background:var(--amber)"></div></div>
+        <span class="fs-val" id="val-f1">—</span>
+      </div>
+    </div>
+
+    <!-- Factor 2: Commitment Coverage -->
+    <div class="factor">
+      <div class="factor-head">
+        <span class="factor-name">2 — Commitment Coverage</span>
+        <span class="factor-weight w-green">20% weight</span>
+      </div>
+
+      <div class="field">
+        <label>Annual Compute Commitment ($M/yr) — 0 if none announced</label>
+        <input type="number" id="f2-commit" placeholder="0 = no public commitments" min="0" oninput="calc()">
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>Contract Firmness</label>
+          <select id="f2-firm" onchange="calc()">
+            <option value="1">Firm / signed contract</option>
+            <option value="0.6">Phased or "up to" contract</option>
+            <option value="0.25">LOI / framework / cancellable</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Annual Revenue ($M) — 0 if unknown</label>
+          <input type="number" id="f2-rev" placeholder="0 = unknown" min="0" oninput="calc()">
+        </div>
+      </div>
+      <div class="factor-score-row">
+        <span class="fs-label">Factor score</span>
+        <div class="fs-bar-wrap"><div class="fs-bar" id="bar-f2" style="width:65%;background:var(--amber)"></div></div>
+        <span class="fs-val" id="val-f2">—</span>
+      </div>
+    </div>
+
+    <!-- Factor 3: Business Durability -->
+    <div class="factor">
+      <div class="factor-head">
+        <span class="factor-name">3 — Business Durability</span>
+        <span class="factor-weight w-amber">20% weight</span>
+      </div>
+
+      <div class="row2">
+        <div class="field">
+          <label>Revenue Quality</label>
+          <select id="f3-quality" onchange="calc()">
+            <option value="85">Enterprise contracts / recurring SaaS</option>
+            <option value="65" selected>Mixed enterprise + consumer</option>
+            <option value="45">Primarily consumer / marketplace</option>
+            <option value="30">Pre-revenue</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Customer Concentration</label>
+          <select id="f3-conc" onchange="calc()">
+            <option value="80">Diversified — no single customer &gt;20%</option>
+            <option value="60" selected>Moderate — one large anchor customer</option>
+            <option value="35">High — top customer is &gt;50% of revenue</option>
+            <option value="55">Unknown</option>
+          </select>
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>Compute Centrality</label>
+          <select id="f3-compute" onchange="calc()">
+            <option value="85">Core to product — can't operate without GPU compute</option>
+            <option value="65" selected>Important but can partially substitute</option>
+            <option value="40">Peripheral — one of many costs</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Gross Margin Signal</label>
+          <select id="f3-margin" onchange="calc()">
+            <option value="80">High gross margin (&gt;60%)</option>
+            <option value="60" selected>Moderate (30–60%)</option>
+            <option value="40">Low / pass-through (&lt;30%)</option>
+            <option value="55">Unknown / pre-revenue</option>
+          </select>
+        </div>
+      </div>
+      <div class="factor-score-row">
+        <span class="fs-label">Factor score</span>
+        <div class="fs-bar-wrap"><div class="fs-bar" id="bar-f3" style="width:60%;background:var(--amber)"></div></div>
+        <span class="fs-val" id="val-f3">—</span>
+      </div>
+    </div>
+
+    <!-- Factor 4: Revenue Scale -->
+    <div class="factor">
+      <div class="factor-head">
+        <span class="factor-name">4 — Revenue Scale</span>
+        <span class="factor-weight w-amber">15% weight</span>
+      </div>
+
+      <div class="row2">
+        <div class="field">
+          <label>Annualized Revenue / ARR ($M)</label>
+          <input type="number" id="f4-arr" placeholder="0 = pre-revenue" min="0" oninput="calc()">
+        </div>
+        <div class="field">
+          <label>Evidence Quality</label>
+          <select id="f4-evidence" onchange="calc()">
+            <option value="1">Company-confirmed or investor-disclosed</option>
+            <option value="0.85" selected>Credible press (Bloomberg, The Information, FT)</option>
+            <option value="0.6">Third-party estimate</option>
+            <option value="0.5">Unknown — using capitalization proxy</option>
+          </select>
+        </div>
+      </div>
+      <div class="factor-score-row">
+        <span class="fs-label">Factor score</span>
+        <div class="fs-bar-wrap"><div class="fs-bar" id="bar-f4" style="width:30%;background:var(--red)"></div></div>
+        <span class="fs-val" id="val-f4">—</span>
+      </div>
+    </div>
+
+    <!-- Factor 5: Track Record -->
+    <div class="factor">
+      <div class="factor-head">
+        <span class="factor-name">5 — Track Record</span>
+        <span class="factor-weight w-muted">15% weight</span>
+      </div>
+
+      <div class="row2">
+        <div class="field">
+          <label>Years Operating</label>
+          <select id="f5-years" onchange="calc()">
+            <option value="15">Less than 1 year</option>
+            <option value="30">1–2 years</option>
+            <option value="50" selected>2–4 years</option>
+            <option value="65">4–7 years</option>
+            <option value="80">7–12 years</option>
+            <option value="90">12+ years</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Prior Compute Contracts Honored</label>
+          <select id="f5-contracts" onchange="calc()">
+            <option value="10">Yes — known prior contracts fulfilled</option>
+            <option value="0" selected>Unknown / first compute contract</option>
+            <option value="-10">Renegotiated or cancelled prior contract</option>
+          </select>
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>Management Depth</label>
+          <select id="f5-mgmt" onchange="calc()">
+            <option value="10">Strong — experienced operators, ex-public co</option>
+            <option value="5" selected>Solid — deep domain but limited public-co exp.</option>
+            <option value="0">Thin — founder-only or very early team</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Governance / Reporting</label>
+          <select id="f5-gov" onchange="calc()">
+            <option value="10">Board, audited financials, public disclosures</option>
+            <option value="5" selected>Board in place, limited external reporting</option>
+            <option value="0">Minimal governance disclosed</option>
+          </select>
+        </div>
+      </div>
+      <div class="factor-score-row">
+        <span class="fs-label">Factor score</span>
+        <div class="fs-bar-wrap"><div class="fs-bar" id="bar-f5" style="width:50%;background:var(--amber)"></div></div>
+        <span class="fs-val" id="val-f5">—</span>
+      </div>
+    </div>
+
+    <!-- Flags -->
+    <div class="flags-box">
+      <h3>Risk Flags (advisory)</h3>
+      <div class="flag-item">
+        <span class="flag-pill flag-w">W</span>
+        <div>
+          <label style="display:block;font-size:11px;color:var(--muted-2);font-family:var(--mono);letter-spacing:.5px;text-transform:uppercase;margin-bottom:4px">Wrong-Way Risk</label>
+          <select id="flag-w" onchange="calc()" style="background:var(--panel-2);border:1px solid var(--line);border-radius:7px;color:var(--text);font-family:var(--sans);font-size:12.5px;padding:7px 10px;width:100%;outline:none">
+            <option value="0">No — key backers are not also compute suppliers</option>
+            <option value="1">Yes — NVIDIA, hyperscaler or GPU provider is a key backer</option>
+          </select>
+        </div>
+      </div>
+      <div class="flag-item" style="margin-top:10px">
+        <span class="flag-pill flag-p">P</span>
+        <div>
+          <label style="display:block;font-size:11px;color:var(--muted-2);font-family:var(--mono);letter-spacing:.5px;text-transform:uppercase;margin-bottom:4px">Pass-Through Risk</label>
+          <select id="flag-p" onchange="calc()" style="background:var(--panel-2);border:1px solid var(--line);border-radius:7px;color:var(--text);font-family:var(--sans);font-size:12.5px;padding:7px 10px;width:100%;outline:none">
+            <option value="0">No — company is a direct compute consumer</option>
+            <option value="1">Yes — company resells compute; credit depends on its tenants</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <p class="note">Source: Liquid Compute Research — GPU Offtaker Credit Map, September 2026. Scores are indicative structuring guidance only, not credit ratings. Confirm with HPC Division before external use. Internal use only.</p>
+  </div>
+
+  <!-- RIGHT: results -->
+  <div class="results">
+    <div class="score-card">
+      <div class="score-num" id="res-score" style="color:var(--amber)">—</div>
+      <div class="score-label">Liquid Compute Offtaker Score (LCOS)</div>
+      <div class="tier-badge tier-2" id="res-tier">Enter inputs</div>
+      <div class="rating-band" id="res-rating">Fill in the factors to score this offtaker</div>
+      <div class="structuring" id="res-struct">
+        <div class="st-label">Structuring Guidance</div>
+        <p id="res-struct-text">Complete the left-hand inputs to generate a structuring recommendation.</p>
+      </div>
+    </div>
+
+    <div class="breakdown">
+      <h3>Factor Breakdown</h3>
+      <div class="br-row">
+        <span class="br-name">Funding</span>
+        <div class="br-bar-wrap"><div class="br-bar" id="brbar-f1" style="width:50%;background:var(--amber)"></div></div>
+        <span class="br-val" id="brval-f1">—</span>
+        <span class="br-contrib" id="brcon-f1">×30%</span>
+      </div>
+      <div class="br-row">
+        <span class="br-name">Commitment Coverage</span>
+        <div class="br-bar-wrap"><div class="br-bar" id="brbar-f2" style="width:65%;background:var(--amber)"></div></div>
+        <span class="br-val" id="brval-f2">—</span>
+        <span class="br-contrib" id="brcon-f2">×20%</span>
+      </div>
+      <div class="br-row">
+        <span class="br-name">Business Durability</span>
+        <div class="br-bar-wrap"><div class="br-bar" id="brbar-f3" style="width:60%;background:var(--amber)"></div></div>
+        <span class="br-val" id="brval-f3">—</span>
+        <span class="br-contrib" id="brcon-f3">×20%</span>
+      </div>
+      <div class="br-row">
+        <span class="br-name">Revenue Scale</span>
+        <div class="br-bar-wrap"><div class="br-bar" id="brbar-f4" style="width:30%;background:var(--red)"></div></div>
+        <span class="br-val" id="brval-f4">—</span>
+        <span class="br-contrib" id="brcon-f4">×15%</span>
+      </div>
+      <div class="br-row">
+        <span class="br-name">Track Record</span>
+        <div class="br-bar-wrap"><div class="br-bar" id="brbar-f5" style="width:50%;background:var(--amber)"></div></div>
+        <span class="br-val" id="brval-f5">—</span>
+        <span class="br-contrib" id="brcon-f5">×15%</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function clamp(v,mn,mx){return Math.max(mn,Math.min(mx,v));}
+
+function scoreColor(s){
+  if(s>=80) return 'var(--green-bright)';
+  if(s>=65) return 'var(--amber)';
+  if(s>=50) return 'var(--text)';
+  if(s>=35) return 'var(--red)';
+  return '#ff5555';
+}
+function barColor(s){
+  if(s>=75) return 'var(--green-bright)';
+  if(s>=55) return 'var(--amber)';
+  return 'var(--red)';
+}
+
+function getFunding(){
+  var capital = parseFloat(document.getElementById('f1-capital').value) || 0;
+  var age     = parseFloat(document.getElementById('f1-age').value);
+  var backer  = parseFloat(document.getElementById('f1-backer').value);
+  var ftype   = parseFloat(document.getElementById('f1-type').value);
+
+  // Amount score on log scale (0-100), then discounted by age
+  var amtScore = 0;
+  if(capital <= 0){
+    amtScore = 15; // unknown / pre-funded
+  } else {
+    // $10B+ = 100, $1B = 80, $100M = 60, $10M = 40, $1M = 20
+    amtScore = clamp(20 + 20 * Math.log10(capital / 1), 20, 100);
+  }
+  var discounted = amtScore * age * ftype;
+
+  // Backer depth is 40% of funding factor
+  var raw = discounted * 0.60 + backer * 0.40;
+  return clamp(Math.round(raw), 0, 100);
+}
+
+function getCommitmentCoverage(){
+  var commit = parseFloat(document.getElementById('f2-commit').value) || 0;
+  var firm   = parseFloat(document.getElementById('f2-firm').value);
+  var rev    = parseFloat(document.getElementById('f2-rev').value) || 0;
+
+  if(commit <= 0) return 65; // neutral — no announced commitments
+
+  var capital24 = parseFloat(document.getElementById('f1-capital').value) || 0;
+  var age       = parseFloat(document.getElementById('f1-age').value);
+  // capital raised in last 24 months = full if age<=1, else 0 (we use the age flag)
+  var capital24m = age >= 0.5 ? capital24 : capital24 * 0.5;
+
+  var annualCommit = commit * firm;
+  var coverageYrs = capital24m > 0 ? capital24m / annualCommit : 0;
+
+  // Score: 2 years = 65, each doubling +25
+  var covScore = 65;
+  if(coverageYrs > 0){
+    covScore = 65 + 25 * Math.log2(coverageYrs / 2);
+  }
+
+  // Revenue share modifier: commit > revenue is bad
+  if(rev > 0){
+    var shareOfRev = annualCommit / rev;
+    if(shareOfRev <= 0.5) covScore += 10;
+    else if(shareOfRev > 2) covScore -= 20;
+    else if(shareOfRev > 1) covScore -= 10;
+  }
+
+  return clamp(Math.round(covScore), 0, 100);
+}
+
+function getDurability(){
+  var q   = parseFloat(document.getElementById('f3-quality').value);
+  var c   = parseFloat(document.getElementById('f3-conc').value);
+  var cp  = parseFloat(document.getElementById('f3-compute').value);
+  var mg  = parseFloat(document.getElementById('f3-margin').value);
+  var raw = q * 0.35 + c * 0.25 + cp * 0.25 + mg * 0.15;
+  return clamp(Math.round(raw), 0, 100);
+}
+
+function getRevenueScale(){
+  var arr      = parseFloat(document.getElementById('f4-arr').value) || 0;
+  var evidence = parseFloat(document.getElementById('f4-evidence').value);
+  var score;
+  if(arr <= 0){
+    score = 15; // pre-revenue
+  } else {
+    // $10B = 100, $1B = 80, $100M = 60, $10M = 40
+    score = clamp(40 + 20 * Math.log10(arr / 10), 10, 100);
+  }
+  return clamp(Math.round(score * evidence), 0, 100);
+}
+
+function getTrackRecord(){
+  var yrs       = parseFloat(document.getElementById('f5-years').value);
+  var contracts = parseFloat(document.getElementById('f5-contracts').value);
+  var mgmt      = parseFloat(document.getElementById('f5-mgmt').value);
+  var gov       = parseFloat(document.getElementById('f5-gov').value);
+  var raw = yrs + contracts + mgmt + gov;
+  return clamp(Math.round(raw), 0, 100);
+}
+
+function getTierInfo(lcos){
+  if(lcos >= 80) return {
+    tier:'Tier 1', cls:'tier-1',
+    rating:'Investment Grade · BBB- / Baa3 and above',
+    struct:'3–5 year tenor on corporate credit. Parent guarantee where the contracting entity is a subsidiary. Watch item: aggregate compute commitments vs. revenue.'
+  };
+  if(lcos >= 65) return {
+    tier:'Tier 2', cls:'tier-2',
+    rating:'BB+ to BB · Ba1 to Ba2',
+    struct:'2–4 year tenor. 3–6 months of prepayment or a debt-service reserve. For parent-backed names, a support letter or direct parent guarantee closes most of the gap to Tier 1.'
+  };
+  if(lcos >= 50) return {
+    tier:'Tier 3', cls:'tier-3',
+    rating:'BB- to B+ · Ba3 to B1',
+    struct:'1–3 year tenor. 6–12 months of prepayment or a standby letter of credit. Cash sweep or step-up in security if a funding milestone is missed. If a strategic investor is also a compute supplier, ask whether it will stand behind the contract.'
+  };
+  if(lcos >= 35) return {
+    tier:'Tier 4', cls:'tier-4',
+    rating:'B to B- · B2 to B3',
+    struct:'12–24 month tenor. 25–50% of contract value prepaid or escrowed. Step-in and remarketing rights over the capacity. Cross-default to any other compute contract. Short, renewable terms are often better for both sides than long, heavily secured ones.'
+  };
+  return {
+    tier:'Tier 5', cls:'tier-5',
+    rating:'CCC / Caa and below · Venture Risk',
+    struct:'Month-to-month or 6–12 month terms. Full prepayment or a deposit covering the whole commitment. Best treated as a diversification slice within a portfolio of stronger Tier 1–3 offtakers. These buyers often pay spot-like rates.'
+  };
+}
+
+function setBar(barId, valId, score){
+  var bar = document.getElementById(barId);
+  var val = document.getElementById(valId);
+  bar.style.width = score + '%';
+  bar.style.background = barColor(score);
+  val.textContent = score;
+  val.style.color = scoreColor(score);
+}
+
+function calc(){
+  var f1 = getFunding();
+  var f2 = getCommitmentCoverage();
+  var f3 = getDurability();
+  var f4 = getRevenueScale();
+  var f5 = getTrackRecord();
+
+  // Apply flag penalties
+  var wFlag = parseInt(document.getElementById('flag-w').value);
+  var pFlag = parseInt(document.getElementById('flag-p').value);
+  var flagPenalty = (wFlag ? 3 : 0) + (pFlag ? 5 : 0); // advisory deduction
+
+  var lcos = clamp(Math.round(f1*0.30 + f2*0.20 + f3*0.20 + f4*0.15 + f5*0.15 - flagPenalty), 0, 100);
+
+  // Update factor bars (inline)
+  setBar('bar-f1','val-f1',f1);
+  setBar('bar-f2','val-f2',f2);
+  setBar('bar-f3','val-f3',f3);
+  setBar('bar-f4','val-f4',f4);
+  setBar('bar-f5','val-f5',f5);
+
+  // Update breakdown panel
+  setBar('brbar-f1','brval-f1',f1);
+  setBar('brbar-f2','brval-f2',f2);
+  setBar('brbar-f3','brval-f3',f3);
+  setBar('brbar-f4','brval-f4',f4);
+  setBar('brbar-f5','brval-f5',f5);
+
+  // Update LCOS score
+  var scoreEl = document.getElementById('res-score');
+  scoreEl.textContent = lcos;
+  scoreEl.style.color = scoreColor(lcos);
+
+  var info = getTierInfo(lcos);
+  var tierEl = document.getElementById('res-tier');
+  tierEl.textContent = info.tier;
+  tierEl.className = 'tier-badge ' + info.cls;
+  document.getElementById('res-rating').textContent = info.rating;
+  document.getElementById('res-struct-text').textContent = info.struct;
+
+  // Notify parent of height
+  if(window.parent && window.parent !== window){
+    var h = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
+    window.parent.postMessage({type:'mi-height', height: h}, '*');
+  }
+}
+
+// Run once on load with defaults
+calc();
+</script>
+</body>
+</html>
