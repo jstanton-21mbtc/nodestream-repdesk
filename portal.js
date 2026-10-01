@@ -228,7 +228,7 @@
     // Tools: always fresh on every navigation
     if(view==="discovery")    loadFrame("discovery");
     if(view==="configurator") loadFrame("configurator");
-    if(view==="eos")          loadFrame("eos");
+    if(view==="eos" && !mounted.eos) { loadFrame("eos"); mounted.eos=true; }
     if(view==="lcos")         loadFrame("lcos");
     if(view==="ornn")         loadFrame("ornn");
     if(view==="marketintel")  loadFrame("marketintel");
