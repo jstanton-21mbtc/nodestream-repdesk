@@ -1574,16 +1574,22 @@
   }
 
   function populateDCAssocDealSelect(selectedIds){
-    var sel=$("#dc-assoc-deal"); if(!sel) return;
+    var wrap=$("#dc-assoc-deal"); if(!wrap) return;
     var ids=Array.isArray(selectedIds)?selectedIds:(selectedIds?[selectedIds]:[]);
     var deals=loadDeals();
-    sel.innerHTML='';
+    wrap.innerHTML='';
+    if(!deals.length){ wrap.innerHTML='<div style="padding:5px 2px;font-size:11px;color:var(--muted-2)">No deals found</div>'; return; }
     deals.forEach(function(d){
-      var opt=document.createElement('option');
-      opt.value=d.id;
-      opt.textContent=d.co+(d.amt?' · '+d.amt:'')+(d.stage?' ['+(STAGES[d.stage]||d.stage)+']':'');
-      if(ids.indexOf(d.id)>-1) opt.selected=true;
-      sel.appendChild(opt);
+      var label=document.createElement('label');
+      label.style.cssText='display:flex;align-items:center;gap:7px;padding:4px 4px;cursor:pointer;border-radius:4px;font-size:12px;font-family:var(--mono);color:var(--fg)';
+      label.onmouseenter=function(){ this.style.background='rgba(96,165,250,.08)'; };
+      label.onmouseleave=function(){ this.style.background=''; };
+      var cb=document.createElement('input'); cb.type='checkbox'; cb.value=d.id;
+      cb.style.cssText='accent-color:var(--accent);width:13px;height:13px;flex-shrink:0;cursor:pointer';
+      if(ids.indexOf(d.id)>-1) cb.checked=true;
+      label.appendChild(cb);
+      label.appendChild(document.createTextNode(d.co+(d.amt?' · '+d.amt:'')+(d.stage?' ['+(STAGES[d.stage]||d.stage)+']':'')));
+      wrap.appendChild(label);
     });
   }
 
@@ -1637,7 +1643,7 @@
         entries[idx].campus=($("#dc-campus").value||'').trim(); entries[idx].notes=($("#dc-notes").value||'').trim();
         entries[idx].serviceType=serviceType; entries[idx].nodeType=nodeType; entries[idx].nodeCount=nodeCount;
         entries[idx].rep=($("#dc-rep")?$("#dc-rep").value:'')||'';
-        var _dcAssocEl=$("#dc-assoc-deal"); entries[idx].associatedDealIds=_dcAssocEl?Array.from(_dcAssocEl.selectedOptions).map(function(o){return o.value;}).filter(Boolean):[];
+        var _dcAssocEl=$("#dc-assoc-deal"); entries[idx].associatedDealIds=_dcAssocEl?Array.from(_dcAssocEl.querySelectorAll('input[type=checkbox]:checked')).map(function(cb){return cb.value;}).filter(Boolean):[];
         entries[idx].docs=_dcPendingDocs.slice();
       }
     } else {
@@ -1645,7 +1651,7 @@
         quarter:quarter, status:$("#dc-status").value, campus:($("#dc-campus").value||'').trim(),
         notes:($("#dc-notes").value||'').trim(), serviceType:serviceType, nodeType:nodeType, nodeCount:nodeCount,
         rep:($("#dc-rep")?$("#dc-rep").value:'')||'',
-        associatedDealIds:(function(){ var el=$("#dc-assoc-deal"); return el?Array.from(el.selectedOptions).map(function(o){return o.value;}).filter(Boolean):[]; })(),
+        associatedDealIds:(function(){ var el=$("#dc-assoc-deal"); return el?Array.from(el.querySelectorAll('input[type=checkbox]:checked')).map(function(cb){return cb.value;}).filter(Boolean):[]; })(),
         docs:_dcPendingDocs.slice(), dateAdded:new Date().toISOString().slice(0,10) });
     }
     saveDCEntries(entries);
@@ -1795,16 +1801,22 @@
 
 
   function populateCoLoAssocDealSelect(selectedIds){
-    var sel=$("#colo-assoc-deal"); if(!sel) return;
+    var wrap=$("#colo-assoc-deal"); if(!wrap) return;
     var ids=Array.isArray(selectedIds)?selectedIds:(selectedIds?[selectedIds]:[]);
     var entries=loadDCEntries();
-    sel.innerHTML='';
+    wrap.innerHTML='';
+    if(!entries.length){ wrap.innerHTML='<div style="padding:5px 2px;font-size:11px;color:var(--muted-2)">No DC entries found</div>'; return; }
     entries.forEach(function(e){
-      var opt=document.createElement('option');
-      opt.value=e.id;
-      opt.textContent=e.offtaker+(e.mw?' · '+e.mw+' MW':'')+(e.status?' ['+(DC_STATUS[e.status]||e.status)+']':'');
-      if(ids.indexOf(e.id)>-1) opt.selected=true;
-      sel.appendChild(opt);
+      var label=document.createElement('label');
+      label.style.cssText='display:flex;align-items:center;gap:7px;padding:4px 4px;cursor:pointer;border-radius:4px;font-size:12px;font-family:var(--mono);color:var(--fg)';
+      label.onmouseenter=function(){ this.style.background='rgba(96,165,250,.08)'; };
+      label.onmouseleave=function(){ this.style.background=''; };
+      var cb=document.createElement('input'); cb.type='checkbox'; cb.value=e.id;
+      cb.style.cssText='accent-color:var(--accent);width:13px;height:13px;flex-shrink:0;cursor:pointer';
+      if(ids.indexOf(e.id)>-1) cb.checked=true;
+      label.appendChild(cb);
+      label.appendChild(document.createTextNode(e.offtaker+(e.mw?' · '+e.mw+' MW':'')+(e.status?' ['+(DC_STATUS[e.status]||e.status)+']':'')));
+      wrap.appendChild(label);
     });
   }
 
@@ -1853,14 +1865,14 @@
         entries[idx].quarter=quarter; entries[idx].status=$("#colo-status").value;
         entries[idx].campus=($("#colo-campus").value||'').trim(); entries[idx].notes=($("#colo-notes").value||'').trim();
         entries[idx].tier=tier; entries[idx].rep=rep;
-        var _coloAssocEl=$("#colo-assoc-deal"); entries[idx].associatedDealIds=_coloAssocEl?Array.from(_coloAssocEl.selectedOptions).map(function(o){return o.value;}).filter(Boolean):[];
+        var _coloAssocEl=$("#colo-assoc-deal"); entries[idx].associatedDealIds=_coloAssocEl?Array.from(_coloAssocEl.querySelectorAll('input[type=checkbox]:checked')).map(function(cb){return cb.value;}).filter(Boolean):[];
         entries[idx].docs=_coloPendingDocs.slice();
       }
     } else {
       entries.unshift({ id:'colo_'+Date.now(), offtaker:offtaker, kw:($("#colo-kw").value||'').trim(),
         quarter:quarter, status:$("#colo-status").value, campus:($("#colo-campus").value||'').trim(),
         notes:($("#colo-notes").value||'').trim(), tier:tier, rep:rep,
-        associatedDealIds:(function(){ var el=$("#colo-assoc-deal"); return el?Array.from(el.selectedOptions).map(function(o){return o.value;}).filter(Boolean):[]; })(),
+        associatedDealIds:(function(){ var el=$("#colo-assoc-deal"); return el?Array.from(el.querySelectorAll('input[type=checkbox]:checked')).map(function(cb){return cb.value;}).filter(Boolean):[]; })(),
         docs:_coloPendingDocs.slice(), dateAdded:new Date().toISOString().slice(0,10) });
     }
     saveCoLoEntries(entries);
