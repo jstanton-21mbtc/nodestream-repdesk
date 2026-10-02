@@ -1522,7 +1522,8 @@
       if(qEntries.length){
         qEntries.forEach(function(e){
           var card=document.createElement('div'); card.className='kancard'; card.draggable=true; card.dataset.entryId=e.id;
-          var _assocDeal=e.associatedDealId?loadDeals().find(function(d){ return d.id===e.associatedDealId; }):null;
+          var _dcAssocIds=e.associatedDealIds||(e.associatedDealId?[e.associatedDealId]:[]);
+          var _dcAssocDeals=_dcAssocIds.map(function(aid){ return loadDeals().find(function(d){ return d.id===aid; }); }).filter(Boolean);
           card.innerHTML=
             '<div style="display:flex;align-items:flex-start;gap:6px;flex-wrap:wrap;margin-bottom:2px">'+
               '<span class="kc-co" style="margin-bottom:0;flex:1">'+esc(e.offtaker)+'</span>'+
@@ -1535,7 +1536,7 @@
               (e.nodeType?'<span style="font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:4px;letter-spacing:.4px;font-weight:700;background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.25);color:#a78bfa">'+esc(e.nodeType)+(e.nodeCount?' ×'+esc(e.nodeCount):'')+'</span>':'')+
             '</div>'+
             (e.campus?'<div style="font-family:var(--mono);font-size:9px;color:var(--muted-2);margin-bottom:4px">'+esc(e.campus)+'</div>':'')+
-            (_assocDeal?'<div style="font-family:var(--mono);font-size:9px;padding:2px 8px;border-radius:4px;margin-bottom:4px;background:rgba(250,189,47,.08);border:1px solid rgba(250,189,47,.28);color:#fabd2f;display:inline-block;letter-spacing:.3px">&#128279; '+esc(_assocDeal.co)+(_assocDeal.amt?' &middot; '+esc(_assocDeal.amt):'')+'</div>':'')+
+            (_dcAssocDeals.length?_dcAssocDeals.map(function(ad){ return '<div style="font-family:var(--mono);font-size:9px;padding:2px 8px;border-radius:4px;margin-bottom:3px;background:rgba(250,189,47,.08);border:1px solid rgba(250,189,47,.28);color:#fabd2f;display:inline-block;letter-spacing:.3px">&#128279; '+esc(ad.co)+(ad.amt?' &middot; '+esc(ad.amt):'')+'</div>'; }).join(''): '')+
             '<div class="kc-date">'+esc(e.dateAdded?fmtDate(e.dateAdded):'')+'</div>';
           card.addEventListener('dragstart',function(ev){ _dcDragId=e.id; card.classList.add('dragging'); ev.dataTransfer.effectAllowed='move'; ev.dataTransfer.setData('text/plain',e.id); });
           card.addEventListener('dragend',function(){ card.classList.remove('dragging'); _dcDragId=null; });
@@ -1572,15 +1573,16 @@
     if(!showNode){ var nt=$("#dc-node-type"); if(nt) nt.value=''; var nc=$("#dc-node-count"); if(nc) nc.value=''; }
   }
 
-  function populateDCAssocDealSelect(selectedId){
+  function populateDCAssocDealSelect(selectedIds){
     var sel=$("#dc-assoc-deal"); if(!sel) return;
+    var ids=Array.isArray(selectedIds)?selectedIds:(selectedIds?[selectedIds]:[]);
     var deals=loadDeals();
-    sel.innerHTML='<option value="">— None —</option>';
+    sel.innerHTML='';
     deals.forEach(function(d){
       var opt=document.createElement('option');
       opt.value=d.id;
-      opt.textContent=d.co+(d.amt?' · '+d.amt:'')+(d.stage?' ['+( STAGES[d.stage]||d.stage)+']':'');
-      if(d.id===selectedId) opt.selected=true;
+      opt.textContent=d.co+(d.amt?' · '+d.amt:'')+(d.stage?' ['+(STAGES[d.stage]||d.stage)+']':'');
+      if(ids.indexOf(d.id)>-1) opt.selected=true;
       sel.appendChild(opt);
     });
   }
@@ -1592,7 +1594,7 @@
     $("#dc-status").value='prospect'; $("#dc-campus").value=''; $("#dc-notes").value='';
     setRepBtns('#dc-rep','.dc-rep-btn','');
     setDCServiceType('gpuaas');
-    populateDCAssocDealSelect('');
+    populateDCAssocDealSelect([]);
     var delBtn=$("#dcEntryDeleteBtn"); if(delBtn) delBtn.style.display='none';
     _dcPendingDocs=[]; refreshDCDealDocPills();
     _viewingDCEntryId=null;
@@ -1612,7 +1614,7 @@
     setDCServiceType(entry.serviceType||'gpuaas');
     var nt=$("#dc-node-type"); if(nt) nt.value=entry.nodeType||'';
     var nc=$("#dc-node-count"); if(nc) nc.value=entry.nodeCount||'';
-    populateDCAssocDealSelect(entry.associatedDealId||'');
+    populateDCAssocDealSelect(entry.associatedDealIds||(entry.associatedDealId?[entry.associatedDealId]:[]));
     var delBtn=$("#dcEntryDeleteBtn"); if(delBtn) delBtn.style.display='';
     _dcPendingDocs=(entry.docs||[]).map(function(d){ return Object.assign({},d); }); refreshDCDealDocPills();
     $("#dcEntryModal").classList.remove('hidden');
@@ -1635,7 +1637,7 @@
         entries[idx].campus=($("#dc-campus").value||'').trim(); entries[idx].notes=($("#dc-notes").value||'').trim();
         entries[idx].serviceType=serviceType; entries[idx].nodeType=nodeType; entries[idx].nodeCount=nodeCount;
         entries[idx].rep=($("#dc-rep")?$("#dc-rep").value:'')||'';
-        entries[idx].associatedDealId=($("#dc-assoc-deal").value||'');
+        var _dcAssocEl=$("#dc-assoc-deal"); entries[idx].associatedDealIds=_dcAssocEl?Array.from(_dcAssocEl.selectedOptions).map(function(o){return o.value;}).filter(Boolean):[];
         entries[idx].docs=_dcPendingDocs.slice();
       }
     } else {
@@ -1643,7 +1645,7 @@
         quarter:quarter, status:$("#dc-status").value, campus:($("#dc-campus").value||'').trim(),
         notes:($("#dc-notes").value||'').trim(), serviceType:serviceType, nodeType:nodeType, nodeCount:nodeCount,
         rep:($("#dc-rep")?$("#dc-rep").value:'')||'',
-        associatedDealId:($("#dc-assoc-deal").value||''),
+        associatedDealIds:(function(){ var el=$("#dc-assoc-deal"); return el?Array.from(el.selectedOptions).map(function(o){return o.value;}).filter(Boolean):[]; })(),
         docs:_dcPendingDocs.slice(), dateAdded:new Date().toISOString().slice(0,10) });
     }
     saveDCEntries(entries);
@@ -1759,7 +1761,8 @@
       if(qEntries.length){
         qEntries.forEach(function(e){
           var card=document.createElement('div'); card.className='kancard'; card.draggable=true; card.dataset.entryId=e.id;
-          var _assocDCEntry=e.associatedDealId?loadDCEntries().find(function(d){ return d.id===e.associatedDealId; }):null;
+          var _coloAssocIds=e.associatedDealIds||(e.associatedDealId?[e.associatedDealId]:[]);
+          var _coloAssocDCEntries=_coloAssocIds.map(function(aid){ return loadDCEntries().find(function(d){ return d.id===aid; }); }).filter(Boolean);
           card.innerHTML=
             '<div style="display:flex;align-items:flex-start;gap:6px;flex-wrap:wrap;margin-bottom:2px">'+
               '<span class="kc-co" style="margin-bottom:0;flex:1">'+esc(e.offtaker)+'</span>'+
@@ -1771,7 +1774,7 @@
               (e.tier?'<span style="font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:4px;letter-spacing:.4px;font-weight:700;background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.25);color:var(--accent)">Tier '+esc(e.tier)+'</span>':'')+
             '</div>'+
             (e.campus?'<div style="font-family:var(--mono);font-size:9px;color:var(--muted-2);margin-bottom:4px">'+esc(e.campus)+'</div>':'')+
-            (_assocDCEntry?'<div style="font-family:var(--mono);font-size:9px;padding:2px 8px;border-radius:4px;margin-bottom:4px;background:rgba(250,189,47,.08);border:1px solid rgba(250,189,47,.28);color:#fabd2f;display:inline-block;letter-spacing:.3px">&#128279; '+esc(_assocDCEntry.offtaker)+(_assocDCEntry.mw?' &middot; '+esc(_assocDCEntry.mw)+' MW':'')+'</div>':'')+
+            (_coloAssocDCEntries.length?_coloAssocDCEntries.map(function(dc){ return '<div style="font-family:var(--mono);font-size:9px;padding:2px 8px;border-radius:4px;margin-bottom:3px;background:rgba(250,189,47,.08);border:1px solid rgba(250,189,47,.28);color:#fabd2f;display:inline-block;letter-spacing:.3px">&#128279; '+esc(dc.offtaker)+(dc.mw?' &middot; '+esc(dc.mw)+' MW':'')+'</div>'; }).join(''): '')+
             '<div class="kc-date">'+esc(e.dateAdded?fmtDate(e.dateAdded):'')+'</div>';
           card.addEventListener('dragstart',function(ev){ _coloDragId=e.id; card.classList.add('dragging'); ev.dataTransfer.effectAllowed='move'; ev.dataTransfer.setData('text/plain',e.id); });
           card.addEventListener('dragend',function(){ card.classList.remove('dragging'); _coloDragId=null; });
@@ -1791,15 +1794,16 @@
   }
 
 
-  function populateCoLoAssocDealSelect(selectedId){
+  function populateCoLoAssocDealSelect(selectedIds){
     var sel=$("#colo-assoc-deal"); if(!sel) return;
+    var ids=Array.isArray(selectedIds)?selectedIds:(selectedIds?[selectedIds]:[]);
     var entries=loadDCEntries();
-    sel.innerHTML='<option value="">— None —</option>';
+    sel.innerHTML='';
     entries.forEach(function(e){
       var opt=document.createElement('option');
       opt.value=e.id;
-      opt.textContent=e.offtaker+(e.mw?' · '+e.mw+' MW':'')+(e.status?' ['+( DC_STATUS[e.status]||e.status)+']':'');
-      if(e.id===selectedId) opt.selected=true;
+      opt.textContent=e.offtaker+(e.mw?' · '+e.mw+' MW':'')+(e.status?' ['+(DC_STATUS[e.status]||e.status)+']':'');
+      if(ids.indexOf(e.id)>-1) opt.selected=true;
       sel.appendChild(opt);
     });
   }
@@ -1811,7 +1815,7 @@
     $("#colo-status").value='prospect'; $("#colo-campus").value=''; $("#colo-notes").value='';
     var t=$("#colo-tier"); if(t) t.value='';
     setRepBtns('#colo-rep','.colo-rep-btn','');
-    populateCoLoAssocDealSelect('');
+    populateCoLoAssocDealSelect([]);
     var delBtn=$("#coloEntryDeleteBtn"); if(delBtn) delBtn.style.display='none';
     _coloPendingDocs=[]; refreshCoLoDealDocPills();
     _viewingCoLoEntryId=null;
@@ -1829,7 +1833,7 @@
     $("#colo-campus").value=entry.campus||''; $("#colo-notes").value=entry.notes||'';
     var t=$("#colo-tier"); if(t) t.value=entry.tier||'';
     setRepBtns('#colo-rep','.colo-rep-btn',entry.rep||'');
-    populateCoLoAssocDealSelect(entry.associatedDealId||'');
+    populateCoLoAssocDealSelect(entry.associatedDealIds||(entry.associatedDealId?[entry.associatedDealId]:[]));
     var delBtn=$("#coloEntryDeleteBtn"); if(delBtn) delBtn.style.display='';
     _coloPendingDocs=(entry.docs||[]).map(function(d){ return Object.assign({},d); }); refreshCoLoDealDocPills();
     $("#coloEntryModal").classList.remove('hidden');
@@ -1849,14 +1853,14 @@
         entries[idx].quarter=quarter; entries[idx].status=$("#colo-status").value;
         entries[idx].campus=($("#colo-campus").value||'').trim(); entries[idx].notes=($("#colo-notes").value||'').trim();
         entries[idx].tier=tier; entries[idx].rep=rep;
-        entries[idx].associatedDealId=($("#colo-assoc-deal").value||'');
+        var _coloAssocEl=$("#colo-assoc-deal"); entries[idx].associatedDealIds=_coloAssocEl?Array.from(_coloAssocEl.selectedOptions).map(function(o){return o.value;}).filter(Boolean):[];
         entries[idx].docs=_coloPendingDocs.slice();
       }
     } else {
       entries.unshift({ id:'colo_'+Date.now(), offtaker:offtaker, kw:($("#colo-kw").value||'').trim(),
         quarter:quarter, status:$("#colo-status").value, campus:($("#colo-campus").value||'').trim(),
         notes:($("#colo-notes").value||'').trim(), tier:tier, rep:rep,
-        associatedDealId:($("#colo-assoc-deal").value||''),
+        associatedDealIds:(function(){ var el=$("#colo-assoc-deal"); return el?Array.from(el.selectedOptions).map(function(o){return o.value;}).filter(Boolean):[]; })(),
         docs:_coloPendingDocs.slice(), dateAdded:new Date().toISOString().slice(0,10) });
     }
     saveCoLoEntries(entries);
