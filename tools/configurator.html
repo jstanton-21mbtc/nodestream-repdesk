@@ -134,6 +134,55 @@
   .pe-actions{display:flex;gap:10px;margin-top:16px;align-items:center;flex-wrap:wrap}
   .pe-saved{font-family:var(--mono);font-size:11px;color:var(--green-bright);display:none}
 
+  /* ── Save to Deal ── */
+  .dv-wrap{position:relative}
+  .dv-wrap input{padding-right:74px}
+  .sync-inline-btn{
+    position:absolute;right:7px;top:50%;transform:translateY(-50%);
+    font-family:var(--mono);font-size:9px;letter-spacing:.5px;text-transform:uppercase;
+    background:rgba(60,160,40,.12);border:1px solid rgba(60,160,40,.28);
+    color:var(--green-bright);padding:4px 8px;border-radius:5px;cursor:pointer;transition:.13s;display:none;
+  }
+  .sync-inline-btn:hover{background:rgba(60,160,40,.22)}
+  .sync-inline-btn.show{display:block}
+  .dv-synced{border-color:rgba(60,160,40,.38)!important;background:rgba(60,160,40,.04)!important}
+  .dv-override{border-color:rgba(224,167,60,.32)!important;background:rgba(224,167,60,.03)!important}
+  @keyframes flashGreen{0%,100%{box-shadow:none}50%{box-shadow:0 0 0 4px rgba(60,160,40,.3)}}
+  .flash{animation:flashGreen .4s ease}
+  .auto-tag{font-family:var(--mono);font-size:9px;letter-spacing:.6px;text-transform:uppercase;
+    background:rgba(60,160,40,.12);color:var(--green);border:1px solid rgba(60,160,40,.22);
+    padding:2px 6px;border-radius:4px;line-height:1;vertical-align:middle;margin-left:5px}
+  .auto-tag.manual{background:rgba(224,167,60,.1);color:var(--amber);border-color:rgba(224,167,60,.3)}
+  .sd-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  @media(max-width:620px){.sd-grid{grid-template-columns:1fr}}
+  .btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px;align-items:center}
+  .btn.sm{padding:6px 10px;font-size:10px;letter-spacing:.3px}
+  .btn.danger{background:transparent;border:1px solid rgba(217,88,74,.28);color:var(--red)}
+  .btn.danger:hover{background:rgba(217,88,74,.08)}
+  .deal-tbl-wrap{overflow-x:auto;border-radius:10px;border:1px solid var(--line)}
+  table.deals{width:100%;border-collapse:collapse;font-size:13px}
+  table.deals th{font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;
+    color:var(--muted-2);font-weight:500;padding:10px 14px;border-bottom:1px solid var(--line);
+    text-align:left;white-space:nowrap}
+  table.deals td{padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:middle}
+  table.deals tr:last-child td{border-bottom:none}
+  table.deals tr:hover td{background:rgba(255,255,255,.015)}
+  .deal-nm{font-weight:600}
+  .deal-sub{font-family:var(--mono);font-size:11px;color:var(--muted-2);margin-top:2px}
+  .stage-badge{display:inline-block;font-family:var(--mono);font-size:9px;letter-spacing:.7px;
+    text-transform:uppercase;padding:2px 8px;border-radius:4px;font-weight:600;white-space:nowrap}
+  .stage-badge.new       {background:rgba(91,155,213,.1);color:#5B9BD5}
+  .stage-badge.discovery {background:rgba(60,160,40,.1);color:var(--green-bright)}
+  .stage-badge.proposal  {background:rgba(224,167,60,.12);color:var(--amber)}
+  .stage-badge.negotiation{background:rgba(155,127,212,.12);color:#9B7FD4}
+  .stage-badge.closed    {background:rgba(60,160,40,.2);color:var(--green-bright)}
+  .empty-state{text-align:center;padding:32px;font-family:var(--mono);font-size:11px;color:var(--muted-2)}
+  .toast{position:fixed;bottom:20px;right:20px;z-index:999;pointer-events:none;
+    background:var(--panel-2);border:1px solid var(--green-dim);border-radius:10px;
+    padding:11px 18px;font-family:var(--mono);font-size:12px;color:var(--green-bright);
+    box-shadow:0 4px 24px rgba(0,0,0,.45);opacity:0;transform:translateY(8px);transition:.22s}
+  .toast.show{opacity:1;transform:none}
+
   @media print{body{background:#fff;color:#111}.card,.output-panel{border-color:#ccc}.btn{-webkit-print-color-adjust:exact;print-color-adjust:exact}.pe-card{display:none!important}}
 </style>
 </head>
@@ -329,6 +378,67 @@
     </div>
   </div>
 
+  <!-- ============ SAVE TO DEAL ============ -->
+  <div class="card">
+    <h2>Save to deal</h2>
+    <p class="sub">The referral fee payout above auto-fills Deal Value — override if needed before saving. Deal notes (below) are captured in the saved record.</p>
+    <div class="sd-grid">
+      <div>
+        <div class="field">
+          <label>Deal / Client name</label>
+          <input type="text" id="sdName" placeholder="e.g. Meridian AI &mdash; H100 Cluster">
+        </div>
+        <div class="field">
+          <label>Stage</label>
+          <select id="sdStage">
+            <option value="new">New Lead</option>
+            <option value="discovery" selected>Discovery</option>
+            <option value="proposal">Proposal Sent</option>
+            <option value="negotiation">Negotiation</option>
+            <option value="closed">Closed Won</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <div class="field">
+          <label>Deal Value ($)<span class="auto-tag" id="dvTag">AUTO</span></label>
+          <div class="dv-wrap">
+            <input type="number" id="sdDealValue" class="dv-synced" step="1000" min="0" placeholder="0">
+            <button class="sync-inline-btn" id="sdSyncBtn" title="Re-sync to referral payout">&#8635; sync</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn" id="sdSaveBtn">Save Deal</button>
+      <button class="btn ghost" id="sdClearBtn">Clear</button>
+      <span id="sdEditLabel" style="font-family:var(--mono);font-size:11px;color:var(--amber);display:none">Editing existing deal</span>
+    </div>
+  </div>
+
+  <!-- ============ SAVED DEALS ============ -->
+  <div class="card">
+    <h2>Saved deals</h2>
+    <p class="sub" id="sdCountLabel">No deals saved yet.</p>
+    <div id="sdTableWrap" style="display:none" class="deal-tbl-wrap">
+      <table class="deals">
+        <thead>
+          <tr>
+            <th>Deal</th>
+            <th>GPU Config</th>
+            <th>Contract Value</th>
+            <th>Deal Value</th>
+            <th>Ref. Payout</th>
+            <th>Stage</th>
+            <th>Saved</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="sdDealsBody"></tbody>
+      </table>
+    </div>
+  </div>
+
   <!-- ============ NOTES ============ -->
   <div class="card">
     <h2>Deal notes</h2>
@@ -338,6 +448,8 @@
       <textarea id="notes" placeholder="e.g. 5% discount discussed, custom SLA addendum required, GPU-backed financing via USD.AI in play..."></textarea>
     </div>
   </div>
+
+  <div class="toast" id="sdToast"></div>
 
   <div class="foot">
     <span>Nodestream &middot; Blockware Solutions HPC &middot; internal AE field kit &middot; confirm figures before external use</span>
@@ -671,6 +783,7 @@ function calcReferral(){
     ? (parseFloat($('customRefPct').value)||2.5) / 100
     : parseFloat(refRateSel)||0.02;
   var totalFee = contractTotal * refPct;
+  syncDealValue(totalFee);
   var structure = $('referralStructure').value;
 
   var kv = $('referralKvGrid');
@@ -814,6 +927,227 @@ function resetPricing(){
   saved.style.display = 'inline';
   setTimeout(function(){ saved.style.display = 'none'; saved.textContent = '✓ Saved'; }, 1800);
 }
+
+// ---- Save to Deal ----
+var SD_KEY      = 'ns_deals_v1';
+var dvManual    = false;   // true when rep has manually typed a deal value
+var sdEditingId = null;
+var lastPayout  = 0;       // last computed referral payout, used by re-sync
+
+var STAGE_LABELS = {new:'New Lead', discovery:'Discovery', proposal:'Proposal Sent', negotiation:'Negotiation', closed:'Closed Won'};
+
+function syncDealValue(payout){
+  lastPayout = payout;
+  if(dvManual) return;                   // rep has overridden — leave it alone
+  var rounded = Math.round(payout);
+  var prev    = $('sdDealValue').value;
+  $('sdDealValue').value = rounded;
+  setDvSynced();
+  if(prev !== '' && prev !== String(rounded)){
+    $('sdDealValue').classList.remove('flash');
+    void $('sdDealValue').offsetWidth;   // force reflow so animation retriggers
+    $('sdDealValue').classList.add('flash');
+  }
+}
+
+function setDvSynced(){
+  $('sdDealValue').classList.add('dv-synced');
+  $('sdDealValue').classList.remove('dv-override', 'flash');
+  $('dvTag').textContent = 'AUTO';
+  $('dvTag').className   = 'auto-tag';
+  $('sdSyncBtn').classList.remove('show');
+}
+
+function setDvManual(){
+  $('sdDealValue').classList.remove('dv-synced');
+  $('sdDealValue').classList.add('dv-override');
+  $('dvTag').textContent = 'MANUAL';
+  $('dvTag').className   = 'auto-tag manual';
+  $('sdSyncBtn').classList.add('show');
+}
+
+$('sdDealValue').addEventListener('input', function(){
+  dvManual = true;
+  setDvManual();
+});
+
+$('sdSyncBtn').addEventListener('click', function(){
+  dvManual = false;
+  syncDealValue(lastPayout);
+});
+
+$('sdSaveBtn').addEventListener('click', function(){
+  var name = ($('sdName').value || '').trim();
+  if(!name){
+    $('sdName').style.borderColor = 'var(--red)';
+    $('sdName').focus();
+    setTimeout(function(){ $('sdName').style.borderColor = ''; }, 1500);
+    return;
+  }
+  var deals = sdLoadDeals();
+  var now   = new Date().toISOString();
+
+  // Snapshot current quote state
+  var gpuCnt  = getGpuCount();
+  var rate    = _gpu.rates[_term] || 2.40;
+  var util    = parseFloat($('utilization').value) || 0.85;
+  var effHrs  = HOURS_PER_MONTH * util;
+  var monthly = gpuCnt * rate * effHrs;
+  var contractTotal = monthly * _term;
+  var refRateSel = $('referralRate').value;
+  var refPct  = refRateSel === 'custom_ref'
+    ? (parseFloat($('customRefPct').value) || 2.5) / 100
+    : parseFloat(refRateSel) || 0.02;
+  var payout  = contractTotal * refPct;
+  var dv      = parseFloat($('sdDealValue').value) || Math.round(payout);
+
+  var rec = {
+    name:               name,
+    persona:            $('persona').value,
+    stage:              $('sdStage').value,
+    gpu:                _gpu.name,
+    gpuCount:           gpuCnt,
+    term:               _term,
+    rate:               rate,
+    utilization:        Math.round(util * 100),
+    refPct:             +(refPct * 100).toFixed(2),
+    contractTotal:      contractTotal,
+    referralPayout:     payout,
+    dealValue:          dv,
+    dealValueOverridden: dvManual,
+    notes:              ($('notes').value || '').trim(),
+    updatedAt:          now
+  };
+
+  if(sdEditingId){
+    var idx = deals.findIndex(function(d){ return d.id === sdEditingId; });
+    if(idx > -1){ rec.id = sdEditingId; rec.createdAt = deals[idx].createdAt; deals[idx] = rec; }
+    sdShowToast('Deal updated');
+    sdEditingId = null;
+  } else {
+    rec.id        = Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+    rec.createdAt = now;
+    deals.unshift(rec);
+    sdShowToast('Deal saved');
+  }
+
+  sdSaveDeals(deals);
+  sdRenderDeals();
+  sdResetForm();
+});
+
+$('sdClearBtn').addEventListener('click', function(){
+  sdResetForm();
+  sdEditingId = null;
+});
+
+function sdResetForm(){
+  $('sdName').value    = '';
+  $('sdStage').value   = 'discovery';
+  dvManual             = false;
+  sdEditingId          = null;
+  $('sdSaveBtn').textContent      = 'Save Deal';
+  $('sdEditLabel').style.display  = 'none';
+  syncDealValue(lastPayout);
+}
+
+function sdLoadDeals(){
+  try{ return JSON.parse(localStorage.getItem(SD_KEY)) || []; } catch(e){ return []; }
+}
+function sdSaveDeals(arr){ localStorage.setItem(SD_KEY, JSON.stringify(arr)); }
+
+function sdRenderDeals(){
+  var deals = sdLoadDeals();
+  var lbl   = $('sdCountLabel');
+  var wrap  = $('sdTableWrap');
+  var tbody = $('sdDealsBody');
+
+  if(!deals.length){
+    lbl.textContent   = 'No deals saved yet.';
+    wrap.style.display = 'none';
+    return;
+  }
+  lbl.textContent   = deals.length + ' deal' + (deals.length !== 1 ? 's' : '') + ' saved.';
+  wrap.style.display = '';
+  tbody.innerHTML    = '';
+
+  deals.forEach(function(d){
+    var tr    = document.createElement('tr');
+    var sc    = d.stage || 'new';
+    var date  = new Date(d.updatedAt || d.createdAt);
+    var ds    = date.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'2-digit'});
+    var ovMark = d.dealValueOverridden
+      ? '<span style="font-family:var(--mono);font-size:9px;color:var(--muted-2);margin-left:5px">edited</span>' : '';
+
+    tr.innerHTML =
+      '<td>' +
+        '<div class="deal-nm">' + sdEsc(d.name) + '</div>' +
+        '<div class="deal-sub">' + sdEsc(d.persona || '—') + '</div>' +
+      '</td>' +
+      '<td>' +
+        '<span style="font-family:var(--mono);font-size:12px">' + sdEsc(d.gpu) + '</span>' +
+        '<div class="deal-sub">' + Number(d.gpuCount).toLocaleString() + ' GPUs &middot; ' + d.term + 'mo &middot; $' + Number(d.rate).toFixed(2) + '/hr</div>' +
+      '</td>' +
+      '<td style="font-family:var(--mono);color:var(--amber)">' + fmt$(d.contractTotal || 0) + '</td>' +
+      '<td><span style="font-family:var(--mono);color:var(--green-bright)">' + fmt$(d.dealValue || 0) + '</span>' + ovMark + '</td>' +
+      '<td style="font-family:var(--mono);color:var(--muted-2)">' + fmt$(d.referralPayout || 0) + '</td>' +
+      '<td><span class="stage-badge ' + sc + '">' + (STAGE_LABELS[sc] || sc) + '</span></td>' +
+      '<td style="font-family:var(--mono);font-size:11px;color:var(--muted-2)">' + ds + '</td>' +
+      '<td>' +
+        '<div style="display:flex;gap:6px">' +
+          '<button class="btn ghost sm" data-sdedit="' + d.id + '">Edit</button>' +
+          '<button class="btn danger sm" data-sddel="' + d.id + '">Del</button>' +
+        '</div>' +
+      '</td>';
+    tbody.appendChild(tr);
+  });
+}
+
+$('sdDealsBody').addEventListener('click', function(e){
+  var editId = e.target.dataset.sdedit;
+  var delId  = e.target.dataset.sddel;
+  if(editId) sdLoadIntoForm(editId);
+  if(delId)  sdDeleteDeal(delId);
+});
+
+function sdLoadIntoForm(id){
+  var d = sdLoadDeals().find(function(x){ return x.id === id; });
+  if(!d) return;
+  sdEditingId = id;
+  $('sdName').value  = d.name;
+  $('sdStage').value = d.stage || 'discovery';
+  dvManual = !!d.dealValueOverridden;
+  if(dvManual){
+    $('sdDealValue').value = d.dealValue;
+    setDvManual();
+  } else {
+    syncDealValue(d.referralPayout || lastPayout);
+  }
+  $('sdSaveBtn').textContent     = 'Update Deal';
+  $('sdEditLabel').style.display = '';
+  $('sdName').scrollIntoView({ behavior:'smooth', block:'center' });
+}
+
+function sdDeleteDeal(id){
+  sdSaveDeals(sdLoadDeals().filter(function(d){ return d.id !== id; }));
+  sdRenderDeals();
+  sdShowToast('Deal removed');
+}
+
+var _sdToastTimer;
+function sdShowToast(msg){
+  var t = document.getElementById('sdToast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(_sdToastTimer);
+  _sdToastTimer = setTimeout(function(){ t.classList.remove('show'); }, 2200);
+}
+
+function sdEsc(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+sdRenderDeals();
 
 // ---- Expose editor functions to global scope for onclick handlers ----
 window.togglePricingEditor = togglePricingEditor;
