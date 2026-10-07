@@ -1139,6 +1139,11 @@
       <input id="loginName" type="text" class="form-input" placeholder="e.g. Alex Chen" autocomplete="name" onkeydown="if(event.key==='Enter')nsSubmitLogin()">
     </div>
 
+    <div id="loginInviteWrap" style="display:none;margin-bottom:14px">
+      <label style="font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted-2);display:block;margin-bottom:6px">Invite Code</label>
+      <input id="loginInvite" type="password" class="form-input" placeholder="Enter invite code" autocomplete="off" onkeydown="if(event.key==='Enter')nsSubmitLogin()">
+    </div>
+
     <div style="margin-bottom:14px;position:relative">
       <label style="font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted-2);display:block;margin-bottom:6px">Access Code</label>
       <input id="loginPw" type="password" class="form-input" placeholder="Enter access code" style="padding-right:44px" onkeydown="if(event.key==='Enter')nsSubmitLogin()">

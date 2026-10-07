@@ -21,6 +21,8 @@
   // ============================================================
   // AUTH + THEME
   // ============================================================
+  var NS_INVITE_CODE = '0522';
+
   var NS_PW_KEY    = 'ns_pw_v1';
   var NS_NAME_KEY  = 'ns_repname_v1';
   var NS_SB_URL_KEY = 'ns_sb_url';
@@ -86,12 +88,15 @@
       document.getElementById('loginHeading').textContent = 'Set up your desk';
       document.getElementById('loginSub').textContent = 'Choose your name and create an access code.';
       document.getElementById('loginNameWrap').style.display = 'block';
+      document.getElementById('loginInviteWrap').style.display = 'block';
       document.getElementById('loginConfirmWrap').style.display = 'block';
       document.getElementById('loginBtn').textContent = 'Create & Enter';
       document.getElementById('loginStay').checked = true;
     } else {
       var name = localStorage.getItem(NS_NAME_KEY);
       if(name) document.getElementById('loginHeading').textContent = 'Welcome back, ' + name.split(' ')[0];
+      document.getElementById('loginSub').textContent = 'Enter your invite code and access code to unlock.';
+      document.getElementById('loginInviteWrap').style.display = 'block';
       document.getElementById('loginStay').checked = true;
     }
     setTimeout(function(){
@@ -118,6 +123,8 @@
       var name    = (document.getElementById('loginName').value || '').trim();
       var confirm = (document.getElementById('loginConfirm').value || '').trim();
       if(!name)    { err.textContent = 'Please enter your name.'; err.style.display = 'block'; return; }
+      var invite = (document.getElementById('loginInvite').value || '').trim();
+      if(invite !== NS_INVITE_CODE){ err.textContent = 'Invalid invite code.'; err.style.display = 'block'; return; }
       if(pw.length < 4){ err.textContent = 'Access code must be at least 4 characters.'; err.style.display = 'block'; return; }
       if(pw !== confirm){ err.textContent = 'Access codes do not match.'; err.style.display = 'block'; return; }
       nsHashPw(pw).then(function(hash){
@@ -130,6 +137,8 @@
         setTimeout(sbSyncDown, 600);
       });
     } else {
+      var retInvite = (document.getElementById('loginInvite').value || '').trim();
+      if(retInvite !== NS_INVITE_CODE){ err.textContent = 'Invalid invite code.'; err.style.display = 'block'; return; }
       btn.disabled = true; btn.textContent = 'Verifying\u2026';
       nsHashPw(pw).then(function(hash){
         if(hash === nsGetHash()){
@@ -174,7 +183,7 @@
     // Reset mounted view cache so next user gets fresh renders
     mounted = {};
     // Clear all login form fields and errors
-    var fields = ['loginPw','loginName','loginConfirm'];
+    var fields = ['loginPw','loginName','loginInvite','loginConfirm'];
     fields.forEach(function(id){ var el=document.getElementById(id); if(el) el.value=''; });
     var errEl = document.getElementById('loginError');
     if(errEl) errEl.style.display = 'none';
