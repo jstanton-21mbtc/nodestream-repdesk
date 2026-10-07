@@ -3,288 +3,118 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI Hardware Price Index · Live</title>
+<title>AI Hardware Price Index</title>
 <style>
   :root{
     --ink:#0E1311;--panel:#141A17;--panel-2:#1B2420;--line:#2A352F;
     --green:#3CA028;--green-bright:#4FD135;--green-dim:#2E7A1F;
-    --amber:#E0A73C;--blue:#5B9BD5;--purple:#9B7FD4;--red:#D9584A;
+    --amber:#E0A73C;--blue:#5B9BD5;--red:#D9584A;
     --text:#E8EFEA;--muted:#8A9A90;--muted-2:#5F6F66;
     --mono:"JetBrains Mono","SF Mono",ui-monospace,monospace;
     --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  body{background:var(--ink);color:var(--text);font-family:var(--sans);line-height:1.5;padding:24px 20px 48px;min-height:100vh}
-  .wrap{max-width:1100px;margin:0 auto}
+  body{background:var(--ink);color:var(--text);font-family:var(--sans);line-height:1.5;padding:28px 24px 48px;min-height:100vh}
+  .wrap{max-width:900px;margin:0 auto}
 
-  .hdr{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--line)}
-  .hdr-left{display:flex;align-items:center;gap:10px}
-  .live-dot{width:8px;height:8px;background:var(--green-bright);border-radius:50%;box-shadow:0 0 8px var(--green-bright);animation:pulse 2s infinite;flex:none}
+  .hdr{display:flex;align-items:center;gap:10px;margin-bottom:28px;padding-bottom:18px;border-bottom:1px solid var(--line)}
+  .live-dot{width:8px;height:8px;background:var(--amber);border-radius:50%;box-shadow:0 0 8px var(--amber);animation:pulse 2s infinite;flex:none}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
-  .hdr h1{font-family:var(--mono);font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--green);font-weight:600}
-  .hdr-meta{font-family:var(--mono);font-size:10px;color:var(--muted-2)}
-  .hdr-meta b{color:var(--muted)}
-  .refresh-btn{font-family:var(--mono);font-size:11px;background:var(--panel-2);border:1px solid var(--line);color:var(--muted);padding:6px 12px;border-radius:7px;cursor:pointer;transition:.13s}
-  .refresh-btn:hover{border-color:var(--green-dim);color:var(--text)}
+  .hdr h1{font-family:var(--mono);font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--amber);font-weight:600}
 
-  .sec-label{font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted-2);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+  .sec-label{font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted-2);margin-bottom:14px;display:flex;align-items:center;gap:8px}
   .sec-label::after{content:"";flex:1;height:1px;background:var(--line)}
 
-  /* Summary cards */
-  .hw-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;margin-bottom:28px}
-  .hw-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;transition:.15s;position:relative;overflow:hidden}
-  .hw-card:hover{border-color:var(--green-dim)}
-  .hw-card .top-bar{position:absolute;top:0;left:0;right:0;height:2px;background:var(--amber)}
-  .hw-name{font-family:var(--mono);font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px}
-  .hw-price{font-family:var(--mono);font-size:26px;font-weight:700;letter-spacing:-1px;line-height:1;color:var(--text)}
-  .hw-price .unit{font-size:11px;color:var(--muted-2);font-weight:400;margin-left:2px}
-  .hw-change{font-family:var(--mono);font-size:10px;margin-top:6px}
-  .hw-change.up{color:var(--green-bright)}
-  .hw-change.dn{color:var(--red)}
-  .hw-change.flat{color:var(--muted-2)}
-  .hw-meta{font-family:var(--mono);font-size:9px;color:var(--muted-2);margin-top:5px;text-transform:uppercase;letter-spacing:.5px}
+  /* Series cards */
+  .series-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px;margin-bottom:32px}
+  .series-card{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:20px;position:relative;overflow:hidden}
+  .series-card .top-bar{position:absolute;top:0;left:0;right:0;height:3px}
+  .series-card.b300 .top-bar{background:linear-gradient(90deg,var(--amber),#F0C674)}
+  .series-card.h100n .top-bar{background:linear-gradient(90deg,var(--green-bright),var(--green))}
+  .series-card.h100r .top-bar{background:linear-gradient(90deg,var(--blue),#7AB8E8)}
+  .sc-badge{font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;padding:3px 9px;border-radius:5px;display:inline-block;margin-bottom:12px;font-weight:700}
+  .series-card.b300 .sc-badge{background:rgba(224,167,60,.12);color:var(--amber);border:1px solid rgba(224,167,60,.3)}
+  .series-card.h100n .sc-badge{background:rgba(79,209,53,.1);color:var(--green-bright);border:1px solid rgba(79,209,53,.25)}
+  .series-card.h100r .sc-badge{background:rgba(91,155,213,.1);color:var(--blue);border:1px solid rgba(91,155,213,.25)}
+  .sc-name{font-size:16px;font-weight:700;margin-bottom:8px}
+  .sc-desc{font-size:12.5px;color:var(--muted);line-height:1.55}
+  .sc-meta{font-family:var(--mono);font-size:10px;color:var(--muted-2);margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
 
-  /* Full table */
-  .tbl-wrap{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:28px}
-  .hw-table{width:100%;border-collapse:collapse;font-size:13px}
-  .hw-table th{font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted-2);font-weight:500;padding:12px 16px;border-bottom:1px solid var(--line);text-align:left}
-  .hw-table th:not(:first-child){text-align:right}
-  .hw-table td{padding:11px 16px;border-bottom:1px solid var(--line)}
-  .hw-table td:not(:first-child){font-family:var(--mono);text-align:right}
-  .hw-table tr:last-child td{border-bottom:none}
-  .hw-table tr:hover td{background:var(--panel-2)}
-  .td-name{font-weight:600}
-  .td-cat{font-family:var(--mono);font-size:10px;color:var(--muted-2)}
-  .td-price{color:var(--amber)}
-  .td-up{color:var(--green-bright)}
-  .td-dn{color:var(--red)}
-  .td-flat{color:var(--muted-2)}
-  .td-badge{font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:4px;border:1px solid var(--line);color:var(--muted-2);white-space:nowrap}
+  /* Methodology */
+  .method-panel{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:20px;margin-bottom:28px}
+  .method-panel p{font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:10px}
+  .method-panel p:last-child{margin-bottom:0}
 
-  .error-box{background:rgba(217,88,74,.07);border:1px solid rgba(217,88,74,.3);border-radius:10px;padding:14px 16px;font-size:12px;color:var(--red);margin-bottom:20px;font-family:var(--mono)}
-  .empty{text-align:center;padding:40px;font-family:var(--mono);font-size:11px;color:var(--muted-2)}
-  .loading{text-align:center;padding:40px;font-family:var(--mono);font-size:11px;color:var(--muted-2);animation:pulse 1.4s infinite}
-  .attribution{font-family:var(--mono);font-size:10px;color:var(--muted-2);text-align:right;margin-top:8px}
+  /* CTA */
+  .cta-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .cta-btn{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.5px;
+    padding:13px 22px;border-radius:10px;cursor:pointer;text-decoration:none;transition:.15s;border:none}
+  .cta-primary{background:var(--amber);color:#1A1000}
+  .cta-primary:hover{background:#F0C674;transform:translateY(-1px)}
+  .cta-secondary{background:var(--panel-2);color:var(--text);border:1px solid var(--line)}
+  .cta-secondary:hover{border-color:var(--amber);color:var(--amber)}
+  .cta-note{font-family:var(--mono);font-size:10px;color:var(--muted-2)}
+
+  .attribution{font-family:var(--mono);font-size:10px;color:var(--muted-2);margin-top:28px}
   .attribution a{color:var(--muted);text-decoration:none}
-  .attribution a:hover{color:var(--green)}
+  .attribution a:hover{color:var(--amber)}
 </style>
 </head>
 <body>
 <div class="wrap">
 
   <div class="hdr">
-    <div class="hdr-left">
-      <div class="live-dot"></div>
-      <h1>AI Hardware Price Index</h1>
+    <div class="live-dot"></div>
+    <h1>AI Hardware Price Index &mdash; Hashrate Index</h1>
+  </div>
+
+  <div class="sec-label">Tracked Series</div>
+  <div class="series-grid">
+    <div class="series-card b300">
+      <div class="top-bar"></div>
+      <div class="sc-badge">New / BTO</div>
+      <div class="sc-name">NVIDIA B300 Node</div>
+      <div class="sc-desc">8-GPU air-cooled HGX node. Blackwell architecture. Vendor ask price, panel-carry median.</div>
+      <div class="sc-meta">Condition: New &bull; Form: HGX 8-GPU</div>
     </div>
-    <div style="display:flex;align-items:center;gap:16px">
-      <div class="hdr-meta" id="lastUpdated">Loading&hellip;</div>
-      <button class="refresh-btn" id="refreshBtn">&#8635; Refresh</button>
+    <div class="series-card h100n">
+      <div class="top-bar"></div>
+      <div class="sc-badge">New / BTO</div>
+      <div class="sc-name">NVIDIA H100 Node</div>
+      <div class="sc-desc">8-GPU air-cooled HGX node. Hopper architecture, new units. Vendor ask price, panel-carry median.</div>
+      <div class="sc-meta">Condition: New &bull; Form: HGX 8-GPU</div>
+    </div>
+    <div class="series-card h100r">
+      <div class="top-bar"></div>
+      <div class="sc-badge">Refurbished</div>
+      <div class="sc-name">NVIDIA H100 Node</div>
+      <div class="sc-desc">8-GPU air-cooled HGX node. Hopper architecture, refurbished units. Advertised list prices, not closed transactions.</div>
+      <div class="sc-meta">Condition: Refurb &bull; Form: HGX 8-GPU</div>
     </div>
   </div>
 
-  <div id="errorBox" style="display:none" class="error-box"></div>
+  <div class="sec-label">Methodology</div>
+  <div class="method-panel">
+    <p>Median purchase price for an air-cooled 8-GPU NVIDIA HGX node, across three series: B300 (new/BTO), H100 (new/BTO), and H100 (refurbished). Figures are posted vendor asks — advertised list prices, not closed transactions.</p>
+    <p>Each series uses a <b>panel-carry median</b>: a listing's last observed ask stays live until it is repriced or removed. Updated daily from public vendor asks collected by Hashrate Index / Luxor Technology.</p>
+  </div>
 
-  <div class="sec-label">Hardware Spot Prices</div>
-  <div class="hw-grid" id="hwGrid"><div class="loading">Fetching prices&hellip;</div></div>
-
-  <div class="sec-label">Full Price Index</div>
-  <div class="tbl-wrap">
-    <table class="hw-table">
-      <thead>
-        <tr>
-          <th>Hardware</th>
-          <th>Category</th>
-          <th>Price</th>
-          <th>7D Chg</th>
-          <th>30D Chg</th>
-          <th>Updated</th>
-        </tr>
-      </thead>
-      <tbody id="hwBody"><tr><td colspan="6" class="loading">Loading&hellip;</td></tr></tbody>
-    </table>
+  <div class="sec-label">Live Data</div>
+  <div class="cta-row">
+    <a class="cta-btn cta-primary" href="https://data.hashrateindex.com/ai-hardware-data/price-index" target="_blank" rel="noopener">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      Open Live Index &rarr;
+    </a>
+    <a class="cta-btn cta-secondary" href="https://data.hashrateindex.com/ai-hardware-data/h100-node" target="_blank" rel="noopener">H100 Node Chart</a>
+    <a class="cta-btn cta-secondary" href="https://data.hashrateindex.com/ai-hardware-data/b300-node" target="_blank" rel="noopener">B300 Node Chart</a>
+    <div class="cta-note">Opens in new tab &mdash; data refreshed daily by Hashrate Index</div>
   </div>
 
   <div class="attribution">
-    Data: <a href="https://hashrateindex.com" target="_blank" rel="noopener">Hashrate Index &mdash; AI Hardware Price Index</a>
-    &middot; Updates periodically
+    Source: <a href="https://hashrateindex.com" target="_blank" rel="noopener">Hashrate Index by Luxor Technology</a>
+    &mdash; Panel-carry median of public vendor asks &middot; Not closed transaction data
   </div>
+
 </div>
-
-<script>
-(function(){
-  var API_URL = '/api/hashrateindex/ai-hardware-data/price-index';
-
-  function el(id){ return document.getElementById(id); }
-
-  function fmtPrice(v){
-    if(v == null) return '—';
-    var n = Number(v);
-    if(isNaN(n)) return String(v);
-    if(n >= 1000) return '$' + n.toLocaleString('en-US', {maximumFractionDigits:0});
-    return '$' + n.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
-  }
-
-  function fmtPct(v){
-    if(v == null) return '—';
-    var n = Number(v);
-    if(isNaN(n)) return '—';
-    var s = (n >= 0 ? '+' : '') + n.toFixed(2) + '%';
-    return s;
-  }
-
-  function pctClass(v){
-    if(v == null) return 'td-flat';
-    var n = Number(v);
-    if(isNaN(n)) return 'td-flat';
-    if(n > 0) return 'td-up';
-    if(n < 0) return 'td-dn';
-    return 'td-flat';
-  }
-
-  function fmtDate(s){
-    if(!s) return '—';
-    try{
-      return new Date(s).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
-    }catch(e){ return String(s).slice(0,10); }
-  }
-
-  function showError(msg){
-    el('errorBox').style.display = '';
-    el('errorBox').innerHTML = '&#9888; ' + msg + ' &mdash; <a href="https://hashrateindex.com" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">View on HashrateIndex.com</a>';
-  }
-  function clearError(){ el('errorBox').style.display = 'none'; }
-
-  // Keywords that indicate Bitcoin/ASIC mining hardware — exclude these
-  var MINING_KEYWORDS = [
-    'antminer','whatsminer','avalon','innosilicon','jasminer','bitmain',
-    'asic','s19','s21','s9','m50','m60','m30','t19','t21','miner','mining',
-    'th/s','ph/s','bitcoin miner','btc miner'
-  ];
-
-  function isAIHardware(item){
-    var name = String(getField(item,['name','hardware_name','model','gpu_model','title','slug']) || '').toLowerCase();
-    var cat  = String(getField(item,['category','type','hardware_type','vendor','manufacturer']) || '').toLowerCase();
-    var combined = name + ' ' + cat;
-    for(var i=0;i<MINING_KEYWORDS.length;i++){
-      if(combined.indexOf(MINING_KEYWORDS[i]) !== -1) return false;
-    }
-    return true;
-  }
-
-  function normalizeItems(data){
-    var raw;
-    // Handle various possible response shapes
-    if(Array.isArray(data)) raw = data;
-    else if(data && Array.isArray(data.data)) raw = data.data;
-    else if(data && Array.isArray(data.items)) raw = data.items;
-    else if(data && Array.isArray(data.results)) raw = data.results;
-    else if(data && Array.isArray(data.hardware)) raw = data.hardware;
-    else if(data && typeof data === 'object'){
-      var keys = Object.keys(data);
-      if(keys.length > 0 && typeof data[keys[0]] === 'object'){
-        raw = keys.map(function(k){ return Object.assign({name: k}, data[k]); });
-      }
-    }
-    if(!raw) return [];
-    return raw.filter(isAIHardware);
-  }
-
-  function getField(item, fields){
-    for(var i=0;i<fields.length;i++){
-      if(item[fields[i]] != null) return item[fields[i]];
-    }
-    return null;
-  }
-
-  function renderCards(items){
-    var grid = el('hwGrid');
-    if(!items || items.length === 0){
-      grid.innerHTML = '<div class="empty">No hardware data available.</div>';
-      return;
-    }
-    // Show top 8 by price descending for card view
-    var sorted = items.slice().sort(function(a,b){
-      var pa = Number(getField(a,['price','current_price','spot_price','value','avg_price'])) || 0;
-      var pb = Number(getField(b,['price','current_price','spot_price','value','avg_price'])) || 0;
-      return pb - pa;
-    }).slice(0,8);
-
-    grid.innerHTML = sorted.map(function(item){
-      var name  = getField(item,['name','hardware_name','model','gpu_model','title','slug']) || '—';
-      var price = getField(item,['price','current_price','spot_price','value','avg_price','index_price']);
-      var chg7  = getField(item,['change_7d','pct_change_7d','week_change','7d_change','pct_7d']);
-      var cat   = getField(item,['category','type','hardware_type','vendor','manufacturer']) || '';
-      var upd   = getField(item,['updated_at','last_updated','date','timestamp','as_of']);
-      var chgClass = 'flat';
-      if(chg7 != null){ var n = Number(chg7); if(!isNaN(n)){ chgClass = n>0?'up':n<0?'dn':'flat'; } }
-      var chgStr = chg7 != null ? (Number(chg7)>=0?'▲ ':'▼ ') + Math.abs(Number(chg7)).toFixed(2)+'% (7D)' : '';
-      return '<div class="hw-card">'
-        + '<div class="top-bar"></div>'
-        + '<div class="hw-name">'+esc(String(name))+'</div>'
-        + '<div class="hw-price">'+fmtPrice(price)+'</div>'
-        + (chgStr ? '<div class="hw-change '+chgClass+'">'+esc(chgStr)+'</div>' : '')
-        + (cat ? '<div class="hw-meta">'+esc(String(cat))+'</div>' : '')
-        + '</div>';
-    }).join('');
-  }
-
-  function renderTable(items){
-    var tbody = el('hwBody');
-    if(!items || items.length === 0){
-      tbody.innerHTML = '<tr><td colspan="6" class="empty">No data.</td></tr>';
-      return;
-    }
-    tbody.innerHTML = items.map(function(item){
-      var name  = getField(item,['name','hardware_name','model','gpu_model','title','slug']) || '—';
-      var cat   = getField(item,['category','type','hardware_type','vendor','manufacturer']) || '—';
-      var price = getField(item,['price','current_price','spot_price','value','avg_price','index_price']);
-      var chg7  = getField(item,['change_7d','pct_change_7d','week_change','7d_change','pct_7d']);
-      var chg30 = getField(item,['change_30d','pct_change_30d','month_change','30d_change','pct_30d']);
-      var upd   = getField(item,['updated_at','last_updated','date','timestamp','as_of']);
-      return '<tr>'
-        + '<td><div class="td-name">'+esc(String(name))+'</div></td>'
-        + '<td><span class="td-cat">'+esc(String(cat))+'</span></td>'
-        + '<td class="td-price">'+fmtPrice(price)+'</td>'
-        + '<td class="'+pctClass(chg7)+'">'+fmtPct(chg7)+'</td>'
-        + '<td class="'+pctClass(chg30)+'">'+fmtPct(chg30)+'</td>'
-        + '<td style="color:var(--muted-2);font-size:11px">'+fmtDate(upd)+'</td>'
-        + '</tr>';
-    }).join('');
-  }
-
-  function esc(s){
-    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  }
-
-  async function load(){
-    clearError();
-    el('lastUpdated').textContent = 'Refreshing\u2026';
-    try{
-      var res = await fetch(API_URL, {
-        headers: { 'Accept': 'application/json' }
-      });
-      if(!res.ok) throw new Error('HTTP ' + res.status + ' ' + res.statusText);
-      var json = await res.json();
-      var items = normalizeItems(json);
-      el('lastUpdated').innerHTML = '<b>Updated</b> ' + new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
-      renderCards(items);
-      renderTable(items);
-    }catch(e){
-      el('lastUpdated').textContent = 'Error';
-      showError('Could not load hardware index: ' + e.message);
-      el('hwGrid').innerHTML = '<div class="empty">Failed to load data.</div>';
-      el('hwBody').innerHTML = '<tr><td colspan="6" class="empty">Failed to load data. Check console for details.</td></tr>';
-      console.error('[HW Index]', e);
-    }
-  }
-
-  el('refreshBtn').addEventListener('click', load);
-  load();
-
-  // Auto-refresh every 5 minutes
-  setInterval(load, 5 * 60 * 1000);
-})();
-</script>
 </body>
 </html>
