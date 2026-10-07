@@ -95,8 +95,7 @@
     } else {
       var name = localStorage.getItem(NS_NAME_KEY);
       if(name) document.getElementById('loginHeading').textContent = 'Welcome back, ' + name.split(' ')[0];
-      document.getElementById('loginSub').textContent = 'Enter your invite code and access code to unlock.';
-      document.getElementById('loginInviteWrap').style.display = 'block';
+      document.getElementById('loginSub').textContent = 'Enter your access code to unlock.';
       document.getElementById('loginStay').checked = true;
     }
     setTimeout(function(){
@@ -137,8 +136,6 @@
         setTimeout(sbSyncDown, 600);
       });
     } else {
-      var retInvite = (document.getElementById('loginInvite').value || '').trim();
-      if(retInvite !== NS_INVITE_CODE){ err.textContent = 'Invalid invite code.'; err.style.display = 'block'; return; }
       btn.disabled = true; btn.textContent = 'Verifying\u2026';
       nsHashPw(pw).then(function(hash){
         if(hash === nsGetHash()){
@@ -240,6 +237,7 @@
     if(view==="eos" && !mounted.eos) { loadFrame("eos"); mounted.eos=true; }
     if(view==="lcos")         loadFrame("lcos");
     if(view==="ornn")         loadFrame("ornn");
+    if(view==="hwindex")      loadFrame("hwindex");
     if(view==="marketintel")  loadFrame("marketintel");
     if(view==="quote"    && !mounted.quote)    { mountQuote();    mounted.quote=true; }
     if(view==="playbook" && !mounted.playbook) { mountPlaybook(); mounted.playbook=true; }
