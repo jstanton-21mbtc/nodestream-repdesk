@@ -213,6 +213,25 @@
   .hw-cluster-total .hct-val{font-family:var(--mono);font-size:20px;font-weight:700;color:var(--green)}
   .hw-src{font-size:10px;color:var(--muted-2);margin-top:12px;line-height:1.7}
   .hw-src a{color:var(--muted-2);text-decoration:underline}
+  /* hw editor */
+  .hw-edit-toggle{font-family:var(--mono);font-size:10px;padding:3px 11px;border-radius:6px;
+    border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer;
+    transition:border-color .15s,color .15s;white-space:nowrap}
+  .hw-edit-toggle:hover{border-color:var(--green-dim);color:var(--green)}
+  .hw-editor{display:none;margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
+  .hw-editor.open{display:block}
+  .hw-editor-tbl{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:14px}
+  .hw-editor-tbl th{font-family:var(--mono);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;
+    color:var(--muted-2);padding:6px 8px;text-align:left;border-bottom:1px solid var(--line)}
+  .hw-editor-tbl td{padding:7px 8px;border-bottom:1px solid rgba(42,53,47,.5);vertical-align:middle}
+  .hw-editor-tbl tr:last-child td{border-bottom:none}
+  .hwe-gpu{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--text)}
+  .hwe-mem{font-size:10px;color:var(--muted-2)}
+  .hwe-input{background:var(--ink);border:1px solid var(--line);border-radius:6px;color:var(--text);
+    font-family:var(--mono);font-size:11px;padding:4px 7px;width:90px}
+  .hwe-input:focus{outline:none;border-color:var(--green)}
+  .hw-editor-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .hwe-saved{font-family:var(--mono);font-size:10px;color:var(--green);display:none}
 </style>
 </head>
 <body>
@@ -409,7 +428,7 @@
 
   <!-- ============ HARDWARE PRICING ============ -->
   <div class="card">
-    <h2>Hardware purchase pricing</h2>
+    <h2 style="display:flex;align-items:center;justify-content:space-between;gap:10px">Hardware purchase pricing<button class="hw-edit-toggle" id="hwEditBtn" onclick="toggleHwEditor()">&#9998; Edit pricing</button></h2>
     <p class="sub">AMCompute.com secondary-market data &mdash; indicative street prices for outright server purchases. Currently selected GPU is highlighted. Click a card to switch GPU selection.</p>
 
     <div class="hw-cond-row" id="hwCondRow"></div>
@@ -425,8 +444,33 @@
 
     <div class="hw-src">
       Source: <a href="https://www.amcompute.com" target="_blank">AMCompute.com</a> Rack Report &middot; compute.exchange &middot; amnic.com &middot; gpusmith.com &middot; Oct 2026.
-      Prices are indicative street-market midpoints (new/refurb/used); actual quotes vary by OEM, configuration, lead time, and condition grade.
-      B200 refurbished &amp; used listings are not yet available (hardware too new). Confirm all figures with the HPC Division before external use.
+      Prices are indicative street-market midpoints; actual quotes vary by OEM, configuration, lead time, and condition grade.
+      Use <b>Edit pricing</b> above to update any figure &mdash; changes save to this browser and persist across sessions.
+    </div>
+
+    <div class="hw-editor" id="hwEditor">
+      <div style="font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted-2);margin-bottom:12px">Update hardware prices &mdash; saved locally to this browser</div>
+      <div style="overflow-x:auto">
+        <table class="hw-editor-tbl">
+          <thead>
+            <tr>
+              <th>GPU</th>
+              <th>New / GPU ($)</th>
+              <th>New / Server ($)</th>
+              <th>Refurb / GPU ($)</th>
+              <th>Refurb / Server ($)</th>
+              <th>Used / GPU ($)</th>
+              <th>Used / Server ($)</th>
+            </tr>
+          </thead>
+          <tbody id="hweBody"></tbody>
+        </table>
+      </div>
+      <div class="hw-editor-actions">
+        <button class="btn" onclick="applyHwPricing()">Apply &amp; Save</button>
+        <button class="btn ghost" onclick="resetHwPricing()">Reset to defaults</button>
+        <span class="hwe-saved" id="hweSaved">Saved &#10003;</span>
+      </div>
     </div>
   </div>
 
@@ -1226,6 +1270,31 @@ var HW_CATALOG = {
     used:  { gpu:3000,   server:26000  } }
 };
 var HW_ORDER  = ['h100','h200','b200','a100','a100_40'];
+var HW_PRICING_KEY = 'ns_hw_pricing_v1';
+// Deep-copy defaults for reset
+var HW_CATALOG_DEFAULTS = (function(){
+  var d = {};
+  Object.keys(HW_CATALOG).forEach(function(id){
+    d[id] = {};
+    ['new','refurb','used'].forEach(function(c){
+      d[id][c] = HW_CATALOG[id][c] ? Object.assign({}, HW_CATALOG[id][c]) : { gpu:null, server:null };
+    });
+  });
+  return d;
+})();
+// Load saved prices from localStorage
+(function(){
+  try {
+    var saved = JSON.parse(localStorage.getItem(HW_PRICING_KEY)||'null');
+    if(saved) Object.keys(saved).forEach(function(id){
+      if(!HW_CATALOG[id]) return;
+      ['new','refurb','used'].forEach(function(cond){
+        if(saved[id] && saved[id][cond] !== undefined)
+          HW_CATALOG[id][cond] = Object.assign({}, HW_CATALOG[id][cond]||{}, saved[id][cond]);
+      });
+    });
+  } catch(e){}
+})();
 var HW_COND_LIST = [
   { id:'new',   label:'New'         },
   { id:'refurb',label:'Refurbished' },
@@ -1308,10 +1377,83 @@ function renderHwSection(){
   }
 }
 
+// ---- Hardware pricing editor ----
+function toggleHwEditor(){
+  var ed  = $('hwEditor');
+  var btn = $('hwEditBtn');
+  ed.classList.toggle('open');
+  if(ed.classList.contains('open')){
+    renderHwEditor();
+    if(btn){ btn.textContent='\u2715 Close'; btn.style.borderColor='var(--amber)'; btn.style.color='var(--amber)'; }
+  } else {
+    if(btn){ btn.innerHTML='&#9998; Edit pricing'; btn.style.borderColor=''; btn.style.color=''; }
+  }
+}
+
+function renderHwEditor(){
+  var tbody = $('hweBody');
+  tbody.innerHTML = '';
+  var CONDS = ['new','refurb','used'];
+  HW_ORDER.forEach(function(id){
+    var hw = HW_CATALOG[id];
+    if(!hw) return;
+    var tr = document.createElement('tr');
+    var cells = '<td><div class="hwe-gpu">'+hw.name+'</div><div class="hwe-mem">'+hw.mem+'</div></td>';
+    CONDS.forEach(function(cond){
+      var p   = hw[cond] || {};
+      var gpuV = p.gpu    != null ? p.gpu    : '';
+      var srvV = p.server != null ? p.server : '';
+      cells +=
+        '<td><input class="hwe-input" data-id="'+id+'" data-cond="'+cond+'" data-field="gpu"    type="number" min="0" step="500"  value="'+gpuV+'" placeholder="N/A"></td>'+
+        '<td><input class="hwe-input" data-id="'+id+'" data-cond="'+cond+'" data-field="server" type="number" min="0" step="1000" value="'+srvV+'" placeholder="N/A"></td>';
+    });
+    tr.innerHTML = cells;
+    tbody.appendChild(tr);
+  });
+}
+
+function applyHwPricing(){
+  var patch = {};
+  document.querySelectorAll('.hwe-input').forEach(function(inp){
+    var id = inp.dataset.id, cond = inp.dataset.cond, field = inp.dataset.field;
+    var raw = inp.value.trim();
+    var val = raw === '' ? null : parseFloat(raw);
+    if(!patch[id]) patch[id] = {};
+    if(!patch[id][cond]) patch[id][cond] = {};
+    patch[id][cond][field] = (val !== null && !isNaN(val) && val > 0) ? val : null;
+  });
+  Object.keys(patch).forEach(function(id){
+    if(!HW_CATALOG[id]) return;
+    ['new','refurb','used'].forEach(function(cond){
+      if(patch[id][cond]) HW_CATALOG[id][cond] = patch[id][cond];
+    });
+  });
+  try { localStorage.setItem(HW_PRICING_KEY, JSON.stringify(patch)); } catch(e){}
+  renderHwSection();
+  var s = $('hweSaved');
+  s.style.display = 'inline';
+  setTimeout(function(){ s.style.display = 'none'; }, 2000);
+}
+
+function resetHwPricing(){
+  Object.keys(HW_CATALOG_DEFAULTS).forEach(function(id){
+    if(HW_CATALOG[id])
+      ['new','refurb','used'].forEach(function(c){
+        HW_CATALOG[id][c] = Object.assign({}, HW_CATALOG_DEFAULTS[id][c]);
+      });
+  });
+  try { localStorage.removeItem(HW_PRICING_KEY); } catch(e){}
+  renderHwEditor();
+  renderHwSection();
+}
+
 // ---- Expose editor functions to global scope for onclick handlers ----
 window.togglePricingEditor = togglePricingEditor;
 window.applyPricing = applyPricing;
 window.resetPricing = resetPricing;
+window.toggleHwEditor = toggleHwEditor;
+window.applyHwPricing = applyHwPricing;
+window.resetHwPricing = resetHwPricing;
 
 // ---- Init ----
 calc();

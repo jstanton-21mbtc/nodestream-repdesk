@@ -84,6 +84,31 @@
   .pt-tier.highmem{color:var(--blue);border-color:rgba(91,155,213,.25);background:rgba(91,155,213,.07)}
   .pt-tier.legacy{color:var(--muted);border-color:var(--line);background:transparent}
   .amc-note{font-size:11px;color:var(--muted-2);line-height:1.6;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+  /* hw editor */
+  .amc-edit-toggle{font-family:var(--mono);font-size:10px;padding:3px 11px;border-radius:6px;
+    border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer;
+    transition:border-color .15s,color .15s;white-space:nowrap}
+  .amc-edit-toggle:hover{border-color:var(--amber)}
+  .amc-editor{display:none;margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
+  .amc-editor.open{display:block}
+  .amc-editor-tbl{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:14px}
+  .amc-editor-tbl th{font-family:var(--mono);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;
+    color:var(--muted-2);padding:6px 8px;text-align:left;border-bottom:1px solid var(--line)}
+  .amc-editor-tbl td{padding:7px 8px;border-bottom:1px solid rgba(42,53,47,.5);vertical-align:middle}
+  .amc-editor-tbl tr:last-child td{border-bottom:none}
+  .hwe-gpu{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--text)}
+  .hwe-mem{font-size:10px;color:var(--muted-2)}
+  .hwe-input{background:var(--ink);border:1px solid var(--line);border-radius:6px;color:var(--text);
+    font-family:var(--mono);font-size:11px;padding:4px 7px;width:90px}
+  .hwe-input:focus{outline:none;border-color:var(--amber)}
+  .amc-editor-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:4px}
+  .amc-save-btn{padding:8px 18px;border-radius:8px;background:var(--amber);color:#1A1000;border:none;
+    font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;transition:.15s}
+  .amc-save-btn:hover{background:#F0C674}
+  .amc-reset-btn{padding:8px 18px;border-radius:8px;background:var(--panel-2);color:var(--text);
+    border:1px solid var(--line);font-family:var(--mono);font-size:11px;cursor:pointer;transition:.15s}
+  .amc-reset-btn:hover{border-color:var(--amber);color:var(--amber)}
+  .hwe-saved{font-family:var(--mono);font-size:10px;color:var(--green);display:none}
 </style>
 </head>
 <body>
@@ -146,6 +171,10 @@
     <div class="sec-label">Street Market Pricing &mdash; AMCompute.com</div>
   </div>
   <div class="amc-panel">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:18px">
+      <div style="font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted-2)">Condition</div>
+      <button class="amc-edit-toggle" id="amcEditBtn" onclick="toggleAmcEditor()">&#9998; Edit pricing</button>
+    </div>
     <div class="cond-tabs" id="condTabs"></div>
     <table class="price-tbl">
       <thead>
@@ -162,8 +191,33 @@
       Prices are indicative street-market midpoints sourced from
       <a href="https://www.amcompute.com" target="_blank" rel="noopener" style="color:var(--muted)">AMCompute.com</a>
       Rack Report, compute.exchange, amnic.com, and gpusmith.com &mdash; Oct 2026.
-      B200 refurbished &amp; used listings are not yet available; hardware is too new for secondary market.
       Confirm all figures with the HPC Division before external use.
+      Use <b>Edit pricing</b> above to update any figure &mdash; saves to this browser and syncs with the Deal Configurator.
+    </div>
+
+    <div class="amc-editor" id="amcEditor">
+      <div style="font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted-2);margin-bottom:12px">Update hardware prices &mdash; shared with Deal Configurator</div>
+      <div style="overflow-x:auto">
+        <table class="amc-editor-tbl">
+          <thead>
+            <tr>
+              <th>GPU</th>
+              <th>New / GPU ($)</th>
+              <th>New / Server ($)</th>
+              <th>Refurb / GPU ($)</th>
+              <th>Refurb / Server ($)</th>
+              <th>Used / GPU ($)</th>
+              <th>Used / Server ($)</th>
+            </tr>
+          </thead>
+          <tbody id="amcEditorBody"></tbody>
+        </table>
+      </div>
+      <div class="amc-editor-actions">
+        <button class="amc-save-btn" onclick="applyAmcPricing()">Apply &amp; Save</button>
+        <button class="amc-reset-btn" onclick="resetAmcPricing()">Reset to defaults</button>
+        <span class="hwe-saved" id="amcSaved">Saved &#10003;</span>
+      </div>
     </div>
   </div>
 
@@ -193,18 +247,40 @@
       refurb:{ gpu:5000,   srv:42000  },
       used:  { gpu:3000,   srv:26000  } }
   ];
+
   var CONDITIONS = [
     { id:'new',   label:'New'         },
     { id:'refurb',label:'Refurbished' },
     { id:'used',  label:'Used'        }
   ];
   var _cond = 'new';
+  var HW_PRICING_KEY = 'ns_hw_pricing_v1';
+
+  // Deep-copy defaults for reset
+  var HW_DEFAULTS = HW.map(function(g){
+    var d = { id:g.id };
+    CONDITIONS.forEach(function(c){ d[c.id] = Object.assign({}, g[c.id]); });
+    return d;
+  });
+
+  // Load saved prices from localStorage (shared with Deal Configurator)
+  (function(){
+    try {
+      var saved = JSON.parse(localStorage.getItem(HW_PRICING_KEY)||'null');
+      if(saved) HW.forEach(function(g){
+        if(!saved[g.id]) return;
+        CONDITIONS.forEach(function(c){
+          if(saved[g.id][c.id] !== undefined)
+            g[c.id] = Object.assign({}, g[c.id]||{}, saved[g.id][c.id]);
+        });
+      });
+    } catch(e){}
+  })();
 
   function fmt(n){ return n ? '$'+n.toLocaleString() : null; }
   function naCell(){ return '<span class="pt-price na">N/A &mdash; limited supply</span>'; }
 
   function render(){
-    // Tabs
     var tabs = document.getElementById('condTabs');
     tabs.innerHTML = '';
     CONDITIONS.forEach(function(c){
@@ -215,11 +291,10 @@
       tabs.appendChild(btn);
     });
 
-    // Table rows
     var tbody = document.getElementById('priceTbody');
     tbody.innerHTML = '';
     HW.forEach(function(g){
-      var p = g[_cond];
+      var p = g[_cond] || {};
       var gpuCell = p.gpu ? '<span class="pt-price">'+fmt(p.gpu)+'</span>' : naCell();
       var srvCell = p.srv ? '<span class="pt-price">'+fmt(p.srv)+'</span>' : naCell();
       var tr = document.createElement('tr');
@@ -231,6 +306,83 @@
       tbody.appendChild(tr);
     });
   }
+
+  function toggleAmcEditor(){
+    var ed  = document.getElementById('amcEditor');
+    var btn = document.getElementById('amcEditBtn');
+    ed.classList.toggle('open');
+    if(ed.classList.contains('open')){
+      renderAmcEditor();
+      if(btn){ btn.textContent='\u2715 Close'; btn.style.borderColor='var(--amber)'; btn.style.color='var(--amber)'; }
+    } else {
+      if(btn){ btn.innerHTML='&#9998; Edit pricing'; btn.style.borderColor=''; btn.style.color=''; }
+    }
+  }
+
+  function renderAmcEditor(){
+    var tbody = document.getElementById('amcEditorBody');
+    tbody.innerHTML = '';
+    HW.forEach(function(g){
+      var tr = document.createElement('tr');
+      var cells = '<td><div class="hwe-gpu">'+g.name+'</div><div class="hwe-mem">'+g.mem+'</div></td>';
+      CONDITIONS.forEach(function(c){
+        var p    = g[c.id] || {};
+        var gpuV = p.gpu != null ? p.gpu : '';
+        var srvV = p.srv != null ? p.srv : '';
+        cells +=
+          '<td><input class="hwe-input" data-id="'+g.id+'" data-cond="'+c.id+'" data-field="gpu" type="number" min="0" step="500"  value="'+gpuV+'" placeholder="N/A"></td>'+
+          '<td><input class="hwe-input" data-id="'+g.id+'" data-cond="'+c.id+'" data-field="srv" type="number" min="0" step="1000" value="'+srvV+'" placeholder="N/A"></td>';
+      });
+      tr.innerHTML = cells;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function applyAmcPricing(){
+    var patch = {};
+    document.querySelectorAll('#amcEditorBody .hwe-input').forEach(function(inp){
+      var id = inp.dataset.id, cond = inp.dataset.cond, field = inp.dataset.field;
+      var raw = inp.value.trim();
+      var val = raw === '' ? null : parseFloat(raw);
+      if(!patch[id]) patch[id] = {};
+      if(!patch[id][cond]) patch[id][cond] = {};
+      patch[id][cond][field] = (val !== null && !isNaN(val) && val > 0) ? val : null;
+    });
+    HW.forEach(function(g){
+      if(!patch[g.id]) return;
+      CONDITIONS.forEach(function(c){
+        if(patch[g.id][c.id]) g[c.id] = patch[g.id][c.id];
+      });
+    });
+    // Map 'srv' field to 'server' key for configurator compatibility
+    var toSave = {};
+    HW.forEach(function(g){
+      toSave[g.id] = {};
+      CONDITIONS.forEach(function(c){
+        var p = g[c.id] || {};
+        toSave[g.id][c.id] = { gpu: p.gpu!=null?p.gpu:null, srv: p.srv!=null?p.srv:null, server: p.srv!=null?p.srv:null };
+      });
+    });
+    try { localStorage.setItem(HW_PRICING_KEY, JSON.stringify(toSave)); } catch(e){}
+    render();
+    var s = document.getElementById('amcSaved');
+    s.style.display = 'inline';
+    setTimeout(function(){ s.style.display = 'none'; }, 2000);
+  }
+
+  function resetAmcPricing(){
+    HW_DEFAULTS.forEach(function(def){
+      var g = HW.find(function(x){ return x.id === def.id; });
+      if(g) CONDITIONS.forEach(function(c){ g[c.id] = Object.assign({}, def[c.id]); });
+    });
+    try { localStorage.removeItem(HW_PRICING_KEY); } catch(e){}
+    renderAmcEditor();
+    render();
+  }
+
+  window.toggleAmcEditor  = toggleAmcEditor;
+  window.applyAmcPricing  = applyAmcPricing;
+  window.resetAmcPricing  = resetAmcPricing;
 
   render();
 })();
