@@ -184,6 +184,35 @@
   .toast.show{opacity:1;transform:none}
 
   @media print{body{background:#fff;color:#111}.card,.output-panel{border-color:#ccc}.btn{-webkit-print-color-adjust:exact;print-color-adjust:exact}.pe-card{display:none!important}}
+
+  /* ---- Hardware purchase pricing ---- */
+  .hw-cond-row{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap}
+  .hw-cond-btn{padding:6px 18px;border-radius:8px;border:1px solid var(--line);background:var(--panel-2);
+    font-family:var(--mono);font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);
+    cursor:pointer;transition:border-color .15s,color .15s,background .15s}
+  .hw-cond-btn:hover{border-color:var(--green-dim)}
+  .hw-cond-btn.active{border-color:var(--green);background:rgba(60,160,40,.08);color:var(--green)}
+  .hw-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;margin-bottom:14px}
+  .hw-card{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    transition:border-color .15s;cursor:pointer}
+  .hw-card:hover{border-color:var(--green-dim)}
+  .hw-card.hw-active{border-color:var(--green);background:rgba(60,160,40,.05)}
+  .hw-card .hw-name{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--text);margin-bottom:2px}
+  .hw-card .hw-mem{font-size:11px;color:var(--muted-2);margin-bottom:10px}
+  .hw-card .hw-row{display:flex;justify-content:space-between;align-items:baseline;
+    padding:4px 0;border-bottom:1px solid var(--line)}
+  .hw-card .hw-row:last-child{border-bottom:none;padding-bottom:0}
+  .hw-card .hw-rl{font-size:11px;color:var(--muted)}
+  .hw-card .hw-rv{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--green-bright)}
+  .hw-card .hw-rv.na{color:var(--muted-2);font-weight:400;font-size:10px;font-family:var(--sans)}
+  .hw-cluster-total{background:rgba(60,160,40,.06);border:1px solid var(--green-dim);border-radius:10px;
+    padding:14px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
+  .hw-cluster-total .hct-label{font-family:var(--mono);font-size:10px;letter-spacing:1.5px;
+    text-transform:uppercase;color:var(--muted);margin-bottom:3px}
+  .hw-cluster-total .hct-sub{font-size:11px;color:var(--muted-2)}
+  .hw-cluster-total .hct-val{font-family:var(--mono);font-size:20px;font-weight:700;color:var(--green)}
+  .hw-src{font-size:10px;color:var(--muted-2);margin-top:12px;line-height:1.7}
+  .hw-src a{color:var(--muted-2);text-decoration:underline}
 </style>
 </head>
 <body>
@@ -375,6 +404,29 @@
       <div class="op-title">Referral fee breakdown</div>
       <div class="kv-grid" id="referralKvGrid"></div>
       <div id="referralSchedule"></div>
+    </div>
+  </div>
+
+  <!-- ============ HARDWARE PRICING ============ -->
+  <div class="card">
+    <h2>Hardware purchase pricing</h2>
+    <p class="sub">AMCompute.com secondary-market data &mdash; indicative street prices for outright server purchases. Currently selected GPU is highlighted. Click a card to switch GPU selection.</p>
+
+    <div class="hw-cond-row" id="hwCondRow"></div>
+    <div class="hw-cards" id="hwCards"></div>
+
+    <div class="hw-cluster-total">
+      <div>
+        <div class="hct-label">Est. cluster hardware cost</div>
+        <div class="hct-sub" id="hwClusterSub">&mdash;</div>
+      </div>
+      <div class="hct-val" id="hwClusterVal">&mdash;</div>
+    </div>
+
+    <div class="hw-src">
+      Source: <a href="https://www.amcompute.com" target="_blank">AMCompute.com</a> Rack Report &middot; compute.exchange &middot; amnic.com &middot; gpusmith.com &middot; Oct 2026.
+      Prices are indicative street-market midpoints (new/refurb/used); actual quotes vary by OEM, configuration, lead time, and condition grade.
+      B200 refurbished &amp; used listings are not yet available (hardware too new). Confirm all figures with the HPC Division before external use.
     </div>
   </div>
 
@@ -766,6 +818,7 @@ function calc(){
   window.__summary = lines.join('\n');
 
   calcReferral();
+  if(typeof renderHwSection === 'function') renderHwSection();
 }
 
 // ---- Referral fee calculator ----
@@ -1149,6 +1202,112 @@ function sdEsc(s){
 
 sdRenderDeals();
 
+// ---- Hardware Purchase Pricing ----
+var HW_CATALOG = {
+  a100:{ name:'A100 SXM4', mem:'80 GB',
+    new:   { gpu:16000,  server:130000 },
+    refurb:{ gpu:9000,   server:75000  },
+    used:  { gpu:5500,   server:46000  } },
+  h100:{ name:'H100 SXM5', mem:'80 GB',
+    new:   { gpu:32000,  server:260000 },
+    refurb:{ gpu:27000,  server:220000 },
+    used:  { gpu:21000,  server:170000 } },
+  h200:{ name:'H200 SXM5', mem:'141 GB',
+    new:   { gpu:30000,  server:248000 },
+    refurb:{ gpu:24000,  server:200000 },
+    used:  { gpu:18000,  server:150000 } },
+  b200:{ name:'B200 SXM6', mem:'192 GB',
+    new:   { gpu:40000,  server:330000 },
+    refurb:{ gpu:null,   server:null   },
+    used:  { gpu:null,   server:null   } },
+  a100_40:{ name:'A100 PCIe', mem:'40 GB',
+    new:   { gpu:11000,  server:90000  },
+    refurb:{ gpu:5000,   server:42000  },
+    used:  { gpu:3000,   server:26000  } }
+};
+var HW_ORDER  = ['h100','h200','b200','a100','a100_40'];
+var HW_COND_LIST = [
+  { id:'new',   label:'New'         },
+  { id:'refurb',label:'Refurbished' },
+  { id:'used',  label:'Used'        }
+];
+var _hwCond = 'new';
+
+function renderHwSection(){
+  // Condition toggle
+  var condRow = $('hwCondRow');
+  condRow.innerHTML = '';
+  HW_COND_LIST.forEach(function(c){
+    var btn = document.createElement('button');
+    btn.className = 'hw-cond-btn' + (c.id === _hwCond ? ' active' : '');
+    btn.textContent = c.label;
+    btn.addEventListener('click', function(){
+      _hwCond = c.id;
+      renderHwSection();
+    });
+    condRow.appendChild(btn);
+  });
+
+  // GPU cards
+  var cardsEl = $('hwCards');
+  cardsEl.innerHTML = '';
+  HW_ORDER.forEach(function(id){
+    var hw = HW_CATALOG[id];
+    if(!hw) return;
+    var prices = hw[_hwCond];
+    var card = document.createElement('div');
+    card.className = 'hw-card' + (_gpu.id === id ? ' hw-active' : '');
+
+    var gpuVal = prices.gpu
+      ? '$' + prices.gpu.toLocaleString()
+      : '<span class="na">N/A &mdash; limited supply</span>';
+    var srvVal = prices.server
+      ? '$' + prices.server.toLocaleString()
+      : '<span class="na">N/A &mdash; limited supply</span>';
+
+    card.innerHTML =
+      '<div class="hw-name">' + hw.name + '</div>' +
+      '<div class="hw-mem">' + hw.mem + '</div>' +
+      '<div class="hw-row"><span class="hw-rl">Per GPU</span><span class="hw-rv">' + gpuVal + '</span></div>' +
+      '<div class="hw-row"><span class="hw-rl">Per 8-GPU server</span><span class="hw-rv">' + srvVal + '</span></div>';
+
+    card.addEventListener('click', function(){
+      var g = GPUS.find(function(x){ return x.id === id; });
+      if(g){
+        _gpu = g;
+        document.querySelectorAll('.gpu-opt').forEach(function(o){
+          o.classList.toggle('active', o.dataset.id === id);
+        });
+        calc();
+      }
+    });
+    cardsEl.appendChild(card);
+  });
+
+  // Cluster total
+  var gpuCount   = getGpuCount();
+  var hw         = HW_CATALOG[_gpu.id];
+  var subEl      = $('hwClusterSub');
+  var valEl      = $('hwClusterVal');
+  var condLabel  = HW_COND_LIST.find(function(c){ return c.id === _hwCond; }).label;
+
+  if(hw && hw[_hwCond] && hw[_hwCond].gpu){
+    var total   = gpuCount * hw[_hwCond].gpu;
+    var servers = Math.ceil(gpuCount / 8);
+    subEl.textContent = gpuCount.toLocaleString() + ' GPUs · ' + servers + ' servers · ' + condLabel;
+    valEl.textContent = '$' + total.toLocaleString();
+    valEl.style.color = '';
+  } else if(!hw){
+    subEl.textContent = 'Hardware pricing not tracked for ' + _gpu.name;
+    valEl.textContent = '—';
+    valEl.style.color = 'var(--muted-2)';
+  } else {
+    subEl.textContent = condLabel + ' units not yet available for ' + _gpu.name;
+    valEl.textContent = '—';
+    valEl.style.color = 'var(--muted-2)';
+  }
+}
+
 // ---- Expose editor functions to global scope for onclick handlers ----
 window.togglePricingEditor = togglePricingEditor;
 window.applyPricing = applyPricing;
@@ -1156,6 +1315,7 @@ window.resetPricing = resetPricing;
 
 // ---- Init ----
 calc();
+renderHwSection();
 })();
 </script>
 </body>
