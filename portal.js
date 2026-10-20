@@ -1165,7 +1165,15 @@
     else if(_activePipeline==='hardware') renderKanbanHW();
     else if(_activePipeline==='dc')       renderDCBoard();
     else if(_activePipeline==='colo')     renderCoLoBoard();
-    else if(_activePipeline==='supply')   renderSupplyBoard();
+    else if(_activePipeline==='supply'){
+      renderSupplyBoard();
+      // Fetch latest from Supabase on every navigation so all reps see live data
+      sbGet('ns_supply','id','shared').then(function(rows){
+        if(!rows||!rows.length||!rows[0].items) return;
+        localStorage.setItem('ns_supply_v1', JSON.stringify(rows[0].items));
+        renderSupplyBoard();
+      });
+    }
   }
 
   // ============================================================
@@ -2592,7 +2600,10 @@
     if(b.data.hardware) localStorage.setItem('ns_hw_pipeline_v1'+suf,  JSON.stringify(b.data.hardware));
     if(b.data.dc)       localStorage.setItem('ns_dc_capacity_v1'+suf,  JSON.stringify(b.data.dc));
     if(b.data.colo)     localStorage.setItem('ns_colo_capacity_v1'+suf,JSON.stringify(b.data.colo));
-    if(b.data.supply)   localStorage.setItem('ns_supply_v1',           JSON.stringify(b.data.supply));
+    if(b.data.supply){
+      localStorage.setItem('ns_supply_v1', JSON.stringify(b.data.supply));
+      sbUpsert('ns_supply',{id:'shared', items:b.data.supply, updated_at:new Date().toISOString()});
+    }
     if(b.data.tasks)    localStorage.setItem('ns_tasks_v1'+suf,        JSON.stringify(b.data.tasks));
     alert('Restore complete. Refreshing the page now.');
     window.location.reload();
@@ -2608,10 +2619,14 @@
     if(btn){ btn.textContent='Syncing…'; btn.disabled=true; }
     var _hdrs={'apikey':cfg.key,'Authorization':'Bearer '+cfg.key,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'};
     var now=new Date().toISOString();
-    // Pipelines (GPUaaS, HW, DC, CoLo) are pushed automatically on every save.
-    // Only push EOS here since the iframe has no auto-push mechanism.
+    // EOS is pushed here since the iframe has no auto-push mechanism.
+    // Supply is also pushed explicitly so a failed auto-push during save is recovered.
     var eosData=(function(){ try{ return JSON.parse(localStorage.getItem('ns_eos_meetings_v1')||'{}'); }catch(e){ return {}; } })();
-    fetch(cfg.url+'/rest/v1/ns_eos_meetings',{method:'POST',headers:_hdrs,body:JSON.stringify({id:'shared',data:eosData,updated_at:now})})
+    var supplyItems=loadSupplyItems();
+    Promise.all([
+      fetch(cfg.url+'/rest/v1/ns_eos_meetings',{method:'POST',headers:_hdrs,body:JSON.stringify({id:'shared',data:eosData,updated_at:now})}),
+      fetch(cfg.url+'/rest/v1/ns_supply',{method:'POST',headers:_hdrs,body:JSON.stringify({id:'shared',items:supplyItems,updated_at:now})})
+    ])
     .then(function(){
       // Pull latest for all pipelines + EOS from Supabase
       return sbSyncDown();
